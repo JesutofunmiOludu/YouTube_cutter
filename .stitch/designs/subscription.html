@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VidMind AI | Deep Research Report</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Space+Grotesk:wght@500;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-variant": "#2e3545",
+                        "surface-dim": "#0c1322",
+                        "secondary-fixed-dim": "#b1c6f9",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "on-secondary-fixed": "#001a42",
+                        "primary": "#adc6ff",
+                        "secondary-container": "#304671",
+                        "on-primary-fixed": "#001a42",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "on-surface": "#dce2f7",
+                        "surface-tint": "#adc6ff",
+                        "on-tertiary-fixed": "#311400",
+                        "primary-container": "#4d8eff",
+                        "error": "#ffb4ab",
+                        "outline": "#8c909f",
+                        "secondary-fixed": "#d8e2ff",
+                        "inverse-surface": "#dce2f7",
+                        "surface-bright": "#323949",
+                        "tertiary": "#ffb786",
+                        "on-background": "#dce2f7",
+                        "surface-container-lowest": "#070e1d",
+                        "on-secondary-fixed-variant": "#304671",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-container": "#df7412",
+                        "secondary": "#b1c6f9",
+                        "tertiary-fixed": "#ffdcc6",
+                        "background": "#0c1322",
+                        "surface-container-high": "#232a3a",
+                        "on-secondary-container": "#9fb5e7",
+                        "on-primary": "#002e6a",
+                        "outline-variant": "#424754",
+                        "on-tertiary": "#502400",
+                        "error-container": "#93000a",
+                        "inverse-on-surface": "#293040",
+                        "primary-fixed": "#d8e2ff",
+                        "on-primary-container": "#00285d",
+                        "on-tertiary-container": "#461f00",
+                        "on-surface-variant": "#c2c6d6",
+                        "surface-container-low": "#141b2b",
+                        "primary-fixed-dim": "#adc6ff",
+                        "surface-container": "#191f2f",
+                        "on-error": "#690005",
+                        "on-secondary": "#182f59",
+                        "on-primary-fixed-variant": "#004395",
+                        "inverse-primary": "#005ac2",
+                        "surface-container-highest": "#2e3545",
+                        "surface": "#0c1322"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(12, 19, 34, 0.8);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary/30">
+<!-- TopNavBar -->
+<header class="bg-slate-950/80 backdrop-blur-xl font-['Inter'] tracking-tight text-slate-100 shadow-2xl shadow-blue-900/10 docked full-width top-0 sticky z-50 flex items-center justify-between px-6 py-3 w-full bg-slate-900 border-b border-slate-800/50">
+<div class="flex items-center gap-8">
+<span class="font-['Space_Grotesk'] font-bold text-blue-500 uppercase tracking-widest">VidMind AI</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-blue-400 border-b-2 border-blue-500 pb-1" href="#">Executive Summary</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors" href="#">Key Findings</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors" href="#">Data</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors" href="#">Citations</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-slate-800/50 rounded-lg transition-all text-slate-400 hover:text-slate-200">
+<span class="material-symbols-outlined">picture_as_pdf</span>
+</button>
+<button class="p-2 hover:bg-slate-800/50 rounded-lg transition-all text-slate-400 hover:text-slate-200">
+<span class="material-symbols-outlined">code</span>
+</button>
+</div>
+<button class="bg-gradient-to-br from-primary to-primary-container text-on-primary px-5 py-2 rounded-lg font-medium text-sm transition-all active:scale-95 duration-150">
+                Export Report
+            </button>
+</div>
+</header>
+<div class="flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 pt-16 bg-slate-950 bg-slate-900 flat no shadows font-['Inter'] text-sm font-medium p-4 space-y-4">
+<div class="px-4 py-6 border-b border-slate-800/50">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close up portrait of a research professional" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFqBKbfapwWen-g1EzI0sjmX34az9-qnDI_uvNd3S-G8wf7Zw7B_ggEk0oY7XQv26Fiv7W4-6dvwrdc5flPpW8lH16wFhjaaUgy97zdZWWGNNwz1OdHwxjRq2mh4C89dRDQxoxNsVqhjEF-DqvYHcHSBhhI4WqkhG6tQa8cLSA2LD40doHovZYxHInKl9dr4We4yXqVgC1rxMJUaCfW8aqlq8Hpsl39SjYBLQSW0iyJUZblQlEKCVK_SgZG9llYTD3yxMZlLbrfmU"/>
+</div>
+<div>
+<div class="text-on-surface font-semibold">Deep Research</div>
+<div class="text-slate-500 text-xs uppercase font-label">Quantum Computing Trends</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 bg-blue-600/10 text-blue-400 border-r-2 border-blue-500 hover:bg-slate-900 transition-colors" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+<span>Workspace</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-slate-300 hover:bg-slate-900 transition-colors" href="#">
+<span class="material-symbols-outlined">auto_stories</span>
+<span>Research Library</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-slate-300 hover:bg-slate-900 transition-colors" href="#">
+<span class="material-symbols-outlined">movie</span>
+<span>Video Assets</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-slate-300 hover:bg-slate-900 transition-colors" href="#">
+<span class="material-symbols-outlined">biotech</span>
+<span>Methodology</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-slate-300 hover:bg-slate-900 transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="mt-auto pt-6 space-y-1 border-t border-slate-800/50">
+<button class="w-full bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg py-2 mb-4 font-label uppercase tracking-widest text-xs">New Analysis</button>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-slate-300" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+<span>Help</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-slate-300" href="#">
+<span class="material-symbols-outlined">description</span>
+<span>Documentation</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-64 px-6 md:px-12 py-10">
+<div class="max-w-6xl mx-auto space-y-20">
+<!-- Report Header Hero -->
+<section class="space-y-4">
+<div class="flex items-center gap-2 text-primary font-label text-xs uppercase tracking-[0.2em]">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span>Generated: October 24, 2024 • 14:42 GMT</span>
+</div>
+<h1 class="text-5xl md:text-7xl font-bold font-headline tracking-tighter text-on-surface">
+                        Deep Research: <span class="text-primary-container">Quantum Computing Commercialization</span>
+</h1>
+<p class="text-on-surface-variant max-w-2xl text-lg font-light leading-relaxed">
+                        An AI-driven synthesis of 142 hours of video discourse, technical keynotes, and industry panel discussions regarding the current state of QPU scalability.
+                    </p>
+</section>
+<!-- Executive Summary: High-level overview card -->
+<section id="executive-summary">
+<div class="bg-surface-container-low rounded-xl p-8 md:p-12 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+<div class="relative z-10 grid md:grid-cols-3 gap-12">
+<div class="md:col-span-2 space-y-6">
+<h2 class="text-label text-xs uppercase tracking-widest text-primary-fixed-dim">Executive Summary</h2>
+<p class="text-2xl font-light leading-snug text-on-surface">
+                                    The synthesis indicates a significant shift from theoretical "Quantum Supremacy" toward <span class="text-primary italic">"Quantum Utility."</span> Industry consensus highlights error correction as the primary bottleneck, with trapped-ion and superconducting architectures reaching a parity phase in 2024.
+                                </p>
+<div class="grid grid-cols-2 gap-8 pt-6">
+<div class="space-y-1">
+<div class="text-primary font-mono text-3xl font-bold tracking-tighter">84%</div>
+<div class="text-slate-500 text-xs uppercase font-label">Expert Sentiment Positive</div>
+</div>
+<div class="space-y-1">
+<div class="text-primary font-mono text-3xl font-bold tracking-tighter">1.2M+</div>
+<div class="text-slate-500 text-xs uppercase font-label">Tokens Analyzed</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container rounded-lg p-6 flex flex-col justify-between border border-outline-variant/10">
+<h3 class="text-label text-[10px] uppercase tracking-widest text-slate-500">Key Takeaways</h3>
+<ul class="space-y-4 mt-6">
+<li class="flex gap-3 text-sm">
+<span class="material-symbols-outlined text-primary text-lg">check_circle</span>
+<span>Focus shifted to logical qubits.</span>
+</li>
+<li class="flex gap-3 text-sm">
+<span class="material-symbols-outlined text-primary text-lg">check_circle</span>
+<span>Post-Quantum Crypto adoption rising.</span>
+</li>
+<li class="flex gap-3 text-sm">
+<span class="material-symbols-outlined text-primary text-lg">check_circle</span>
+<span>Cloud access is the primary driver.</span>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<!-- Key Findings: Finding Cards with Asymmetry -->
+<section class="space-y-12" id="key-findings">
+<div class="flex items-end justify-between">
+<h2 class="text-3xl font-bold tracking-tight">Key Findings</h2>
+<div class="text-slate-500 text-sm font-mono uppercase">Finding Set 01-03</div>
+</div>
+<div class="grid md:grid-cols-2 gap-8">
+<!-- Finding 01 -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden group hover:bg-surface-container transition-all duration-300">
+<div class="h-48 overflow-hidden relative">
+<img class="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-80 transition-all duration-700" data-alt="Abstract visualization of quantum particles and nodes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtm34X8_2I_nqTlgQI_sDEU2GfBHXlCIYByvwA-ijC37qUcStorvNiWavxnDRuTX9fJpBVDJoACQ01PS-JIEXIwIFwvV7aeTDosM3riBk5z1XYASmLytl8un6iJfjVZmJJ7P5nc-iy-mZ0xVk5FXkfqT97cN_eXGGzatSsEo8gkHaRiDZm_yZu9Pbz0nWOzE61Zxhqdy9SewAhtk2h8eFQqXpUvLRzJJXk2eefdMeXYLDy_UZWv-3vt4tuvWNTPOLJ_MSNKeQHdkM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low to-transparent"></div>
+<div class="absolute bottom-4 left-6 flex items-center gap-2">
+<span class="bg-primary-container/20 text-primary px-2 py-1 rounded text-[10px] font-label uppercase tracking-widest backdrop-blur-md border border-primary/20">Scalability</span>
+</div>
+</div>
+<div class="p-8 space-y-4">
+<h3 class="text-xl font-bold text-on-surface">The Error Correction Plateau</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                                    Findings from the Tokyo Quantum Summit suggest that physical qubit count is no longer the metric of success. Research leads from IBM and Google now prioritize 'Quantum Volume' and gate fidelity above raw counts.
+                                </p>
+<div class="pt-4 border-t border-outline-variant/10">
+<div class="text-[10px] font-label text-slate-500 uppercase tracking-widest mb-2">Supporting Evidence</div>
+<div class="space-y-2">
+<a class="flex items-center gap-2 font-mono text-xs text-primary hover:underline" href="#">
+<span class="material-symbols-outlined text-sm">play_circle</span>
+                                            IBM_Keynote_MainStage.mp4 [14:22]
+                                        </a>
+<a class="flex items-center gap-2 font-mono text-xs text-primary hover:underline" href="#">
+<span class="material-symbols-outlined text-sm">play_circle</span>
+                                            Technical_Panel_B.mp4 [01:04:12]
+                                        </a>
+</div>
+</div>
+</div>
+</div>
+<!-- Finding 02 -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden group hover:bg-surface-container transition-all duration-300">
+<div class="h-48 overflow-hidden relative">
+<img class="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-80 transition-all duration-700" data-alt="Macro photo of high tech circuit board" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDesb2PtDsVL-qC10NOorEEYxMSk5qTlkhHLnvs39FNKEMnmQFbBzc5jhgddfvKGUL7438CNz4OSHda7rIxv4fyGoc7uvKlVTgUX7tTXYwzsZR9Uy3PKaKml240kOgEn4TP9g2-IRnFmqB2jPMPdDs0jtIdKR_GlhD3-NrhWUfe3FWnaT7hozwwSvtjbGqtlUhktlhsJ8GE-EkWVSczwqmwWW5eMfiJQdf_2auxB4vjmJ5wJZlbKNVh81b5YeKpeLmYXdSgbJ9k3Eg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low to-transparent"></div>
+<div class="absolute bottom-4 left-6 flex items-center gap-2">
+<span class="bg-primary-container/20 text-primary px-2 py-1 rounded text-[10px] font-label uppercase tracking-widest backdrop-blur-md border border-primary/20">Architecture</span>
+</div>
+</div>
+<div class="p-8 space-y-4">
+<h3 class="text-xl font-bold text-on-surface">Hybrid Classical-Quantum Flux</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                                    Analysis of mid-2024 developer conferences reveals a surge in hybrid algorithms (VQE, QAOA) being utilized for financial modeling, moving away from pure quantum simulation for immediate ROI.
+                                </p>
+<div class="pt-4 border-t border-outline-variant/10">
+<div class="text-[10px] font-label text-slate-500 uppercase tracking-widest mb-2">Supporting Evidence</div>
+<div class="space-y-2">
+<a class="flex items-center gap-2 font-mono text-xs text-primary hover:underline" href="#">
+<span class="material-symbols-outlined text-sm">play_circle</span>
+                                            FinTech_Review_2024.mp4 [32:15]
+                                        </a>
+<a class="flex items-center gap-2 font-mono text-xs text-primary hover:underline" href="#">
+<span class="material-symbols-outlined text-sm">play_circle</span>
+                                            NVIDIA_Compute_Expo.mp4 [44:50]
+                                        </a>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Data Visualizations: Bento Grid Style -->
+<section class="space-y-8" id="data-visualizations">
+<div class="grid md:grid-cols-3 gap-6">
+<!-- Topic Distribution -->
+<div class="md:col-span-2 bg-surface-container-low rounded-xl p-8 border border-outline-variant/5">
+<h3 class="text-label text-[10px] uppercase tracking-widest text-slate-500 mb-8">Topic Distribution Over Time</h3>
+<div class="h-64 flex items-end justify-between gap-4">
+<div class="flex-1 bg-surface-container-high rounded-t-lg relative group h-[30%]">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity">Q1</div>
+</div>
+<div class="flex-1 bg-surface-container-high rounded-t-lg relative group h-[45%]">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity">Q2</div>
+</div>
+<div class="flex-1 bg-primary rounded-t-lg relative group h-[70%]">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-mono text-primary">Q3</div>
+</div>
+<div class="flex-1 bg-primary-container rounded-t-lg relative group h-[95%]">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-mono text-primary-container">Q4</div>
+</div>
+<div class="flex-1 bg-surface-container-high rounded-t-lg relative group h-[60%]">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity">Next</div>
+</div>
+</div>
+<div class="mt-6 flex justify-between text-slate-500 text-[10px] font-label uppercase">
+<span>Software focus</span>
+<span>Hardware focus</span>
+</div>
+</div>
+<!-- Entity Radar -->
+<div class="bg-surface-container-low rounded-xl p-8 border border-outline-variant/5 flex flex-col justify-between">
+<h3 class="text-label text-[10px] uppercase tracking-widest text-slate-500">Mention Density</h3>
+<div class="space-y-4 my-8">
+<div class="space-y-1">
+<div class="flex justify-between text-xs mb-1">
+<span>Superconducting</span>
+<span class="font-mono">72%</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[72%]"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs mb-1">
+<span>Trapped Ion</span>
+<span class="font-mono">48%</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[48%]"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs mb-1">
+<span>Photonic</span>
+<span class="font-mono">31%</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-tertiary w-[31%]"></div>
+</div>
+</div>
+</div>
+<p class="text-[10px] text-slate-500 italic font-mono leading-tight">Data weighted by citation frequency across 42 industry reports.</p>
+</div>
+</div>
+</section>
+<!-- Full Citations List -->
+<section class="space-y-8" id="citations">
+<h2 class="text-3xl font-bold tracking-tight">Verified Citations</h2>
+<div class="bg-surface-container-low rounded-xl divide-y divide-outline-variant/5 overflow-hidden">
+<!-- Citation Item -->
+<div class="p-6 flex items-start justify-between group hover:bg-surface-container transition-colors">
+<div class="flex gap-4">
+<span class="font-mono text-primary text-xs mt-1">[01]</span>
+<div>
+<h4 class="font-semibold text-on-surface">The Future of Cryogenics in Computing</h4>
+<p class="text-sm text-slate-500 mt-1">Deep Blue Research Symposium • Dr. Aris Thorne</p>
+</div>
+</div>
+<a class="text-[10px] font-label uppercase tracking-widest text-slate-500 hover:text-primary transition-colors flex items-center gap-1" href="#">
+                                View Source
+                                <span class="material-symbols-outlined text-sm">open_in_new</span>
+</a>
+</div>
+<!-- Citation Item -->
+<div class="p-6 flex items-start justify-between group hover:bg-surface-container transition-colors">
+<div class="flex gap-4">
+<span class="font-mono text-primary text-xs mt-1">[02]</span>
+<div>
+<h4 class="font-semibold text-on-surface">Algorithmic Efficiency at Near-Zero Temperatures</h4>
+<p class="text-sm text-slate-500 mt-1">MIT Open Courseware Technical Series</p>
+</div>
+</div>
+<a class="text-[10px] font-label uppercase tracking-widest text-slate-500 hover:text-primary transition-colors flex items-center gap-1" href="#">
+                                View Source
+                                <span class="material-symbols-outlined text-sm">open_in_new</span>
+</a>
+</div>
+<!-- Citation Item -->
+<div class="p-6 flex items-start justify-between group hover:bg-surface-container transition-colors">
+<div class="flex gap-4">
+<span class="font-mono text-primary text-xs mt-1">[03]</span>
+<div>
+<h4 class="font-semibold text-on-surface">Quantum Winter or Quantum Spring?</h4>
+<p class="text-sm text-slate-500 mt-1">Panel Discussion: Forbes Technology Council</p>
+</div>
+</div>
+<a class="text-[10px] font-label uppercase tracking-widest text-slate-500 hover:text-primary transition-colors flex items-center gap-1" href="#">
+                                View Source
+                                <span class="material-symbols-outlined text-sm">open_in_new</span>
+</a>
+</div>
+</div>
+</section>
+<!-- Next Steps: AI-suggested topics -->
+<section id="next-steps">
+<div class="bg-primary/5 rounded-xl p-8 border border-primary/10">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary" data-weight="fill">smart_toy</span>
+<h3 class="text-lg font-bold">AI Suggested Follow-up Research</h3>
+</div>
+<div class="grid md:grid-cols-3 gap-4">
+<button class="bg-surface-container border border-outline-variant/10 p-5 rounded-lg text-left hover:border-primary/40 transition-all group">
+<div class="text-[10px] font-label text-primary mb-2 uppercase tracking-widest">Topic 01</div>
+<p class="text-sm text-on-surface group-hover:text-primary-fixed-dim">Post-Quantum Cryptography in Finance</p>
+</button>
+<button class="bg-surface-container border border-outline-variant/10 p-5 rounded-lg text-left hover:border-primary/40 transition-all group">
+<div class="text-[10px] font-label text-primary mb-2 uppercase tracking-widest">Topic 02</div>
+<p class="text-sm text-on-surface group-hover:text-primary-fixed-dim">Qubit Connectivity and Cross-Talk Reduction</p>
+</button>
+<button class="bg-surface-container border border-outline-variant/10 p-5 rounded-lg text-left hover:border-primary/40 transition-all group">
+<div class="text-[10px] font-label text-primary mb-2 uppercase tracking-widest">Topic 03</div>
+<p class="text-sm text-on-surface group-hover:text-primary-fixed-dim">Nitrogen-Vacancy Centers for Ambient Sensors</p>
+</button>
+</div>
+</div>
+</section>
+<!-- Insight Monolith -->
+<div class="bg-primary-fixed-dim text-on-primary-fixed p-12 rounded-2xl flex flex-col items-center text-center space-y-4">
+<span class="material-symbols-outlined text-4xl">info</span>
+<h2 class="text-3xl font-headline font-bold">Research Conclusion</h2>
+<p class="max-w-xl text-lg opacity-90 leading-relaxed">
+                        Commercial readiness for niche applications (chemical simulation, optimization) is projected for 2026-2027, provided cryogenic infrastructure costs continue their current 15% YoY decline.
+                    </p>
+</div>
+</div>
+</main>
+</div>
+<!-- Footer -->
+<footer class="w-full py-8 mt-20 bg-slate-950 border-t border-slate-800/30 font-['JetBrains_Mono'] text-xs uppercase tracking-tighter flex flex-col items-center justify-center space-y-4 opacity-60">
+<p>© 2024 VidMind AI Deep Research Lab. All citations verified.</p>
+<div class="flex gap-8">
+<a class="text-slate-600 hover:text-slate-300 transition-colors" href="#">Terms of Service</a>
+<a class="text-slate-600 hover:text-slate-300 transition-colors" href="#">Privacy Policy</a>
+<a class="text-slate-600 hover:text-slate-300 transition-colors" href="#">Source Methodology</a>
+</div>
+<div class="text-[10px] text-slate-700 mt-4">
+            Hash: 8f2b3c...9a | Engine: VM-Research-v4.2.1
+        </div>
+</footer>
+</body></html>

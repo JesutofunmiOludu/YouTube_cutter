@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VidMind AI - Video Research Workspace</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "outline-variant": "#424754",
+              "secondary": "#b1c6f9",
+              "on-tertiary": "#502400",
+              "on-primary-fixed-variant": "#004395",
+              "on-secondary-container": "#9fb5e7",
+              "surface-container-high": "#232a3a",
+              "on-tertiary-fixed": "#311400",
+              "tertiary-container": "#df7412",
+              "secondary-container": "#304671",
+              "surface-container": "#191f2f",
+              "surface-container-low": "#141b2b",
+              "on-error-container": "#ffdad6",
+              "error-container": "#93000a",
+              "on-secondary": "#182f59",
+              "inverse-surface": "#dce2f7",
+              "primary-fixed-dim": "#adc6ff",
+              "tertiary-fixed-dim": "#ffb786",
+              "surface": "#0c1322",
+              "on-secondary-fixed": "#001a42",
+              "on-surface": "#dce2f7",
+              "surface-container-lowest": "#070e1d",
+              "on-tertiary-container": "#461f00",
+              "on-surface-variant": "#c2c6d6",
+              "surface-dim": "#0c1322",
+              "error": "#ffb4ab",
+              "inverse-primary": "#005ac2",
+              "primary-container": "#4d8eff",
+              "outline": "#8c909f",
+              "background": "#0c1322",
+              "surface-tint": "#adc6ff",
+              "on-primary-container": "#00285d",
+              "primary": "#adc6ff",
+              "secondary-fixed-dim": "#b1c6f9",
+              "on-primary": "#002e6a",
+              "on-tertiary-fixed-variant": "#723600",
+              "on-background": "#dce2f7",
+              "on-error": "#690005",
+              "surface-container-highest": "#2e3545",
+              "inverse-on-surface": "#293040",
+              "tertiary": "#ffb786",
+              "on-secondary-fixed-variant": "#304671",
+              "surface-variant": "#2e3545",
+              "primary-fixed": "#d8e2ff",
+              "surface-bright": "#323949",
+              "secondary-fixed": "#d8e2ff",
+              "on-primary-fixed": "#001a42",
+              "tertiary-fixed": "#ffdcc6"
+            },
+            fontFamily: {
+              "headline": ["Inter", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "label": ["Inter", "sans-serif"],
+              "technical": ["JetBrains Mono", "monospace"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0c1322;
+            color: #dce2f7;
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-nav {
+            background: rgba(12, 19, 34, 0.7);
+            backdrop-filter: blur(24px);
+        }
+    </style>
+</head>
+<body class="antialiased overflow-hidden h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full flex justify-between items-center px-6 py-3 h-16 z-50 glass-nav">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tight text-[#adc6ff]">VidMind AI</span>
+<div class="hidden md:flex items-center gap-6">
+<!-- Navigation links from JSON would go here if provided -->
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-[#232a3a]" data-icon="notifications">notifications</button>
+<button class="material-symbols-outlined text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-[#232a3a]" data-icon="settings">settings</button>
+<div class="h-8 w-[1px] bg-outline-variant/30 mx-2"></div>
+<button class="bg-primary-container text-on-primary-container px-4 py-2 rounded-[8px] font-semibold text-sm transition-transform active:scale-95">
+                Save to Library
+            </button>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container-high border border-outline-variant/20">
+<img alt="User Profile Avatar" class="w-full h-full object-cover" data-alt="Close-up of a smiling male user profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUEqdWW6pzgct0J39hJJLKSNqjU2oTSSAWp5JDmXU0wXQ26O8fdVZWD7b6cAAIlitgilPHirKyQotmzqCqo3TAxRHrrFY1Z7_vtk8Wv4Pspb_a1RcMDPUEBaCR38DK_-CMBns5XkZdIfeAGCJ4Zx1E7_1qXy8rZhw_llC_4EcrQ5MItTiIj40NsRklJQzb1051XfqfCa_OjZTk9mJKD5CjkULlkwEZ3lEkvBiek-idO-InH5P3O-RVUyizMHOfOJ4QoIzOJhynmiU"/>
+</div>
+</div>
+</header>
+<div class="flex flex-1 pt-16 h-full overflow-hidden">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 bottom-0 w-64 flex flex-col border-r border-[#424754]/15 bg-[#0c1322] z-40">
+<div class="p-6">
+<div class="flex items-center gap-3 mb-1">
+<span class="text-lg font-black text-[#adc6ff]">Research Workspace</span>
+</div>
+<span class="text-[0.6875rem] font-medium uppercase tracking-[0.05em] text-slate-500">Intelligence Engine</span>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<!-- AI Cuts is active -->
+<a class="flex items-center gap-3 px-4 py-3 bg-[#4d8eff]/10 text-[#adc6ff] border-r-4 border-[#4d8eff] rounded-l-lg group transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="movie_filter">movie_filter</span>
+<span class="font-medium">AI Cuts</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-[#adc6ff] hover:bg-[#232a3a] rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-medium">Transcript</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-[#adc6ff] hover:bg-[#232a3a] rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="forum">forum</span>
+<span class="font-medium">AI Chat</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-[#adc6ff] hover:bg-[#232a3a] rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-medium">Research Report</span>
+</a>
+</nav>
+<div class="p-4 mt-auto border-t border-outline-variant/10">
+<button class="w-full bg-[#4d8eff]/10 border border-[#4d8eff]/30 text-[#adc6ff] py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#4d8eff]/20 transition-all">
+<span class="material-symbols-outlined" data-icon="bolt">bolt</span>
+                    Deep Research
+                </button>
+<div class="grid grid-cols-2 gap-2 mt-4">
+<button class="flex flex-col items-center gap-1 p-2 text-slate-500 hover:text-[#adc6ff] hover:bg-[#232a3a] rounded-lg transition-colors">
+<span class="material-symbols-outlined text-xl" data-icon="folder_special">folder_special</span>
+<span class="text-[10px] font-medium">Library</span>
+</button>
+<button class="flex flex-col items-center gap-1 p-2 text-slate-500 hover:text-[#adc6ff] hover:bg-[#232a3a] rounded-lg transition-colors">
+<span class="material-symbols-outlined text-xl" data-icon="history">history</span>
+<span class="text-[10px] font-medium">History</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Main Workspace Content -->
+<main class="ml-64 flex-1 flex flex-col overflow-hidden">
+<div class="flex h-[calc(100vh-64px)] overflow-hidden">
+<!-- Left Column: Video & Recommendations -->
+<div class="flex-1 flex flex-col p-6 overflow-y-auto gap-6 bg-surface">
+<!-- Video Section -->
+<section class="space-y-4">
+<div class="aspect-video w-full rounded-2xl overflow-hidden bg-surface-container-lowest relative group border border-outline-variant/10">
+<img alt="Video Placeholder" class="w-full h-full object-cover opacity-60" data-alt="Abstract colorful light trails motion background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPXgCWUQVZLQF6WVytRAlgyeXp7QnrR7Go5NkgRkGedFU0j26WeUf0fNZcXBjIp0Jl6XzqLYQzgqKWXBMvLI_7rl8fE0Hp_kQJVF0fTTImyRhhBMFowvpK6618jLJ4IKbnJ8yPumuuT0Q8JBagtIYtyZpTw6u40BuGV9UvYeoxJZsJdTPyaQQPj80HMDbiF3Ktog8dBOhOefVyfVya1ZHBePndztdCR05LFQWL4mowh9FWew4x-ybOP9iQojRyxp4GxY_ZrCq_Zck"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<button class="w-20 h-20 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shadow-2xl hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-4xl" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+</div>
+<!-- Video Overlay Controls -->
+<div class="absolute bottom-0 inset-x-0 p-6 bg-gradient-to-t from-surface to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+<div class="w-full bg-white/20 h-1 rounded-full mb-4">
+<div class="bg-primary w-1/3 h-full rounded-full relative">
+<div class="absolute -right-1.5 -top-1.5 w-4 h-4 bg-primary rounded-full border-2 border-surface"></div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined cursor-pointer" data-icon="pause">pause</span>
+<span class="material-symbols-outlined cursor-pointer" data-icon="skip_next">skip_next</span>
+<span class="material-symbols-outlined cursor-pointer" data-icon="volume_up">volume_up</span>
+<span class="font-technical text-xs text-white">04:12 / 12:45</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined cursor-pointer" data-icon="closed_caption">closed_caption</span>
+<span class="material-symbols-outlined cursor-pointer" data-icon="settings">settings</span>
+<span class="material-symbols-outlined cursor-pointer" data-icon="fullscreen">fullscreen</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-start justify-between">
+<div>
+<h1 class="text-2xl font-bold text-on-surface">Consumer Behavior Analysis: Q3 Trends</h1>
+<p class="text-slate-400 mt-1 font-technical text-xs uppercase tracking-wider">Session ID: VX-9082-ALPHA | Recorded 24 Oct 2023</p>
+</div>
+<div class="flex gap-2">
+<span class="px-3 py-1 rounded-full bg-surface-container-highest text-on-surface-variant text-[10px] font-bold uppercase tracking-widest border border-outline-variant/10">High Confidence</span>
+<span class="px-3 py-1 rounded-full bg-tertiary/10 text-tertiary text-[10px] font-bold uppercase tracking-widest border border-tertiary/20">Market Insight</span>
+</div>
+</div>
+</section>
+<!-- Related Recommendations (Bento Style) -->
+<section class="space-y-4 mt-4">
+<div class="flex items-center justify-between">
+<h2 class="text-sm font-bold uppercase tracking-widest text-slate-500">Related Research</h2>
+<button class="text-xs text-primary font-medium flex items-center gap-1">View All <span class="material-symbols-outlined text-xs" data-icon="arrow_forward">arrow_forward</span></button>
+</div>
+<div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/10 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="aspect-video rounded-lg overflow-hidden mb-3 bg-surface-container-lowest">
+<img alt="Rec 1" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Dashboard showing financial data graphs and charts" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPnBajCtOhL2m3w5KYO-fMPNhHpR4GI6V3Cx3zNbvYnOT6Av90E-7wNPQI6MDsBXzzKRHrcKb2-TbAn78UUUh8b4jrgW7DVpQKUkbGGqb203wm5MWmA_tUm2Iat6xXt3T5IkR9CyL0M3EMwB0FrInK20_SHEc8ttzZdRF8MH7O2kL1Gq8L08iXNebfwDF6vqbqY6pDk9YS7et53D1O6KTicXA-e-nbkFglzQvXYFxIVSILVMgDJA227TCpet5Radw7ELZJaHK-pgU"/>
+</div>
+<h3 class="text-sm font-semibold mb-1 line-clamp-1">E-commerce Retention Strategies</h3>
+<p class="text-xs text-slate-500 font-technical">8 segments found</p>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/10 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="aspect-video rounded-lg overflow-hidden mb-3 bg-surface-container-lowest">
+<img alt="Rec 2" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Close up of digital spreadsheet and analytics screen" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPXFGDXerzS8JvEKuM0f-M1UjbhLA-t90Ru1HMmdj_CH-OR-0_hXJy8m9fiAg_rCI3MXxEUuuWyO5F6w8bT4FlGgUSMrg1EjVoqx_a4l_KNzkX7rBPLSf8t7mOeE7BsB37tX5p1uNq5C2YUcie71mEIPOnBlpOhOpYJGJ5cvXuYDuQPAVPt__KF0hgK5u92lujr8oX-tBAc3IbJymWliwnsVUJlN_DADol7LxG1TZuJQogv-_2KCf6Eb7PqRufBPGnSqZJGFTOqCI"/>
+</div>
+<h3 class="text-sm font-semibold mb-1 line-clamp-1">Global Logistics Deep Dive</h3>
+<p class="text-xs text-slate-500 font-technical">14 segments found</p>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/10 hover:bg-surface-container-high transition-colors cursor-pointer group lg:block hidden">
+<div class="aspect-video rounded-lg overflow-hidden mb-3 bg-surface-container-lowest">
+<img alt="Rec 3" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Blurred modern office background with blue tint" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0yWGP8aERvD2IAgCVgWbbeFNQfXQz598yzVaFrHKmq2NcULC9l7JTGMS0f_w136kydX9_NdIZYS8NlvhqpUrxtyhmIFdcRajGxqHcgM-7EdnBUQAqPcPQC0qNFxsAe8P4O2ygT6HjNOtoWHibHLWMkQk-H0JteuJtTPZLil2zqfui5UxrTkUiNIZ_GOGY9dWSXzFyMgXDWXOm2EIsAyoHH1lwkb_MqfH2sERWWNECRNmC2BYXLa4PMEbrvVUTX4N6N35hCflvqUw"/>
+</div>
+<h3 class="text-sm font-semibold mb-1 line-clamp-1">User Interview: Gen Z Finance</h3>
+<p class="text-xs text-slate-500 font-technical">5 segments found</p>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: Workspace Panel -->
+<div class="w-[420px] flex flex-col bg-surface-container-low border-l border-outline-variant/15">
+<!-- Tab Navigation -->
+<div class="flex border-b border-outline-variant/10 p-2 gap-1 overflow-x-auto no-scrollbar">
+<button class="flex-1 whitespace-nowrap px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all bg-surface-container-high text-primary">AI Cuts</button>
+<button class="flex-1 whitespace-nowrap px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all text-slate-500 hover:text-white">Transcript</button>
+<button class="flex-1 whitespace-nowrap px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all text-slate-500 hover:text-white">AI Chat</button>
+<button class="flex-1 whitespace-nowrap px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all text-slate-500 hover:text-white">Report</button>
+</div>
+<!-- AI Cuts Content (Active) -->
+<div class="flex-1 flex flex-col overflow-hidden">
+<!-- Visual Timeline -->
+<div class="p-6 bg-surface-container-lowest/50 border-b border-outline-variant/5">
+<div class="flex items-center justify-between mb-4">
+<span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Timeline Analysis</span>
+<div class="flex items-center gap-2 bg-surface-container-high rounded-lg p-1">
+<button class="material-symbols-outlined text-sm p-1 hover:bg-surface-bright rounded text-slate-400" data-icon="remove">remove</button>
+<span class="text-[10px] font-technical px-1">100%</span>
+<button class="material-symbols-outlined text-sm p-1 hover:bg-surface-bright rounded text-slate-400" data-icon="add">add</button>
+</div>
+</div>
+<div class="h-12 w-full bg-surface-container p-1 rounded-lg flex items-center gap-1 relative overflow-hidden">
+<div class="h-full w-1/12 bg-slate-800/50 rounded-sm"></div>
+<div class="h-full w-2/12 bg-primary/40 border border-primary/60 rounded-sm flex items-center justify-center">
+<div class="h-4 w-[2px] bg-primary"></div>
+</div>
+<div class="h-full w-1/12 bg-slate-800/50 rounded-sm"></div>
+<div class="h-full w-3/12 bg-primary/20 border border-primary/30 rounded-sm"></div>
+<div class="h-full w-2/12 bg-tertiary/20 border border-tertiary/30 rounded-sm"></div>
+<div class="h-full w-3/12 bg-slate-800/50 rounded-sm"></div>
+<!-- Playhead -->
+<div class="absolute top-0 bottom-0 left-[35%] w-[2px] bg-white z-10 shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div>
+</div>
+</div>
+<!-- Scrollable List of Cuts -->
+<div class="flex-1 overflow-y-auto p-4 space-y-4">
+<!-- Card 1 -->
+<div class="bg-surface-container-high p-4 rounded-xl border border-outline-variant/10 hover:border-primary/30 transition-all cursor-pointer">
+<div class="flex items-center justify-between mb-3">
+<span class="font-technical text-[11px] text-primary">02:14 — 03:45</span>
+<span class="material-symbols-outlined text-sm text-slate-500" data-icon="more_vert">more_vert</span>
+</div>
+<h4 class="text-sm font-bold text-on-surface mb-2">Pain Point Identification</h4>
+<div class="p-3 bg-surface-container-lowest rounded-lg border-l-2 border-primary">
+<p class="text-xs text-slate-400 leading-relaxed italic">"The subject explicitly mentions the friction in the checkout process, correlating with the drop-off data in the Q2 report."</p>
+</div>
+<div class="mt-4 flex gap-2">
+<button class="flex-1 py-1.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-lg border border-primary/20 hover:bg-primary/20 transition-all">Preview</button>
+<button class="px-3 py-1.5 bg-surface-bright text-on-surface text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-white/10 transition-all">Keep</button>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-high p-4 rounded-xl border border-outline-variant/10 hover:border-primary/30 transition-all cursor-pointer opacity-80">
+<div class="flex items-center justify-between mb-3">
+<span class="font-technical text-[11px] text-primary">05:12 — 06:20</span>
+<span class="material-symbols-outlined text-sm text-slate-500" data-icon="more_vert">more_vert</span>
+</div>
+<h4 class="text-sm font-bold text-on-surface mb-2">Social Proof Validation</h4>
+<div class="p-3 bg-surface-container-lowest rounded-lg border-l-2 border-slate-700">
+<p class="text-xs text-slate-400 leading-relaxed italic">"Analysis shows a spike in engagement when the testimonial slides were displayed on screen."</p>
+</div>
+<div class="mt-4 flex gap-2">
+<button class="flex-1 py-1.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-lg border border-primary/20 hover:bg-primary/20 transition-all">Preview</button>
+<button class="px-3 py-1.5 bg-surface-bright text-on-surface text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-white/10 transition-all">Keep</button>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-high p-4 rounded-xl border border-outline-variant/10 hover:border-primary/30 transition-all cursor-pointer">
+<div class="flex items-center justify-between mb-3">
+<span class="font-technical text-[11px] text-primary">08:05 — 09:30</span>
+<span class="material-symbols-outlined text-sm text-slate-500" data-icon="more_vert">more_vert</span>
+</div>
+<h4 class="text-sm font-bold text-on-surface mb-2">Competitor Comparison</h4>
+<div class="p-3 bg-surface-container-lowest rounded-lg border-l-2 border-tertiary">
+<p class="text-xs text-slate-400 leading-relaxed italic">"Direct comparison of feature parity between VidMind and Gen-Z platforms with specific sentiment markers."</p>
+</div>
+<div class="mt-4 flex gap-2">
+<button class="flex-1 py-1.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-lg border border-primary/20 hover:bg-primary/20 transition-all">Preview</button>
+<button class="px-3 py-1.5 bg-surface-bright text-on-surface text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-white/10 transition-all">Keep</button>
+</div>
+</div>
+</div>
+<!-- Action Bar Bottom -->
+<div class="p-6 bg-surface-container-low border-t border-outline-variant/15 flex flex-col gap-3">
+<button class="w-full bg-[#3B82F6] hover:bg-blue-600 text-white font-bold py-3 rounded-[8px] flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-lg shadow-blue-500/20">
+<span class="material-symbols-outlined text-sm" data-icon="done_all">done_all</span>
+                                Approve All Suggestions
+                            </button>
+<button class="w-full bg-surface-container-highest text-on-surface font-bold py-3 rounded-[8px] flex items-center justify-center gap-2 hover:bg-surface-bright transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="download">download</span>
+                                Download All Segments
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

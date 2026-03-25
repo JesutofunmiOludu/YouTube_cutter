@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VidMind AI - Quantum Computing Explained</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-tertiary-fixed": "#311400",
+                        "primary-fixed-dim": "#adc6ff",
+                        "surface-container-highest": "#2e3545",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "on-primary": "#002e6a",
+                        "on-surface": "#dce2f7",
+                        "surface-container-high": "#232a3a",
+                        "primary-container": "#4d8eff",
+                        "on-primary-fixed": "#001a42",
+                        "on-background": "#dce2f7",
+                        "surface": "#0c1322",
+                        "error": "#ffb4ab",
+                        "on-tertiary-container": "#461f00",
+                        "outline-variant": "#424754",
+                        "on-primary-container": "#00285d",
+                        "inverse-on-surface": "#293040",
+                        "secondary": "#b1c6f9",
+                        "surface-bright": "#323949",
+                        "on-tertiary": "#502400",
+                        "surface-container": "#191f2f",
+                        "inverse-primary": "#005ac2",
+                        "inverse-surface": "#dce2f7",
+                        "on-secondary-fixed-variant": "#304671",
+                        "surface-dim": "#0c1322",
+                        "on-error": "#690005",
+                        "surface-container-low": "#141b2b",
+                        "on-surface-variant": "#c2c6d6",
+                        "on-primary-fixed-variant": "#004395",
+                        "background": "#0c1322",
+                        "secondary-container": "#304671",
+                        "on-error-container": "#ffdad6",
+                        "secondary-fixed": "#d8e2ff",
+                        "surface-tint": "#adc6ff",
+                        "surface-variant": "#2e3545",
+                        "secondary-fixed-dim": "#b1c6f9",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "primary": "#adc6ff",
+                        "primary-fixed": "#d8e2ff",
+                        "outline": "#8c909f",
+                        "tertiary-container": "#df7412",
+                        "error-container": "#93000a",
+                        "tertiary-fixed": "#ffdcc6",
+                        "surface-container-lowest": "#070e1d",
+                        "tertiary": "#ffb786",
+                        "on-secondary-container": "#9fb5e7",
+                        "on-secondary": "#182f59",
+                        "on-secondary-fixed": "#001a42"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["JetBrains Mono"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0c1322;
+        }
+        .glass-nav {
+            background: rgba(12, 19, 34, 0.7);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="text-on-surface antialiased overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-slate-950/70 backdrop-blur-xl flex justify-between items-center px-6 py-3 w-full no-border bg-slate-900/50">
+<div class="flex items-center gap-8 flex-1">
+<div class="text-xl font-bold text-blue-400 tracking-tight flex items-center gap-2">
+<span class="material-symbols-outlined text-blue-400" data-icon="mindfulness">mindfulness</span>
+                VidMind
+            </div>
+<div class="hidden md:flex flex-1 max-w-2xl relative group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400 text-sm" data-icon="search">search</span>
+</div>
+<input class="w-full bg-surface-container-highest/40 border-none rounded-xl py-2.5 pl-11 pr-4 text-sm font-body text-on-surface focus:ring-2 focus:ring-primary/50 transition-all" type="text" value="Quantum Computing explained"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-400 hover:bg-slate-800/50 transition-colors rounded-full scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-slate-400 hover:bg-slate-800/50 transition-colors rounded-full scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-primary-container/30 border border-primary/20 overflow-hidden ml-2">
+<img class="w-full h-full object-cover" data-alt="User profile avatar circle image" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwSpsp60GkHsP_b7bTvYdMgIvu9E8EosfAVrIdp4Q6SbDYj1DtLshNqXa6F7AUvLTR5P57zXv-SLEVCkFE80BFfvnzwIzawPwG_LWVKEJyx47jjGIgIoBKXhkLs0ex18xvByBWvfI5W9mnV_SAxzrTD7UcEd4-dYjPNKOgG2yYweV93creOxeRP1It2SnM51FgnQc3aPNtetnLdVAgQ4uhv2pKHDYa_p5FfmZkBag-E9QPCvK1CXCeZxGoFKA-YK0VHKvwSai-T2g"/>
+</div>
+</div>
+</header>
+<div class="flex pt-20">
+<!-- SideNavBar (Filters) -->
+<aside class="h-screen w-64 fixed left-0 top-0 pt-20 bg-slate-900 no-border flex flex-col gap-4 px-4 hidden lg:flex">
+<div class="py-6 border-b border-white/5 mb-2">
+<div class="text-lg font-black text-blue-400 mb-1">Filters</div>
+<div class="font-mono text-[10px] uppercase tracking-widest text-slate-500">Refine Results</div>
+</div>
+<nav class="space-y-6">
+<!-- Duration Group -->
+<div class="space-y-2">
+<div class="flex items-center gap-2 text-slate-400 mb-3 px-2">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span>
+<span class="font-mono text-xs uppercase tracking-widest">Duration</span>
+</div>
+<div class="space-y-1">
+<button class="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all duration-150 flex items-center justify-between group">
+<span class="font-body text-sm">Short</span>
+<span class="text-[10px] font-mono opacity-0 group-hover:opacity-100">&lt;4M</span>
+</button>
+<button class="w-full text-left px-3 py-2 rounded-lg text-blue-400 bg-blue-400/10 transition-all duration-150 flex items-center justify-between">
+<span class="font-body text-sm font-semibold">Medium</span>
+<span class="text-[10px] font-mono">4-20M</span>
+</button>
+<button class="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all duration-150">
+<span class="font-body text-sm">Long</span>
+</button>
+</div>
+</div>
+<!-- Category Group -->
+<div class="space-y-2">
+<div class="flex items-center gap-2 text-slate-400 mb-3 px-2">
+<span class="material-symbols-outlined text-sm" data-icon="category">category</span>
+<span class="font-mono text-xs uppercase tracking-widest">Category</span>
+</div>
+<div class="space-y-1">
+<button class="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all duration-150 font-body text-sm">Science</button>
+<button class="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all duration-150 font-body text-sm">Educational</button>
+<button class="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all duration-150 font-body text-sm">Tech</button>
+</div>
+</div>
+<!-- Sort Group -->
+<div class="space-y-2">
+<div class="flex items-center gap-2 text-slate-400 mb-3 px-2">
+<span class="material-symbols-outlined text-sm" data-icon="sort">sort</span>
+<span class="font-mono text-xs uppercase tracking-widest">Sort By</span>
+</div>
+<div class="space-y-1">
+<button class="w-full text-left px-3 py-2 rounded-lg text-blue-400 bg-blue-400/10 font-body text-sm">Relevance</button>
+<button class="w-full text-left px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all duration-150 font-body text-sm">Newest</button>
+</div>
+</div>
+</nav>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 lg:ml-64 p-6 md:p-10 min-h-screen">
+<!-- Results Header -->
+<div class="mb-8">
+<h1 class="text-3xl font-headline font-bold text-slate-50 tracking-tight">
+                    Results for <span class="text-primary-container italic">"Quantum Computing explained"</span>
+</h1>
+<div class="mt-2 flex items-center gap-3">
+<span class="font-label text-xs text-slate-400 bg-surface-container-high px-2 py-1 rounded">24 RESULTS FOUND</span>
+<span class="h-1 w-1 rounded-full bg-slate-600"></span>
+<span class="font-label text-xs text-slate-400">RESEARCH MODE ACTIVE</span>
+</div>
+</div>
+<!-- Video Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+<!-- Video Card 1 -->
+<div class="bg-surface-container rounded-xl overflow-hidden group hover:bg-surface-container-high transition-colors">
+<div class="relative aspect-video overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Abstract blue glowing quantum physics simulation visualization" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnGJi3VFEOILqARF0nJxyA_r2gnogxcuqM6d1OexwA_mWdb-6pAGpeyWkWHfBfxtieZCaXr7sxX12huYhB2DHsfDKPMZATzbOLCf4WPVme4542W8tbe791TeTATY9MuwxE6Yv_vMGQxr-i4CtKHYZRdn-S4N5HU4ntJb-IyQ7JKZN94YPmFjmqQDwii7Q0meLoTUA8-QMQqYoojvDixU_cpqL7UkwhI5ZKfrq8XYI93mqxHpx4Xx94GsbimU1AGQl3UQ1J5H8gbHI"/>
+<div class="absolute bottom-3 right-3 bg-slate-950/80 backdrop-blur px-2 py-0.5 rounded text-[11px] font-label text-slate-100">
+                            12:45
+                        </div>
+</div>
+<div class="p-5">
+<div class="flex justify-between items-start mb-3">
+<span class="font-label text-[10px] text-primary-fixed-dim uppercase tracking-tighter">Science Academy</span>
+<span class="font-label text-[10px] text-slate-500">2 DAYS AGO</span>
+</div>
+<h3 class="text-lg font-headline font-semibold text-slate-100 leading-snug mb-4">Understanding Quantum Computing: The Future of Speed</h3>
+<div class="flex items-center gap-3">
+<button class="flex-1 bg-gradient-to-br from-primary to-primary-container text-on-primary text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="library_add">library_add</span>
+                                Select for Research
+                            </button>
+</div>
+</div>
+</div>
+<!-- Video Card 2 -->
+<div class="bg-surface-container rounded-xl overflow-hidden group hover:bg-surface-container-high transition-colors">
+<div class="relative aspect-video overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Close up of a glowing circuit board with blue light lines" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYJWkHLtirVlotuMbrsQ8EJ9FAIZAMmzozYpQ3wOFWofNukortv_xBbWnJn1irGfzc3UUtuygdBt21R45XR6EtjvnFagFHnzIJnkDrDfLVkP8E7CjtSksanhpHBNGp-QZCdQIfTBizre7DAb8FKfLL4XbbUkWkT9nTI3bmG8n3-75AZCxotYoWJZYsFPvaCjEHzvy-jJNhFYfOSL5iL3YG3E5Icf38jZ4LAGPZLeWH1nbiCBVTUEujdPU8JUy2c2ZXv8At7GU-B84"/>
+<div class="absolute bottom-3 right-3 bg-slate-950/80 backdrop-blur px-2 py-0.5 rounded text-[11px] font-label text-slate-100">
+                            08:12
+                        </div>
+</div>
+<div class="p-5">
+<div class="flex justify-between items-start mb-3">
+<span class="font-label text-[10px] text-primary-fixed-dim uppercase tracking-tighter">Tech Insider</span>
+<span class="font-label text-[10px] text-slate-500">5 DAYS AGO</span>
+</div>
+<h3 class="text-lg font-headline font-semibold text-slate-100 leading-snug mb-4">How Qubits Change Everything in 2024</h3>
+<div class="flex items-center gap-3">
+<button class="flex-1 bg-gradient-to-br from-primary to-primary-container text-on-primary text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="library_add">library_add</span>
+                                Select for Research
+                            </button>
+</div>
+</div>
+</div>
+<!-- Video Card 3 -->
+<div class="bg-surface-container rounded-xl overflow-hidden group hover:bg-surface-container-high transition-colors">
+<div class="relative aspect-video overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Futuristic data stream tunnel with blue and violet lights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuABEjs6A0ipmTDBWry8j4csHYlqiQx-cXAPypAxGyleE1fBWPUYS6jQ9ErekFMs-frW9mTIgku0s_jsIvEsagEgo2zFSTN4ainN5Y4QdYm9BNQyTu0UNf9FK81EsPd4Z1gs5DHldYC2b54ku2tZHDUnTo0K9DOEcJCOmJUGaxuQ-Npbvw1HegEBQg9FXsw1ZpdSREnfedGBsFK2erK1WSxe7ELvdyHZNGiT53Cug_EIUEOKLhpi39fESqcc0tApfsxbx8ceLtdLqIM"/>
+<div class="absolute bottom-3 right-3 bg-slate-950/80 backdrop-blur px-2 py-0.5 rounded text-[11px] font-label text-slate-100">
+                            24:00
+                        </div>
+</div>
+<div class="p-5">
+<div class="flex justify-between items-start mb-3">
+<span class="font-label text-[10px] text-primary-fixed-dim uppercase tracking-tighter">Deep Dive AI</span>
+<span class="font-label text-[10px] text-slate-500">1 WEEK AGO</span>
+</div>
+<h3 class="text-lg font-headline font-semibold text-slate-100 leading-snug mb-4">Quantum Algorithms: A Masterclass for Developers</h3>
+<div class="flex items-center gap-3">
+<button class="flex-1 bg-gradient-to-br from-primary to-primary-container text-on-primary text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="library_add">library_add</span>
+                                Select for Research
+                            </button>
+</div>
+</div>
+</div>
+<!-- Video Card 4 -->
+<div class="bg-surface-container rounded-xl overflow-hidden group hover:bg-surface-container-high transition-colors">
+<div class="relative aspect-video overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Microchip macro photography with technical lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDI_AZoKM4rN8hMgkEbGJNH2tWAOg97WkTy30sMUfYlCCVbLeY7JOT5iCfcHQoSFlBRAS5g6jUMJEmdhEEDw1kkga8Tqt47ki6khd9AGZ20gv9G4urhnnDj7c_M8RI3T8qjA6Fnub6wrxL77allmu6CPz8Ncij71jzEXBHMEA74whOz_HrObMoXGcjzX_tlATTtCJrPoG4_yDSFkK8aQgYYxxulJPz7Mld8Eajobg2OuIBJ6cOduGMkWFVA-noE4yy4yqm5IFC34YI"/>
+<div class="absolute bottom-3 right-3 bg-slate-950/80 backdrop-blur px-2 py-0.5 rounded text-[11px] font-label text-slate-100">
+                            05:50
+                        </div>
+</div>
+<div class="p-5">
+<div class="flex justify-between items-start mb-3">
+<span class="font-label text-[10px] text-primary-fixed-dim uppercase tracking-tighter">Physics Now</span>
+<span class="font-label text-[10px] text-slate-500">2 HOURS AGO</span>
+</div>
+<h3 class="text-lg font-headline font-semibold text-slate-100 leading-snug mb-4">Quantum Supremacy Explained for Beginners</h3>
+<div class="flex items-center gap-3">
+<button class="flex-1 bg-gradient-to-br from-primary to-primary-container text-on-primary text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="library_add">library_add</span>
+                                Select for Research
+                            </button>
+</div>
+</div>
+</div>
+<!-- Video Card 5 -->
+<div class="bg-surface-container rounded-xl overflow-hidden group hover:bg-surface-container-high transition-colors">
+<div class="relative aspect-video overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Geometric purple and blue glass abstract architecture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBP007vy5jetvEb5E5SwxrYPFYcn6h2UdwbAc4GPXY52P_5nxnUptXLVCoechFRillNM7sRJIbQVdrSf9N24CmYx7OWcKZnwfzfoxa2fbPxJiKLF_4bWHr-1P2UVnyCeuECKF93rpN4wOWR9LQ-3oMxPpdC0Cntq5zz0SkYrvojLHatdiO5smEcTE_D5C4giBxy6IiUuf7Hvc4zXpUB8B3ECOAmd8cXcLrCubued_5cn3jrcx5Os4bpHoAyZ-h4dFBDm_u_0QeBpZY"/>
+<div class="absolute bottom-3 right-3 bg-slate-950/80 backdrop-blur px-2 py-0.5 rounded text-[11px] font-label text-slate-100">
+                            15:30
+                        </div>
+</div>
+<div class="p-5">
+<div class="flex justify-between items-start mb-3">
+<span class="font-label text-[10px] text-primary-fixed-dim uppercase tracking-tighter">Veritas Insights</span>
+<span class="font-label text-[10px] text-slate-500">3 DAYS AGO</span>
+</div>
+<h3 class="text-lg font-headline font-semibold text-slate-100 leading-snug mb-4">The Mathematics of Entanglement and Computing</h3>
+<div class="flex items-center gap-3">
+<button class="flex-1 bg-gradient-to-br from-primary to-primary-container text-on-primary text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="library_add">library_add</span>
+                                Select for Research
+                            </button>
+</div>
+</div>
+</div>
+<!-- Video Card 6 -->
+<div class="bg-surface-container rounded-xl overflow-hidden group hover:bg-surface-container-high transition-colors">
+<div class="relative aspect-video overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Satellite view of Earth with digital communication network overlay" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzWdRwsqjIHFF479KiV7e3LX4SohcGOY7lUgb1QHla-FZh1iGf3i0lAB47O-NHp5xrkO5_BNFyA3ewZud_txY2zfoRG7SgAUlKrQuQUTzv36SyYMMyq2U5G7fem8SRnmU_kdYCNh2xMTYSD57lj81A9IfdIw9sFDchju5aT3WNEsJxnw8qYEqe03q0hA_URqNrb2iWTyOAcZO3Hpj7wpDjd70ytmadv6FMz0MPolQaDh-C1yaZvP6gnXjCUvWydxzhZyYfUsb6v7w"/>
+<div class="absolute bottom-3 right-3 bg-slate-950/80 backdrop-blur px-2 py-0.5 rounded text-[11px] font-label text-slate-100">
+                            10:00
+                        </div>
+</div>
+<div class="p-5">
+<div class="flex justify-between items-start mb-3">
+<span class="font-label text-[10px] text-primary-fixed-dim uppercase tracking-tighter">Global Tech</span>
+<span class="font-label text-[10px] text-slate-500">4 DAYS AGO</span>
+</div>
+<h3 class="text-lg font-headline font-semibold text-slate-100 leading-snug mb-4">Why China is Leading the Quantum Race</h3>
+<div class="flex items-center gap-3">
+<button class="flex-1 bg-gradient-to-br from-primary to-primary-container text-on-primary text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="library_add">library_add</span>
+                                Select for Research
+                            </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Pagination -->
+<div class="mt-16 flex flex-col items-center">
+<button class="group px-8 py-3 bg-surface-container-high rounded-xl text-on-surface font-semibold flex items-center gap-3 hover:bg-surface-bright transition-all active:scale-95">
+<span class="material-symbols-outlined text-primary" data-icon="expand_more">expand_more</span>
+                    Load More Results
+                </button>
+<div class="mt-6 font-label text-[10px] text-slate-600 tracking-widest uppercase">End of Initial Stream</div>
+</div>
+</main>
+</div>
+<!-- Contextual FAB (Mobile Only) -->
+<div class="fixed bottom-6 right-6 lg:hidden">
+<button class="h-14 w-14 rounded-full bg-primary shadow-xl shadow-primary/20 flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+</div>
+</body></html>

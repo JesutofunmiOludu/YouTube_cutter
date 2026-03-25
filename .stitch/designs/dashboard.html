@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VidMind AI - Personalized Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Space+Grotesk:wght@500;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-secondary": "#3c0091",
+                        "on-primary-fixed-variant": "#004395",
+                        "inverse-primary": "#005ac2",
+                        "surface-container-highest": "#2e3545",
+                        "surface": "#0c1322",
+                        "on-surface-variant": "#c2c6d6",
+                        "on-tertiary-container": "#461f00",
+                        "surface-container-low": "#141b2b",
+                        "primary-fixed-dim": "#adc6ff",
+                        "surface-container": "#191f2f",
+                        "on-error": "#690005",
+                        "on-secondary-container": "#c4abff",
+                        "on-tertiary": "#502400",
+                        "error-container": "#93000a",
+                        "outline-variant": "#424754",
+                        "on-primary": "#002e6a",
+                        "inverse-on-surface": "#293040",
+                        "on-primary-container": "#00285d",
+                        "primary-fixed": "#d8e2ff",
+                        "on-secondary-fixed-variant": "#5516be",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-lowest": "#070e1d",
+                        "on-background": "#dce2f7",
+                        "secondary": "#d0bcff",
+                        "tertiary-container": "#df7412",
+                        "tertiary-fixed": "#ffdcc6",
+                        "background": "#0c1322",
+                        "surface-container-high": "#232a3a",
+                        "outline": "#8c909f",
+                        "error": "#ffb4ab",
+                        "secondary-fixed": "#e9ddff",
+                        "inverse-surface": "#dce2f7",
+                        "tertiary": "#ffb786",
+                        "surface-bright": "#323949",
+                        "on-surface": "#dce2f7",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "on-primary-fixed": "#001a42",
+                        "surface-tint": "#adc6ff",
+                        "on-tertiary-fixed": "#311400",
+                        "primary-container": "#4d8eff",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "secondary-fixed-dim": "#d0bcff",
+                        "on-secondary-fixed": "#23005c",
+                        "secondary-container": "#571bc1",
+                        "primary": "#adc6ff",
+                        "surface-variant": "#2e3545",
+                        "surface-dim": "#0c1322"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(20, 27, 43, 0.6);
+            backdrop-filter: blur(16px);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary/30">
+<!-- SideNavBar (Execution from JSON) -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r-0 bg-[#141B2B] flex flex-col py-6 px-4 gap-2 z-50">
+<div class="px-2 mb-8">
+<h1 class="text-xl font-bold bg-gradient-to-r from-[#ADC6FF] to-[#D0BCFF] bg-clip-text text-transparent font-headline">VidMind AI</h1>
+<p class="text-[10px] uppercase tracking-widest text-slate-500 font-label mt-1">Neural Research Tool</p>
+</div>
+<nav class="flex-1 space-y-1">
+<!-- Dashboard - Active State Logic Applied -->
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-white bg-[#232A3A] rounded-lg transition-all active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-blue-400">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-[#191F2F] transition-all active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">video_library</span>
+                My Library
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-[#191F2F] transition-all active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">troubleshoot</span>
+                Deep Research
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-[#191F2F] transition-all active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">forum</span>
+                Multi-Video Chat
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-[#191F2F] transition-all active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">payments</span>
+                Subscription
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-[#191F2F] transition-all active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+                Settings
+            </a>
+</nav>
+<!-- Usage Quota Integration (Side Navigation) -->
+<div class="mt-auto p-4 rounded-xl bg-[#191F2F] border border-outline-variant/10">
+<div class="flex items-center justify-between mb-3">
+<span class="text-[10px] font-label text-slate-400 uppercase tracking-tighter">Usage Quota</span>
+<span class="material-symbols-outlined text-xs text-primary">analytics</span>
+</div>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-[11px] mb-1.5">
+<span class="text-slate-300">Daily Searches</span>
+<span class="font-mono text-primary">3/5</span>
+</div>
+<div class="h-1 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 60%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-[11px] mb-1.5">
+<span class="text-slate-300">Monthly Cuts</span>
+<span class="font-mono text-secondary">1/3</span>
+</div>
+<div class="h-1 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary" style="width: 33%"></div>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- TopNavBar (Execution from JSON) -->
+<header class="w-full h-16 sticky top-0 z-40 bg-[#0C1322] flex items-center justify-between px-8 bg-[#141B2B]">
+<div class="flex items-center flex-1 max-w-xl">
+<div class="relative w-full group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary/50 placeholder:text-slate-500 transition-all" placeholder="Search research, videos, or transcripts..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 bg-gradient-to-r from-[#ADC6FF] to-[#D0BCFF] text-on-primary-container px-4 py-2 rounded-lg text-sm font-semibold active:scale-95 duration-150 transition-all">
+<span class="material-symbols-outlined text-sm">upload_file</span>
+                    Upload Video
+                </button>
+<div class="flex items-center gap-2 border-l border-outline-variant/20 pl-4">
+<button class="p-2 text-slate-400 hover:bg-slate-800/50 rounded-full transition-colors active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="flex items-center gap-3 p-1 pr-3 rounded-full hover:bg-slate-800/50 transition-colors cursor-pointer group">
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant/30 group-hover:border-primary/50 transition-all">
+<img alt="Alex's avatar" class="w-full h-full object-cover" data-alt="Close up portrait of a young professional male" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwKfXhk4cInY4_gATvphN055RIP-NOnTlXcs8CcYyHMddFR06hs3rHXy43WdnOtCp4cGxwu9SraGix-mgX_RmqmoU7vJbzS0lINisR37Md5XX5_nFPTYDeFov5gUxu-wk99CwrXSbHiMxNvaHy3BlD3KTpd1ZOAUa6eSrDtAPnB6dYZi8loc9KQy5VwRhNSqtwAha1bt20yO7xNklXmIWuwk9AsJzzdyyP18wGGsS28mNp9W7zqddgA3nyK4ds89sFsts_o5Rh-_0"/>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- Dashboard Canvas -->
+<section class="p-8 space-y-10 max-w-[1400px]">
+<!-- Greeting & Hero Summary -->
+<div class="relative overflow-hidden p-8 rounded-2xl bg-surface-container border border-outline-variant/10">
+<div class="absolute top-0 right-0 w-1/3 h-full opacity-20 pointer-events-none">
+<div class="absolute inset-0 bg-gradient-to-l from-primary/40 to-transparent"></div>
+</div>
+<div class="relative z-10">
+<h2 class="text-3xl font-bold font-headline tracking-tight text-white mb-2">Welcome back, Alex</h2>
+<p class="text-slate-400 flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-sm" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+                        Your research has saved you <span class="font-mono text-primary font-bold">12 hours</span> this week.
+                    </p>
+</div>
+</div>
+<!-- Recent Videos (Grid) -->
+<div>
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-lg font-semibold font-headline">Continue Researching</h3>
+<a class="text-xs font-label text-primary hover:underline uppercase tracking-wider" href="#">View All Library</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Video Card 1 -->
+<div class="group bg-[#191F2F] rounded-xl overflow-hidden border border-outline-variant/5 hover:border-primary/20 transition-all">
+<div class="aspect-video relative overflow-hidden bg-surface-container-highest">
+<img alt="Quantum mechanics thumbnail" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Abstract visualization of quantum particles and waves" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNke3KV-zHFs42PdLbXS32hvEbqijYWH8ZQEXh5N0zgQ8nAYfN3vzGJhj0gX6qxF6jiqxYORAyH0N2FG3yPO7Bs_hYFSEBY1LhNNpOgyR71ZDBT-F2y_ISZBZyMES_GCFPgEKKlXNCVV2TY2rWjLzldF6uiPwJVYff_r_4FrWjZ6-mJcb3DkRdizLXlqQBTjFH9YbdeB2EK5DwJSU2CqfHqUthU2-lkgd3QLhBxiSYOWuFIMy0OAZR_VLN4dYbJsbu74jKCG7dnqw"/>
+<div class="absolute bottom-2 right-2 bg-surface/80 backdrop-blur px-2 py-1 rounded text-[10px] font-mono">14:22</div>
+<div class="absolute inset-0 bg-surface/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-white">play_circle</span>
+</div>
+</div>
+<div class="p-5">
+<h4 class="font-medium text-slate-100 mb-4 line-clamp-1">Understanding Quantum Mechanics</h4>
+<button class="w-full py-2.5 bg-surface-container-high hover:bg-primary hover:text-on-primary-container text-primary text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 active:scale-95">
+                                Continue Research
+                                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Video Card 2 -->
+<div class="group bg-[#191F2F] rounded-xl overflow-hidden border border-outline-variant/5 hover:border-primary/20 transition-all">
+<div class="aspect-video relative overflow-hidden bg-surface-container-highest">
+<img alt="Neural networks thumbnail" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Macro photo of glowing fiber optic cables" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgFZ5JeaVnlG8LUWTLU9xaDCCeRjGaUJgh51YOzibhUMpJgU1468HHEcd3RfGBYJVaioF7nPHovoke8tp93ZX7sWgQFJCH0UEf2rbbZQzimEuFs2YRDJJpNUcX7XxIG9EpiYeabK1vY9Lax6eqrtlalyOgh_G-EfyDeFWMUqhGppHB3igEa0cDLhVaBdgwgddzJErZazY1Q-ozRfud4kGqTMAnHk-1uoiZ253DtZ9PnFvF7OBr6M1QxXFB6hBqeSkvJauD4Rh8UgU"/>
+<div class="absolute bottom-2 right-2 bg-surface/80 backdrop-blur px-2 py-1 rounded text-[10px] font-mono">28:45</div>
+<div class="absolute inset-0 bg-surface/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-white">play_circle</span>
+</div>
+</div>
+<div class="p-5">
+<h4 class="font-medium text-slate-100 mb-4 line-clamp-1">Neural Network Architectures</h4>
+<button class="w-full py-2.5 bg-surface-container-high hover:bg-primary hover:text-on-primary-container text-primary text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 active:scale-95">
+                                Continue Research
+                                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Video Card 3 -->
+<div class="group bg-[#191F2F] rounded-xl overflow-hidden border border-outline-variant/5 hover:border-primary/20 transition-all">
+<div class="aspect-video relative overflow-hidden bg-surface-container-highest">
+<img alt="Space exploration thumbnail" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Satellite image of Earth from deep space" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKmYInQSENsbnZCQzJ_cbIcumxkw3fWY9vdIiMgGYPsNadjAvFiuPu1SoK-Cf16jW3YA2elKGDTnkdTddmSYjxbiPDqsnELaQ_hl4lctUQXbUHvIOBnKcEYkU0UeRlsd_r568SOkxCD_j7r2mqoCW_ABmqUbq8sk4GXomKeyJCr7A4MPGo9PE7FhNteaQvluFNfAm0B62I12HricvbW_Grhz8nhqNFucPlresCFZLj9oJTzDCTK3w88GpEvU-T98u_-m6QpeCktoU"/>
+<div class="absolute bottom-2 right-2 bg-surface/80 backdrop-blur px-2 py-1 rounded text-[10px] font-mono">09:15</div>
+<div class="absolute inset-0 bg-surface/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-white">play_circle</span>
+</div>
+</div>
+<div class="p-5">
+<h4 class="font-medium text-slate-100 mb-4 line-clamp-1">Deep Space Signal Analysis</h4>
+<button class="w-full py-2.5 bg-surface-container-high hover:bg-primary hover:text-on-primary-container text-primary text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 active:scale-95">
+                                Continue Research
+                                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Activity Logs Section (Two Columns) -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+<!-- Left: Recent Research Sessions -->
+<div class="space-y-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-secondary">analytics</span>
+<h3 class="text-sm font-semibold uppercase tracking-widest font-label text-slate-400">Recent Research Sessions</h3>
+</div>
+<div class="bg-surface-container-low rounded-xl overflow-hidden border border-outline-variant/10">
+<div class="divide-y divide-outline-variant/10">
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-high transition-colors group">
+<div>
+<p class="text-sm font-medium text-slate-200">Synthesis of Quantum Field Theory</p>
+<p class="text-xs font-mono text-slate-500">Oct 24, 2023</p>
+</div>
+<a class="text-xs text-primary font-bold hover:underline flex items-center gap-1" href="#">
+                                    View Report
+                                    <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</a>
+</div>
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-high transition-colors group">
+<div>
+<p class="text-sm font-medium text-slate-200">Bio-Hacking Conference Summary</p>
+<p class="text-xs font-mono text-slate-500">Oct 22, 2023</p>
+</div>
+<a class="text-xs text-primary font-bold hover:underline flex items-center gap-1" href="#">
+                                    View Report
+                                    <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</a>
+</div>
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-high transition-colors group">
+<div>
+<p class="text-sm font-medium text-slate-200">Marketing Psychology Patterns</p>
+<p class="text-xs font-mono text-slate-500">Oct 20, 2023</p>
+</div>
+<a class="text-xs text-primary font-bold hover:underline flex items-center gap-1" href="#">
+                                    View Report
+                                    <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Right: Recent Chat Histories -->
+<div class="space-y-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary">chat_bubble</span>
+<h3 class="text-sm font-semibold uppercase tracking-widest font-label text-slate-400">Recent Chat Histories</h3>
+</div>
+<div class="bg-surface-container-low rounded-xl overflow-hidden border border-outline-variant/10">
+<div class="divide-y divide-outline-variant/10">
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-high transition-colors group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-primary">forum</span>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Dataset Validation Discussion</p>
+<p class="text-[10px] font-label text-slate-500 uppercase">Multi-Video Context</p>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded-lg border border-outline-variant/30 text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:bg-primary hover:text-on-primary-container hover:border-primary transition-all active:scale-95">Open Chat</button>
+</div>
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-high transition-colors group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-secondary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-secondary">forum</span>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Abstract Thesis Clarification</p>
+<p class="text-[10px] font-label text-slate-500 uppercase">Deep Research</p>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded-lg border border-outline-variant/30 text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:bg-primary hover:text-on-primary-container hover:border-primary transition-all active:scale-95">Open Chat</button>
+</div>
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-high transition-colors group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-tertiary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-tertiary">forum</span>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Historical Footnote Analysis</p>
+<p class="text-[10px] font-label text-slate-500 uppercase">Library Query</p>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded-lg border border-outline-variant/30 text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:bg-primary hover:text-on-primary-container hover:border-primary transition-all active:scale-95">Open Chat</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Signature Footer Branding -->
+<footer class="mt-auto p-8 flex items-center justify-between border-t border-outline-variant/5">
+<div class="flex items-center gap-4 text-xs font-label text-slate-500 uppercase tracking-widest">
+<span>© 2023 VidMind AI</span>
+<span class="w-1 h-1 rounded-full bg-slate-700"></span>
+<a class="hover:text-primary transition-colors" href="#">Neural Policy</a>
+<span class="w-1 h-1 rounded-full bg-slate-700"></span>
+<a class="hover:text-primary transition-colors" href="#">API Status</a>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+<span class="text-[10px] font-mono text-emerald-500 uppercase tracking-tighter">System Optimal</span>
+</div>
+</footer>
+</main>
+</body></html>

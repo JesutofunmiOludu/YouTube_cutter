@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VidMind AI - User Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "secondary-container": "#304671",
+                        "on-tertiary-container": "#461f00",
+                        "on-surface": "#dce2f7",
+                        "on-error": "#690005",
+                        "error-container": "#93000a",
+                        "on-tertiary": "#502400",
+                        "primary-container": "#4d8eff",
+                        "primary-fixed": "#d8e2ff",
+                        "on-primary": "#002e6a",
+                        "on-tertiary-fixed": "#311400",
+                        "surface-tint": "#adc6ff",
+                        "tertiary-container": "#df7412",
+                        "tertiary-fixed": "#ffdcc6",
+                        "primary": "#adc6ff",
+                        "inverse-on-surface": "#293040",
+                        "on-primary-fixed": "#001a42",
+                        "secondary": "#b1c6f9",
+                        "secondary-fixed-dim": "#b1c6f9",
+                        "on-primary-fixed-variant": "#004395",
+                        "surface": "#0c1322",
+                        "on-primary-container": "#00285d",
+                        "inverse-surface": "#dce2f7",
+                        "inverse-primary": "#005ac2",
+                        "tertiary": "#ffb786",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "surface-dim": "#0c1322",
+                        "outline": "#8c909f",
+                        "background": "#0c1322",
+                        "surface-container-high": "#232a3a",
+                        "surface-bright": "#323949",
+                        "surface-variant": "#2e3545",
+                        "on-secondary-container": "#9fb5e7",
+                        "primary-fixed-dim": "#adc6ff",
+                        "on-surface-variant": "#c2c6d6",
+                        "on-secondary-fixed-variant": "#304671",
+                        "on-secondary": "#182f59",
+                        "secondary-fixed": "#d8e2ff",
+                        "outline-variant": "#424754",
+                        "on-background": "#dce2f7",
+                        "surface-container-highest": "#2e3545",
+                        "on-error-container": "#ffdad6",
+                        "error": "#ffb4ab",
+                        "surface-container": "#191f2f",
+                        "surface-container-lowest": "#070e1d",
+                        "on-secondary-fixed": "#001a42",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "surface-container-low": "#141b2b"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(25, 31, 47, 0.7);
+            backdrop-filter: blur(20px);
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0c1322; }
+        ::-webkit-scrollbar-thumb { background: #2e3545; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary/30 antialiased">
+<!-- Top Navigation Bar -->
+<header class="bg-[#0c1322] dark:bg-[#0c1322] fixed top-0 z-50 w-full px-8 h-16 flex justify-between items-center">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tight text-slate-50 dark:text-slate-50">VidMind AI</span>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-blue-500 font-semibold text-sm transition-colors duration-200" href="#">Settings</a>
+<a class="text-slate-400 font-medium text-sm hover:bg-slate-800/50 transition-colors duration-200 px-3 py-1 rounded-lg" href="#">Dashboard</a>
+<a class="text-slate-400 font-medium text-sm hover:bg-slate-800/50 transition-colors duration-200 px-3 py-1 rounded-lg" href="#">Library</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:bg-slate-800/50 rounded-lg transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden bg-surface-container-highest ring-2 ring-outline-variant/20">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="Close up of a professional male user portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2-W_nDmxUtCwk_nn-cjbD_-nwuK82LXuPOi-FmxgIjVFlDXGc3KVHR_a_BJxf7ykibE1Bm4ThzEcuJXTyjVnziYy1i3rfeeA3NBgIoWTOkJBLKbT8a3KwqZfNYezlnlNbn7KdJOnn3ouwxd4mXMzNTAGBzEiLMC11gmx1Aq169EcM00ZVJlNFM5h7RCrIWh3EvzpfoyBJzMPXoME0e8P1aXBbfKLwI963xm6MnSjSRnXMHpc2zaRESQ6s-I0UZsvYXR_DryJtTto"/>
+</div>
+</div>
+</header>
+<div class="flex min-h-screen pt-16">
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-16 bottom-0 w-72 bg-[#141b2b] dark:bg-[#141b2b] flex flex-col py-8 gap-y-2 overflow-y-auto">
+<div class="px-8 mb-8">
+<h1 class="text-on-surface font-bold text-lg">Settings</h1>
+<p class="text-on-surface-variant text-xs font-mono uppercase tracking-wider mt-1 opacity-70">Manage your VidMind experience</p>
+</div>
+<nav class="flex flex-col gap-y-1">
+<a class="text-blue-400 font-bold border-l-4 border-blue-500 pl-4 bg-blue-500/5 py-3 flex items-center gap-3 transition-all duration-200" href="#profile">
+<span class="material-symbols-outlined text-[20px]" data-icon="person">person</span>
+<span class="text-base">Profile</span>
+</a>
+<a class="text-slate-400 pl-5 hover:text-slate-200 hover:bg-[#191f2f] py-3 flex items-center gap-3 transition-all duration-200" href="#security">
+<span class="material-symbols-outlined text-[20px]" data-icon="security">security</span>
+<span class="text-base">Account Security</span>
+</a>
+<a class="text-slate-400 pl-5 hover:text-slate-200 hover:bg-[#191f2f] py-3 flex items-center gap-3 transition-all duration-200" href="#notifications">
+<span class="material-symbols-outlined text-[20px]" data-icon="notifications">notifications</span>
+<span class="text-base">Notifications</span>
+</a>
+<a class="text-slate-400 pl-5 hover:text-slate-200 hover:bg-[#191f2f] py-3 flex items-center gap-3 transition-all duration-200" href="#billing">
+<span class="material-symbols-outlined text-[20px]" data-icon="payments">payments</span>
+<span class="text-base">Billing &amp; Subscription</span>
+</a>
+<a class="text-slate-400 pl-5 hover:text-slate-200 hover:bg-[#191f2f] py-3 flex items-center gap-3 transition-all duration-200" href="#personalization">
+<span class="material-symbols-outlined text-[20px]" data-icon="psychology">psychology</span>
+<span class="text-base">AI Personalization</span>
+</a>
+<a class="text-slate-400 pl-5 hover:text-slate-200 hover:bg-[#191f2f] py-3 flex items-center gap-3 transition-all duration-200" href="#api">
+<span class="material-symbols-outlined text-[20px]" data-icon="vpn_key">vpn_key</span>
+<span class="text-base">API Keys</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-72 flex-1 p-12 max-w-6xl mx-auto space-y-16 pb-32">
+<!-- Profile Section -->
+<section class="space-y-8" id="profile">
+<div class="flex justify-between items-end border-b border-outline-variant/10 pb-6">
+<div>
+<h2 class="text-2xl font-bold text-on-surface">Profile Information</h2>
+<p class="text-on-surface-variant mt-2 max-w-lg">Update your personal details and how others see you across the VidMind ecosystem.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-12 items-start">
+<div class="flex flex-col items-center gap-4">
+<div class="relative group">
+<div class="w-40 h-40 rounded-full overflow-hidden ring-4 ring-surface-container-highest">
+<img alt="VidMind User Profile" class="w-full h-full object-cover" data-alt="Close up professional portrait for profile picture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDeNtXzeYAFZ3sKSUUpHDIM4bIIepDKWfLpnE40zDLlo7wyY9FVxDB4W95GoLJuc6Qu_aJLDZAUufcn_LnIu9BixRYGsP3yijNBZK-SMHy4dV30FM3V0cAYbEJq7RHn1I7lUdbuFmuDnyVYLx2bkgFdWnJ81SiBbnxU0iGqkHsaka8s1SnD5Z8oQWWiTR5IcwVaPTrV9ob1dFCh-tvvXtSt0MCPfaa-UkJxqLJIl7k47QvtqUSO23SiW6XhxWSjX_Ns2U4reG4G9gc"/>
+</div>
+<button class="absolute bottom-2 right-2 p-2 bg-primary text-on-primary rounded-full shadow-lg hover:scale-110 transition-transform duration-200">
+<span class="material-symbols-outlined text-[20px]" data-icon="photo_camera">photo_camera</span>
+</button>
+</div>
+<span class="text-xs font-mono text-on-surface-variant uppercase tracking-widest">Avatar Resolution: 400x400</span>
+</div>
+<div class="md:col-span-2 space-y-6">
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-sm font-medium text-on-surface-variant">Full Name</label>
+<input class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/40 text-on-surface transition-all" type="text" value="Alexander Mitchell"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium text-on-surface-variant">Email Address</label>
+<input class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/40 text-on-surface transition-all" type="email" value="alex.mitchell@vidmind.ai"/>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium text-on-surface-variant">Bio</label>
+<textarea class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/40 text-on-surface transition-all resize-none" rows="4">Senior Creative Lead specializing in AI-driven cinematic production. Exploring the intersection of neural networks and storytelling.</textarea>
+</div>
+</div>
+</div>
+</section>
+<!-- Account Security -->
+<section class="bg-surface-container-low rounded-2xl p-8 space-y-8" id="security">
+<div class="flex items-center gap-4">
+<div class="p-3 bg-secondary-container/20 rounded-xl">
+<span class="material-symbols-outlined text-secondary" data-icon="security">security</span>
+</div>
+<h2 class="text-xl font-bold text-on-surface">Account Security</h2>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+<div class="space-y-6">
+<h3 class="text-sm font-semibold uppercase tracking-widest text-on-surface-variant opacity-60">Update Password</h3>
+<div class="space-y-4">
+<input class="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/40 text-on-surface transition-all" placeholder="Current Password" type="password"/>
+<input class="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/40 text-on-surface transition-all" placeholder="New Password" type="password"/>
+<input class="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/40 text-on-surface transition-all" placeholder="Confirm New Password" type="password"/>
+</div>
+</div>
+<div class="space-y-6 border-l border-outline-variant/10 pl-12">
+<h3 class="text-sm font-semibold uppercase tracking-widest text-on-surface-variant opacity-60">Two-Factor Authentication</h3>
+<div class="flex items-start justify-between bg-surface-container p-6 rounded-2xl">
+<div class="space-y-1">
+<p class="font-bold text-on-surface">Authenticator App</p>
+<p class="text-sm text-on-surface-variant">Use Google Authenticator or Authy to generate codes.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="p-4 bg-tertiary/10 rounded-xl border border-tertiary/20 flex gap-4">
+<span class="material-symbols-outlined text-tertiary" data-icon="info">info</span>
+<p class="text-sm text-tertiary">Backup codes are available in case you lose access to your authenticator app.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Billing & Subscription (Bento Style) -->
+<section class="space-y-8" id="billing">
+<div class="flex justify-between items-center">
+<h2 class="text-2xl font-bold text-on-surface">Billing &amp; Subscription</h2>
+<button class="bg-[#3B82F6] hover:bg-[#2563EB] text-white px-6 py-2.5 rounded-lg font-semibold transition-all shadow-lg shadow-blue-500/20 active:scale-95">Manage Subscription</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-1 bg-gradient-to-br from-primary-container to-secondary-container p-8 rounded-2xl flex flex-col justify-between min-h-[240px]">
+<div>
+<span class="bg-white/20 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">Current Plan</span>
+<h3 class="text-3xl font-extrabold text-white mt-4">Pro</h3>
+</div>
+<div class="flex items-end gap-1">
+<span class="text-4xl font-bold text-white">$19</span>
+<span class="text-white/70 mb-1">/mo</span>
+</div>
+</div>
+<div class="md:col-span-2 bg-surface-container-low rounded-2xl p-8 space-y-6">
+<h3 class="text-sm font-semibold uppercase tracking-widest text-on-surface-variant opacity-60">Recent Activity</h3>
+<div class="overflow-hidden">
+<table class="w-full text-left">
+<thead class="text-xs font-mono text-on-surface-variant/50 border-b border-outline-variant/10">
+<tr>
+<th class="pb-4">DATE</th>
+<th class="pb-4">AMOUNT</th>
+<th class="pb-4">STATUS</th>
+<th class="pb-4 text-right">RECEIPT</th>
+</tr>
+</thead>
+<tbody class="text-sm font-mono">
+<tr class="group">
+<td class="py-4 text-on-surface">Oct 12, 2023</td>
+<td class="py-4 text-on-surface">$19.00</td>
+<td class="py-4"><span class="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-bold">PAID</span></td>
+<td class="py-4 text-right">
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="download">download</span>
+</a>
+</td>
+</tr>
+<tr class="group">
+<td class="py-4 text-on-surface">Sep 12, 2023</td>
+<td class="py-4 text-on-surface">$19.00</td>
+<td class="py-4"><span class="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-bold">PAID</span></td>
+<td class="py-4 text-right">
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="download">download</span>
+</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+<!-- AI Personalization -->
+<section class="grid grid-cols-1 lg:grid-cols-2 gap-8" id="personalization">
+<div class="bg-surface-container rounded-2xl p-8 space-y-8">
+<div class="flex items-center gap-4">
+<div class="p-3 bg-primary/10 rounded-xl">
+<span class="material-symbols-outlined text-primary" data-icon="psychology">psychology</span>
+</div>
+<h2 class="text-xl font-bold text-on-surface">Research Depth</h2>
+</div>
+<div class="space-y-4">
+<label class="flex items-center p-4 bg-surface-container-low rounded-xl cursor-pointer hover:bg-surface-container-highest transition-colors group">
+<input class="w-4 h-4 text-primary bg-surface border-outline-variant focus:ring-primary/20" name="depth" type="radio"/>
+<div class="ml-4">
+<p class="font-bold text-on-surface group-hover:text-primary transition-colors">Concise</p>
+<p class="text-xs text-on-surface-variant">Focus on key facts and immediate answers.</p>
+</div>
+</label>
+<label class="flex items-center p-4 bg-surface-container-low border border-primary/30 rounded-xl cursor-pointer hover:bg-surface-container-highest transition-colors group">
+<input checked="" class="w-4 h-4 text-primary bg-surface border-outline-variant focus:ring-primary/20" name="depth" type="radio"/>
+<div class="ml-4">
+<p class="font-bold text-primary">Balanced</p>
+<p class="text-xs text-on-surface-variant">A harmonious blend of brevity and detail.</p>
+</div>
+</label>
+<label class="flex items-center p-4 bg-surface-container-low rounded-xl cursor-pointer hover:bg-surface-container-highest transition-colors group">
+<input class="w-4 h-4 text-primary bg-surface border-outline-variant focus:ring-primary/20" name="depth" type="radio"/>
+<div class="ml-4">
+<p class="font-bold text-on-surface group-hover:text-primary transition-colors">Detailed</p>
+<p class="text-xs text-on-surface-variant">Comprehensive analysis with deep context.</p>
+</div>
+</label>
+</div>
+</div>
+<div class="bg-surface-container rounded-2xl p-8 flex flex-col justify-center space-y-6">
+<h2 class="text-xl font-bold text-on-surface">Default Citation Style</h2>
+<p class="text-on-surface-variant text-sm">Set the standard formatting for all AI-generated research bibliographies.</p>
+<div class="relative">
+<select class="w-full bg-surface-container-low border-none rounded-xl px-4 py-4 focus:ring-2 focus:ring-primary/40 text-on-surface appearance-none">
+<option>APA (American Psychological Association)</option>
+<option selected="">MLA (Modern Language Association)</option>
+<option>IEEE (Institute of Electrical and Electronics Engineers)</option>
+<option>Chicago Manual of Style</option>
+</select>
+<div class="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="unfold_more">unfold_more</span>
+</div>
+</div>
+</div>
+</section>
+<!-- API Keys -->
+<section class="space-y-6" id="api">
+<div class="flex justify-between items-center">
+<h2 class="text-2xl font-bold text-on-surface">API Keys</h2>
+<button class="bg-surface-container-highest hover:bg-surface-bright text-on-surface px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2 transition-all">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+                        Add New Key
+                    </button>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-6 bg-surface-container-low rounded-2xl">
+<div class="flex items-center gap-6">
+<div class="space-y-1">
+<p class="text-sm font-semibold text-on-surface">Production_Main</p>
+<p class="font-mono text-xs text-on-surface-variant opacity-60">vm_live_••••••••••••••••3a9b</p>
+</div>
+</div>
+<div class="flex items-center gap-8">
+<span class="bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-bold font-mono tracking-wider">ACTIVE</span>
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="content_copy">content_copy</span>
+</button>
+<button class="p-2 text-error/60 hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="delete">delete</span>
+</button>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between p-6 bg-surface-container-low rounded-2xl opacity-60">
+<div class="flex items-center gap-6">
+<div class="space-y-1">
+<p class="text-sm font-semibold text-on-surface">Staging_Testing</p>
+<p class="font-mono text-xs text-on-surface-variant opacity-60">vm_test_••••••••••••••••92f1</p>
+</div>
+</div>
+<div class="flex items-center gap-8">
+<span class="bg-outline-variant/20 text-on-surface-variant px-3 py-1 rounded-full text-[10px] font-bold font-mono tracking-wider">REVOKED</span>
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="content_copy">content_copy</span>
+</button>
+<button class="p-2 text-error/60 hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="delete">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- Floating Action Bar -->
+<div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
+<div class="glass-panel px-8 py-4 rounded-[12px] shadow-2xl flex items-center gap-6 ring-1 ring-white/10">
+<p class="text-sm text-on-surface-variant font-medium mr-4">You have unsaved changes</p>
+<button class="text-on-surface-variant hover:text-on-surface font-semibold text-sm transition-colors px-4 py-2">Discard</button>
+<button class="bg-[#3B82F6] hover:bg-[#2563EB] text-white px-8 py-3 rounded-[8px] font-bold text-sm shadow-xl shadow-blue-500/20 active:scale-95 transition-all">Save Changes</button>
+</div>
+</div>
+</body></html>

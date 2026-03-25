@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Login | VidMind AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-bright": "#323949",
+              "outline": "#8C909F",
+              "inverse-surface": "#DCE2F7",
+              "secondary-fixed-dim": "#D0BCFF",
+              "secondary": "#D0BCFF",
+              "surface-tint": "#ADC6FF",
+              "on-background": "#DCE2F7",
+              "surface-variant": "#2E3545",
+              "inverse-on-surface": "#293040",
+              "on-secondary-fixed": "#23005C",
+              "secondary-fixed": "#E9DDFF",
+              "primary": "#ADC6FF",
+              "surface-container-highest": "#2E3545",
+              "primary-container": "#4D8EFF",
+              "on-primary-fixed-variant": "#004395",
+              "on-surface-variant": "#C2C6D6",
+              "on-surface": "#DCE2F7",
+              "on-primary-fixed": "#001A42",
+              "on-error-container": "#FFDAD6",
+              "on-error": "#690005",
+              "on-primary-container": "#00285D",
+              "surface-container-lowest": "#070E1D",
+              "surface-container-low": "#141B2B",
+              "on-tertiary-fixed": "#311400",
+              "primary-fixed": "#D8E2FF",
+              "background": "#0C1322",
+              "surface-dim": "#0C1322",
+              "on-secondary-container": "#C4ABFF",
+              "on-tertiary-container": "#461F00",
+              "tertiary-fixed": "#FFDCC6",
+              "outline-variant": "#424754",
+              "on-secondary": "#3C0091",
+              "inverse-primary": "#005AC2",
+              "on-primary": "#002E6A",
+              "surface-container-high": "#232A3A",
+              "surface": "#0C1322",
+              "primary-fixed-dim": "#ADC6FF",
+              "tertiary-container": "#DF7412",
+              "tertiary": "#FFB786",
+              "on-tertiary-fixed-variant": "#723600",
+              "on-tertiary": "#502400",
+              "surface-container": "#191F2F",
+              "on-secondary-fixed-variant": "#5516BE",
+              "error": "#FFB4AB",
+              "tertiary-fixed-dim": "#FFB786",
+              "secondary-container": "#571BC1",
+              "error-container": "#93000A"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Space Grotesk"],
+              "mono": ["JetBrains Mono"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(20, 27, 43, 0.6);
+            backdrop-filter: blur(20px);
+        }
+        .neural-gradient {
+            background: linear-gradient(135deg, #ADC6FF 0%, #D0BCFF 100%);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body antialiased min-h-screen flex flex-col">
+<!-- TopNavBar (Shared Component) -->
+<!-- Rule: Navigation Shell suppressed on focus/transactional pages? The prompt specifically requested it for navigation back, so we render it but keep focus high. -->
+<nav class="w-full top-0 sticky z-50 bg-[#0C1322] shadow-none">
+<div class="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto font-['Inter'] antialiased">
+<div class="flex items-center gap-8">
+<a class="text-xl font-bold tracking-tight text-white flex items-center gap-2" href="/">
+<span class="neural-gradient w-8 h-8 rounded-lg flex items-center justify-center text-on-primary-container text-sm">V</span>
+                    VidMind AI
+                </a>
+<div class="hidden md:flex gap-6">
+<a class="text-slate-400 hover:text-blue-300 transition-colors" href="#">Features</a>
+<a class="text-slate-400 hover:text-blue-300 transition-colors" href="#">Pricing</a>
+<a class="text-slate-400 hover:text-blue-300 transition-colors" href="#">About</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:text-white transition-colors text-sm font-medium">Login</button>
+<button class="bg-primary text-on-primary-container px-4 py-2 rounded-lg text-sm font-bold scale-95 duration-200 hover:opacity-90">Sign Up</button>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex items-center justify-center px-4 py-12 relative overflow-hidden">
+<!-- Background Accents (Insight Glows) -->
+<div class="absolute top-1/4 -left-20 w-96 h-96 bg-primary/10 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-1/4 -right-20 w-96 h-96 bg-secondary/10 rounded-full blur-[120px]"></div>
+<div class="w-full max-w-[440px] z-10">
+<!-- Auth Container Card -->
+<div class="bg-surface-container-high rounded-xl overflow-hidden shadow-2xl transition-all duration-300">
+<!-- Tabs Section -->
+<div class="flex border-b border-outline-variant/20">
+<button class="flex-1 py-4 text-sm font-bold tracking-tight text-primary border-b-2 border-primary bg-surface-container-highest/50">
+                        Login
+                    </button>
+<button class="flex-1 py-4 text-sm font-medium tracking-tight text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/30 transition-all">
+                        Register
+                    </button>
+</div>
+<div class="p-8">
+<!-- Login Form -->
+<form class="space-y-6">
+<div class="space-y-4">
+<!-- Email Field -->
+<div class="space-y-2">
+<label class="block text-xs font-medium font-label uppercase tracking-widest text-outline">Email Address</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">mail</span>
+<input class="w-full bg-surface-container-low border-none rounded-lg py-3 pl-10 pr-4 text-on-surface placeholder:text-outline/50 focus:ring-1 focus:ring-primary focus:bg-surface-container-high transition-all outline-none" placeholder="name@company.com" type="email"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-2">
+<div class="flex justify-between items-center">
+<label class="block text-xs font-medium font-label uppercase tracking-widest text-outline">Password</label>
+<a class="text-xs text-primary hover:text-primary-container font-medium transition-colors" href="#">Forgot Password?</a>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">lock</span>
+<input class="w-full bg-surface-container-low border-none rounded-lg py-3 pl-10 pr-4 text-on-surface placeholder:text-outline/50 focus:ring-1 focus:ring-primary focus:bg-surface-container-high transition-all outline-none" placeholder="••••••••" type="password"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Login Button (Primary Action) -->
+<button class="w-full neural-gradient py-3.5 rounded-lg text-on-primary-container font-bold text-sm tracking-tight shadow-lg shadow-primary/10 hover:shadow-primary/20 hover:scale-[1.01] active:scale-[0.98] transition-all" type="submit">
+                            Login to Dashboard
+                        </button>
+<!-- Divider -->
+<div class="relative flex items-center py-2">
+<div class="flex-grow border-t border-outline-variant/20"></div>
+<span class="flex-shrink mx-4 text-[10px] font-bold font-label uppercase tracking-[0.2em] text-outline/60">Or continue with</span>
+<div class="flex-grow border-t border-outline-variant/20"></div>
+</div>
+<!-- Social Auth Buttons -->
+<div class="grid grid-cols-3 gap-3">
+<button class="flex items-center justify-center bg-surface-container-low hover:bg-surface-container-highest transition-colors py-3 rounded-lg border border-outline-variant/10" type="button">
+<img alt="Google" class="w-5 h-5 grayscale opacity-80 hover:grayscale-0 hover:opacity-100 transition-all" data-alt="Google logo icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfM5zCD1HgJaaEryBGVtQ9YzlRoQO7x5SHDH0HlIyeKNM-C_rmezoEmXDvTNma7Q6AF2y7jpJ30eEGhrDMEUgij1x6XiAovD80FrrsyusTLyMP96QO1QgKNMOGq0CLMx6vmin0UoxRAyE97JNSvt5LoK4rOqTPeCtfp5L4vEsrN--30VfZVBWO8zbHiT3rEfENs29hshACu_3HIDnlUl5uHog9PWmp6zUJpIJDoTyR4b1SgsW8WOkz6gh77rq_XjdyWICJNW-jIEI"/>
+</button>
+<button class="flex items-center justify-center bg-surface-container-low hover:bg-surface-container-highest transition-colors py-3 rounded-lg border border-outline-variant/10" type="button">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">ios</span>
+</button>
+<button class="flex items-center justify-center bg-surface-container-low hover:bg-surface-container-highest transition-colors py-3 rounded-lg border border-outline-variant/10" type="button">
+<span class="material-symbols-outlined text-xl text-[#1877F2]" style="font-variation-settings: 'FILL' 1;">social_leaderboard</span>
+</button>
+</div>
+</form>
+</div>
+</div>
+<!-- Trust/Metadata Section -->
+<div class="mt-12 flex flex-col items-center gap-6">
+<p class="text-outline text-xs text-center max-w-[280px] leading-relaxed">
+                    Access VidMind’s advanced neural processing engine and editorial video analytics.
+                </p>
+<div class="flex items-center gap-4">
+<div class="flex -space-x-2">
+<img alt="User" class="w-8 h-8 rounded-full border-2 border-background" data-alt="Portrait of a male professional" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAXnTg6PTlb1jMWiQRAgGIp0uIjNSuplwedAA0H6dHzZF9icoely7QVU53DJwJhnmO-QsikFQp3GWqEHUr2169bDOlG6bCFw5PirgXdWFnKPIjw_X15_gX-FTEPZ1p5HQ-VgfVQoLN2C-5xrsa-gXRCE230t6sjg2sMwtZRM7ZD2wWDq13XJdprUOI41tPW-2Lw7FNMI0914r8cWHnClrWbz5M_uO3t272tOQ2h1Vl4GJ9bD8tgde39uG7fZVvJx_4K8U0k8UDCf30"/>
+<img alt="User" class="w-8 h-8 rounded-full border-2 border-background" data-alt="Portrait of a female researcher" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMnnLwTZJIbXSOVF7BbhCIA0HlSjCT6WHt6AOapNfzLFMhSdm1PGxomWYX8Q5FuUGFuEWKs2H6S-oaosQJQ09j6iWQvJeXkkyV48XO5FIvy2dtgjj3hIrd1vUeSWWTtTfK26lxV2mSs3LQIFJh7dhdtLcf4BxNt5ztTpdz3XRIGj2zgbM_BFT-X44ZLIyWTRKdJoE69iUzh4OImWk2WzzaEPnUakjfRTlr_U9SMCmgnkXuwEyge3JIjNLeDSxzIXDqEiBPC0qnG-M"/>
+<div class="w-8 h-8 rounded-full border-2 border-background bg-surface-container-high flex items-center justify-center text-[10px] font-bold text-primary">+12k</div>
+</div>
+<span class="text-[10px] font-label uppercase tracking-widest text-outline">Researchers Worldwide</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer (Shared Component) -->
+<footer class="w-full border-t border-slate-800/50 bg-[#0C1322] mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center px-8 py-12 w-full max-w-7xl mx-auto font-['Inter'] text-sm">
+<div class="flex flex-col gap-2 mb-8 md:mb-0 items-center md:items-start">
+<div class="text-lg font-bold text-white tracking-tight">VidMind AI</div>
+<div class="text-slate-500">© 2024 VidMind AI. Neural Lens Research.</div>
+</div>
+<div class="flex gap-8">
+<a class="text-slate-500 hover:text-white transition-colors" href="#">Privacy Policy</a>
+<a class="text-slate-500 hover:text-white transition-colors" href="#">Terms of Service</a>
+<a class="text-slate-500 hover:text-white transition-colors" href="#">Contact</a>
+</div>
+</div>
+</footer>
+</body></html>

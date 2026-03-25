@@ -1,0 +1,59 @@
+{
+  "projectId": "8594475461849068938",
+  "screens": {
+    "index": {
+      "id": "551d08e5c8e44ca6be72df37b4f5351a",
+      "sourceScreen": "projects/8594475461849068938/screens/551d08e5c8e44ca6be72df37b4f5351a",
+      "width": 1280,
+      "height": 4545
+    },
+    "auth": {
+      "id": "5e48d3dbf5e24c25a07c3905e3f1737e",
+      "sourceScreen": "projects/8594475461849068938/screens/5e48d3dbf5e24c25a07c3905e3f1737e",
+      "width": 1280,
+      "height": 2048
+    },
+    "dashboard": {
+      "id": "ba9d3c5286954a7da469493c834a7428",
+      "sourceScreen": "projects/8594475461849068938/screens/ba9d3c5286954a7da469493c834a7428",
+      "width": 1280,
+      "height": 2420
+    },
+    "search": {
+      "id": "ac9227f6aba24fd995cebce9545ca828",
+      "sourceScreen": "projects/8594475461849068938/screens/ac9227f6aba24fd995cebce9545ca828",
+      "width": 1280,
+      "height": 2334
+    },
+    "workspace": {
+      "id": "ae1380654e274db5b0a7813604801257",
+      "sourceScreen": "projects/8594475461849068938/screens/ae1380654e274db5b0a7813604801257",
+      "width": 1280,
+      "height": 2048
+    },
+    "chat": {
+      "id": "27678489d203452f95c0c93ef9ba42e7",
+      "sourceScreen": "projects/8594475461849068938/screens/27678489d203452f95c0c93ef9ba42e7",
+      "width": 1280,
+      "height": 2334
+    },
+    "research": {
+      "id": "0164aaae29644f829a4be7135625277c",
+      "sourceScreen": "projects/8594475461849068938/screens/0164aaae29644f829a4be7135625277c",
+      "width": 2560,
+      "height": 6960
+    },
+    "subscription": {
+      "id": "ff0c6696b6294a0593a19dfc37d571e0",
+      "sourceScreen": "projects/8594475461849068938/screens/ff0c6696b6294a0593a19dfc37d571e0",
+      "width": 1280,
+      "height": 2048
+    },
+    "settings": {
+      "id": "463f962eb85543ddb7036b777d12f8a1",
+      "sourceScreen": "projects/8594475461849068938/screens/463f962eb85543ddb7036b777d12f8a1",
+      "width": 1280,
+      "height": 2560
+    }
+  }
+}
