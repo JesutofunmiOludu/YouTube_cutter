@@ -1,12 +1,13 @@
 import React from 'react';
-import { Card, CardContent } from '../ui/Card';
-import { Badge } from '../ui/Badge';
+import Card from '../ui/Card';
+import Badge from '../ui/Badge';
+import type { SourceType } from '../../types';
 
 export interface SourceCardProps {
   title: string;
   url: string;
-  sourceType: 'article' | 'paper' | 'website' | 'video';
-  excerpt?: string;
+  sourceType: SourceType;
+  excerpt?: string | null;
   relevanceRank: number;
 }
 
@@ -18,11 +19,11 @@ export const SourceCard: React.FC<SourceCardProps> = ({
   relevanceRank,
 }) => {
   return (
-    <Card className="mb-4 hover:border-blue-500/50 transition-colors">
-      <CardContent className="p-4">
+    <Card className="mb-4 hover:border-primary-400 transition-colors">
+      <div className="p-4">
         <div className="flex justify-between items-start mb-2">
           <div className="flex gap-2 items-center">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold font-mono">
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[color:var(--color-info-50)] text-[color:var(--color-info-text)] text-caption font-medium font-mono">
               {relevanceRank}
             </div>
             <Badge variant="info" className="capitalize px-2 h-6 flex items-center">{sourceType}</Badge>
@@ -31,7 +32,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({
             href={url} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-gray-400 hover:text-blue-400 transition-colors"
+            className="text-[color:var(--color-text-tertiary)] hover:text-primary-600 transition-colors focus-ring rounded-sm"
             title="Open Source"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -40,22 +41,22 @@ export const SourceCard: React.FC<SourceCardProps> = ({
           </a>
         </div>
         
-        <h4 className="text-gray-50 font-medium mb-2 leading-tight pr-8">
+        <h4 className="text-heading-sm text-[color:var(--color-text-primary)] m-0 mb-2 leading-tight pr-8">
           {title}
         </h4>
         
         {excerpt && (
-          <p className="text-sm text-gray-400 border-l-2 border-gray-700 pl-3 italic">
+          <p className="text-body-sm text-[color:var(--color-text-secondary)] border-l-2 border-[color:var(--color-border-tertiary)] pl-3 italic m-0">
             "{excerpt}"
           </p>
         )}
         
         <div className="mt-3 truncate">
-          <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-caption text-primary-600 hover:underline">
             {url}
           </a>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 };

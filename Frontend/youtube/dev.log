@@ -1,0 +1,20 @@
+
+> youtube@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.3 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.138:3000
+✓ Ready in 2.4s
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\Laughter Oludu\Documents\GitHub\YouTube_cutter\frontend\package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * C:\Users\Laughter Oludu\Documents\GitHub\YouTube_cutter\frontend\youtube\package-lock.json
+
+⚠ Turbopack's filesystem cache has been deleted because we previously detected an internal error in Turbopack. Builds or page loads may be slower as a result.
+
+○ Compiling / ...
+ GET / 200 in 19.7s (next.js: 19.4s, application-code: 375ms)
+ GET / 200 in 450ms (next.js: 169ms, application-code: 282ms)

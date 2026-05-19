@@ -87,7 +87,7 @@
 ## 5. High-Level Technical Stack Recommendations
 
 ### Frontend (Web)
-- **Framework:** React.js (Vite) — Fast, lightweight, excellent developer experience
+- **Framework:** React + TypeScript — Fast, strongly typed, excellent developer experience
 - **Styling:** Tailwind CSS — Rapid, consistent UI development
 - **State Management:** React Query (server state) + Zustand (client state)
 - **HTTP Client:** Axios — For communicating with Django REST API

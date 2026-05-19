@@ -1,0 +1,102 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "VidMind AI" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e7]
+        - text: VidMind AI
+      - link "Sign up free" [ref=e12] [cursor=pointer]:
+        - /url: /register
+  - main [ref=e13]:
+    - region "Hero" [ref=e14]:
+      - generic [ref=e15]:
+        - img [ref=e16]
+        - text: AI-powered video learning
+      - heading "Stop watching. Start understanding." [level=1] [ref=e18]
+      - paragraph [ref=e19]: Paste any YouTube link or search a topic. AI slices it into chapters, transcribes it, and builds a cited research report — in seconds.
+      - search [ref=e20]:
+        - generic [ref=e21]:
+          - img [ref=e22]
+          - textbox "Search or paste YouTube link" [ref=e25]:
+            - /placeholder: Search a topic or paste a YouTube link…
+          - button "Search" [disabled] [ref=e26]:
+            - generic [ref=e27]: Search
+            - img [ref=e29]
+        - paragraph [ref=e31]: Try "learn React hooks" or paste any YouTube URL
+      - paragraph [ref=e32]:
+        - text: No sign-up needed to preview ·
+        - link "Free forever plan available" [ref=e33] [cursor=pointer]:
+          - /url: /register
+    - generic [ref=e35]:
+      - generic [ref=e36]:
+        - generic [ref=e37]: 4 hr+
+        - generic [ref=e38]: Average video saved
+      - generic [ref=e39]:
+        - generic [ref=e40]: 10×
+        - generic [ref=e41]: Faster to key insights
+      - generic [ref=e42]:
+        - generic [ref=e43]: Free
+        - generic [ref=e44]: To get started
+    - region "Features" [ref=e45]:
+      - generic [ref=e46]:
+        - heading "Everything you need to learn faster" [level=2] [ref=e47]
+        - paragraph [ref=e48]: VidMind AI combines video processing, transcription, AI research, and chat — all in one place.
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - img [ref=e52]
+          - heading "AI video cutting" [level=3] [ref=e58]
+          - paragraph [ref=e59]: AI suggests the best points to split long videos into chapters — approve in one click.
+        - generic [ref=e60]:
+          - img [ref=e62]
+          - heading "Transcription" [level=3] [ref=e65]
+          - paragraph [ref=e66]: Every word timestamped and searchable. Click any line to jump to that moment.
+        - generic [ref=e67]:
+          - img [ref=e69]
+          - heading "Deep research" [level=3] [ref=e72]
+          - paragraph [ref=e73]: AI reads the web and returns a fully cited research report on the video's topic.
+        - generic [ref=e74]:
+          - img [ref=e76]
+          - heading "Chat with video" [level=3] [ref=e78]
+          - paragraph [ref=e79]: Ask questions. Get answers grounded in the video. Compare multiple videos at once.
+        - generic [ref=e80]:
+          - img [ref=e82]
+          - heading "Batch download" [level=3] [ref=e85]
+          - paragraph [ref=e86]: Download all your cuts in one click. Premium users keep files on our servers.
+        - generic [ref=e87]:
+          - img [ref=e89]
+          - heading "Save hours" [level=3] [ref=e92]
+          - paragraph [ref=e93]: Stop scrubbing through 4-hour tutorials. Let AI find the parts that matter.
+    - region "How it works" [ref=e94]:
+      - heading "How it works" [level=2] [ref=e95]
+      - generic [ref=e96]:
+        - generic [ref=e97]:
+          - generic [ref=e98]: "1"
+          - heading "Paste a link or search" [level=3] [ref=e99]
+          - paragraph [ref=e100]: Drop any YouTube URL or type a topic to find relevant videos instantly.
+        - generic [ref=e101]:
+          - generic [ref=e102]: "2"
+          - heading "AI processes the video" [level=3] [ref=e103]
+          - paragraph [ref=e104]: We transcribe, analyse, and suggest the best cut points automatically.
+        - generic [ref=e105]:
+          - generic [ref=e106]: "3"
+          - heading "Learn at your own pace" [level=3] [ref=e107]
+          - paragraph [ref=e108]: Watch by chapter, chat with the video, or run a full deep research report.
+    - generic [ref=e110]:
+      - heading "Stop watching. Start understanding." [level=2] [ref=e111]
+      - paragraph [ref=e112]: Join thousands of students and researchers who use VidMind AI to learn smarter.
+      - link "Get started for free" [ref=e113] [cursor=pointer]:
+        - /url: /register
+      - paragraph [ref=e114]: No credit card required
+  - contentinfo [ref=e115]:
+    - generic [ref=e116]:
+      - generic [ref=e117]:
+        - img [ref=e118]
+        - text: VidMind AI
+      - paragraph [ref=e122]: © 2026 VidMind AI. All rights reserved.
+      - generic [ref=e123]:
+        - link "Privacy" [ref=e124] [cursor=pointer]:
+          - /url: /privacy
+        - link "Terms" [ref=e125] [cursor=pointer]:
+          - /url: /terms
+        - link "Contact" [ref=e126] [cursor=pointer]:
+          - /url: /contact

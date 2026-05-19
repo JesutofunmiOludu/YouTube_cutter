@@ -1,0 +1,324 @@
+/* ============================================================
+   VidMind AI — Design Tokens
+   variables.css
+   Single source of truth for all design values.
+   Import this FIRST in index.css before anything else.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+
+  /* ----------------------------------------------------------
+     TYPOGRAPHY
+  ---------------------------------------------------------- */
+  --font-sans:  'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-mono:  'JetBrains Mono', 'Courier New', monospace;
+
+  /* Type scale */
+  --text-display-lg-size:   36px;
+  --text-display-lg-weight: 500;
+  --text-display-lg-lh:     1.2;
+  --text-display-lg-ls:     -0.02em;
+
+  --text-display-md-size:   28px;
+  --text-display-md-weight: 500;
+  --text-display-md-lh:     1.25;
+  --text-display-md-ls:     -0.015em;
+
+  --text-heading-xl-size:   22px;
+  --text-heading-xl-weight: 500;
+  --text-heading-xl-lh:     1.3;
+  --text-heading-xl-ls:     -0.01em;
+
+  --text-heading-lg-size:   18px;
+  --text-heading-lg-weight: 500;
+  --text-heading-lg-lh:     1.35;
+  --text-heading-lg-ls:     -0.005em;
+
+  --text-heading-md-size:   16px;
+  --text-heading-md-weight: 500;
+  --text-heading-md-lh:     1.4;
+  --text-heading-md-ls:     0em;
+
+  --text-heading-sm-size:   14px;
+  --text-heading-sm-weight: 500;
+  --text-heading-sm-lh:     1.4;
+  --text-heading-sm-ls:     0em;
+
+  --text-body-lg-size:      16px;
+  --text-body-lg-weight:    400;
+  --text-body-lg-lh:        1.7;
+  --text-body-lg-ls:        0em;
+
+  --text-body-md-size:      14px;
+  --text-body-md-weight:    400;
+  --text-body-md-lh:        1.6;
+  --text-body-md-ls:        0em;
+
+  --text-body-sm-size:      13px;
+  --text-body-sm-weight:    400;
+  --text-body-sm-lh:        1.55;
+  --text-body-sm-ls:        0em;
+
+  --text-caption-size:      12px;
+  --text-caption-weight:    400;
+  --text-caption-lh:        1.5;
+  --text-caption-ls:        0.01em;
+
+  --text-label-size:        11px;
+  --text-label-weight:      500;
+  --text-label-lh:          1.4;
+  --text-label-ls:          0.04em;
+
+  --text-code-size:         13px;
+  --text-code-weight:       400;
+  --text-code-lh:           1.6;
+  --text-code-ls:           0em;
+
+  /* ----------------------------------------------------------
+     COLOUR — PRIMARY BLUE
+  ---------------------------------------------------------- */
+  --color-primary-50:  #E6F1FB;
+  --color-primary-100: #B5D4F4;
+  --color-primary-200: #85B7EB;
+  --color-primary-400: #378ADD;
+  --color-primary-600: #185FA5;
+  --color-primary-800: #0C447C;
+  --color-primary-900: #042C53;
+
+  /* ----------------------------------------------------------
+     COLOUR — NEUTRAL GREY
+  ---------------------------------------------------------- */
+  --color-neutral-50:  #F1EFE8;
+  --color-neutral-100: #D3D1C7;
+  --color-neutral-200: #B4B2A9;
+  --color-neutral-400: #888780;
+  --color-neutral-600: #5F5E5A;
+  --color-neutral-800: #444441;
+  --color-neutral-900: #2C2C2A;
+
+  /* ----------------------------------------------------------
+     COLOUR — SEMANTIC: SUCCESS
+  ---------------------------------------------------------- */
+  --color-success-50:     #EAF3DE;
+  --color-success-200:    #97C459;
+  --color-success-600:    #3B6D11;
+  --color-success-text:   #27500A;
+  --color-success-border: #97C459;
+  --color-success-bg:     #EAF3DE;
+
+  /* ----------------------------------------------------------
+     COLOUR — SEMANTIC: WARNING
+  ---------------------------------------------------------- */
+  --color-warning-50:     #FAEEDA;
+  --color-warning-200:    #EF9F27;
+  --color-warning-600:    #854F0B;
+  --color-warning-text:   #633806;
+  --color-warning-border: #EF9F27;
+  --color-warning-bg:     #FAEEDA;
+
+  /* ----------------------------------------------------------
+     COLOUR — SEMANTIC: DANGER
+  ---------------------------------------------------------- */
+  --color-danger-50:     #FCEBEB;
+  --color-danger-200:    #F09595;
+  --color-danger-600:    #A32D2D;
+  --color-danger-text:   #791F1F;
+  --color-danger-border: #F09595;
+  --color-danger-bg:     #FCEBEB;
+
+  /* ----------------------------------------------------------
+     COLOUR — SEMANTIC: INFO (blue alias)
+  ---------------------------------------------------------- */
+  --color-info-50:     #E6F1FB;
+  --color-info-200:    #85B7EB;
+  --color-info-600:    #185FA5;
+  --color-info-text:   #0C447C;
+  --color-info-border: #85B7EB;
+  --color-info-bg:     #E6F1FB;
+
+  /* ----------------------------------------------------------
+     COLOUR — SEMANTIC: PREMIUM (purple)
+  ---------------------------------------------------------- */
+  --color-premium-50:     #EEEDFE;
+  --color-premium-200:    #AFA9EC;
+  --color-premium-600:    #534AB7;
+  --color-premium-text:   #3C3489;
+  --color-premium-border: #AFA9EC;
+  --color-premium-bg:     #EEEDFE;
+
+  /* ----------------------------------------------------------
+     COLOUR — SURFACES (light mode)
+  ---------------------------------------------------------- */
+  --color-bg-primary:   #FFFFFF;
+  --color-bg-secondary: #F8F7F4;
+  --color-bg-tertiary:  #F1EFE8;
+
+  /* ----------------------------------------------------------
+     COLOUR — TEXT (light mode)
+  ---------------------------------------------------------- */
+  --color-text-primary:   #2C2C2A;
+  --color-text-secondary: #5F5E5A;
+  --color-text-tertiary:  #888780;
+  --color-text-disabled:  #B4B2A9;
+  --color-text-inverse:   #FFFFFF;
+  --color-text-link:      #185FA5;
+
+  /* ----------------------------------------------------------
+     COLOUR — BORDERS (light mode)
+  ---------------------------------------------------------- */
+  --color-border-tertiary:  rgba(0, 0, 0, 0.10);
+  --color-border-secondary: rgba(0, 0, 0, 0.20);
+  --color-border-primary:   rgba(0, 0, 0, 0.35);
+  --color-border-focus:     rgba(55, 138, 221, 0.50);
+
+  /* ----------------------------------------------------------
+     SPACING  (4px base unit)
+  ---------------------------------------------------------- */
+  --space-0:  0px;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* ----------------------------------------------------------
+     BORDER RADIUS
+  ---------------------------------------------------------- */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-2xl:  20px;
+  --radius-full: 9999px;
+
+  /* ----------------------------------------------------------
+     BORDERS
+  ---------------------------------------------------------- */
+  --border-thin:     0.5px solid var(--color-border-tertiary);
+  --border-default:  0.5px solid var(--color-border-secondary);
+  --border-emphasis: 0.5px solid var(--color-border-primary);
+  --border-focus:    0 0 0 3px rgba(55, 138, 221, 0.20);
+  --border-featured: 2px solid var(--color-primary-200);
+
+  /* ----------------------------------------------------------
+     SHADOWS (flat-first, functional only)
+  ---------------------------------------------------------- */
+  --shadow-none: none;
+  --shadow-focus: 0 0 0 3px rgba(55, 138, 221, 0.20);
+
+  /* ----------------------------------------------------------
+     TRANSITIONS
+  ---------------------------------------------------------- */
+  --transition-fast:    100ms ease-out;
+  --transition-base:    200ms ease-out;
+  --transition-slow:    300ms ease-out;
+  --transition-spring:  250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ----------------------------------------------------------
+     LAYOUT
+  ---------------------------------------------------------- */
+  --sidebar-width:        200px;
+  --sidebar-collapsed:    56px;
+  --topbar-height:        52px;
+  --bottom-nav-height:    56px;
+  --right-panel-width:    260px;
+  --content-max-width:    1200px;
+  --text-max-width:       680px;
+  --narrow-max-width:     420px;
+
+  /* ----------------------------------------------------------
+     Z-INDEX SCALE
+  ---------------------------------------------------------- */
+  --z-below:    -1;
+  --z-base:      0;
+  --z-raised:    10;
+  --z-dropdown:  100;
+  --z-sticky:    200;
+  --z-overlay:   300;
+  --z-modal:     400;
+  --z-toast:     500;
+  --z-tooltip:   600;
+}
+
+
+/* ============================================================
+   DARK MODE OVERRIDES
+   All token overrides for dark mode — no component-level
+   colour changes needed if you always use tokens.
+   ============================================================ */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Surfaces */
+    --color-bg-primary:   #1C1C1A;
+    --color-bg-secondary: #252523;
+    --color-bg-tertiary:  #141412;
+
+    /* Text */
+    --color-text-primary:   #E8E6DC;
+    --color-text-secondary: #A8A69C;
+    --color-text-tertiary:  #6E6C64;
+    --color-text-disabled:  #5F5E5A;
+    --color-text-inverse:   #1C1C1A;
+    --color-text-link:      #378ADD;
+
+    /* Borders */
+    --color-border-tertiary:  rgba(255, 255, 255, 0.08);
+    --color-border-secondary: rgba(255, 255, 255, 0.15);
+    --color-border-primary:   rgba(255, 255, 255, 0.25);
+    --color-border-focus:     rgba(55, 138, 221, 0.45);
+
+    /* Primary blue shifts to be readable on dark */
+    --color-primary-50:  #0C2340;
+    --color-primary-100: #102E54;
+    --color-primary-600: #378ADD;
+    --color-primary-800: #B5D4F4;
+
+    /* Semantic overrides — keep readable on dark surfaces */
+    --color-success-bg:     #1A2E0D;
+    --color-success-text:   #97C459;
+    --color-success-border: #3B6D11;
+
+    --color-warning-bg:     #2A1F06;
+    --color-warning-text:   #EF9F27;
+    --color-warning-border: #854F0B;
+
+    --color-danger-bg:      #2A0D0D;
+    --color-danger-text:    #F09595;
+    --color-danger-border:  #A32D2D;
+
+    --color-info-bg:        #0C2340;
+    --color-info-text:      #85B7EB;
+    --color-info-border:    #185FA5;
+
+    --color-premium-bg:     #1A1840;
+    --color-premium-text:   #AFA9EC;
+    --color-premium-border: #534AB7;
+  }
+}
+
+
+/* ============================================================
+   REDUCED MOTION
+   Respect OS accessibility setting — disable all animation.
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration:        0.01ms !important;
+    animation-iteration-count: 1      !important;
+    transition-duration:       0.01ms !important;
+    scroll-behavior:           auto   !important;
+  }
+}

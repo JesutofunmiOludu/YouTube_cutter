@@ -14,7 +14,9 @@
     "jsx": "react-jsx",
     "incremental": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/utils/*": ["./components/utils/*"],
+      "@components/*": ["./components/*"]
     }
   },
   "include": [

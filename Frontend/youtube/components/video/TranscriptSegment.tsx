@@ -1,9 +1,8 @@
 import React from 'react';
+import type { TranscriptSegment as TranscriptSegmentType } from '../../types';
 
 export interface TranscriptSegmentProps {
-  startSeconds: number;
-  endSeconds: number;
-  text: string;
+  segment: TranscriptSegmentType;
   isActive?: boolean;
   onClick?: (time: number) => void;
 }
@@ -15,32 +14,32 @@ const formatTime = (seconds: number) => {
 };
 
 export const TranscriptSegment: React.FC<TranscriptSegmentProps> = ({
-  startSeconds,
-  endSeconds,
-  text,
+  segment,
   isActive = false,
   onClick,
 }) => {
   return (
     <div 
-      className={`group flex gap-4 p-3 rounded-lg cursor-pointer transition-colors ${
+      className={`group flex gap-4 p-3 rounded-md cursor-pointer transition-colors ${
         isActive 
-          ? 'bg-blue-500/10 border border-blue-500/30' 
-          : 'hover:bg-gray-800 border border-transparent'
+          ? 'bg-[color:var(--color-info-bg)] border border-[color:var(--color-info-border)]' 
+          : 'hover:bg-surface-secondary border border-transparent'
       }`}
-      onClick={() => onClick?.(startSeconds)}
+      onClick={() => onClick?.(segment.start_seconds)}
     >
       <div className="shrink-0 w-16">
-        <span className={`text-xs font-mono px-1.5 py-0.5 rounded ${
-          isActive ? 'text-blue-400 bg-blue-500/20' : 'text-gray-500 group-hover:text-gray-300'
+        <span className={`text-code px-1.5 py-0.5 rounded-sm ${
+          isActive 
+            ? 'text-primary-600 bg-[color:var(--color-info-200)]' 
+            : 'text-[color:var(--color-text-tertiary)] group-hover:text-[color:var(--color-text-secondary)]'
         }`}>
-          {formatTime(startSeconds)}
+          {formatTime(segment.start_seconds)}
         </span>
       </div>
-      <p className={`text-sm leading-relaxed ${
-        isActive ? 'text-gray-50' : 'text-gray-300'
+      <p className={`text-body-sm m-0 ${
+        isActive ? 'text-[color:var(--color-text-primary)] font-medium' : 'text-[color:var(--color-text-secondary)]'
       }`}>
-        {text}
+        {segment.text}
       </p>
     </div>
   );

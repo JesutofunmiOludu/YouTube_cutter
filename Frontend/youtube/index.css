@@ -1,0 +1,554 @@
+/* ============================================================
+   VidMind AI — Global Styles
+   index.css
+   Import order matters:
+     1. variables.css  (tokens)
+     2. Tailwind base  (reset)
+     3. This file      (global overrides + utilities)
+   ============================================================ */
+
+@import './variables.css';
+@import "tailwindcss";
+
+
+/* ============================================================
+   BASE RESET & DOCUMENT
+   ============================================================ */
+
+@layer base {
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family:        var(--font-sans);
+    font-size:          var(--text-body-md-size);
+    font-weight:        var(--text-body-md-weight);
+    line-height:        var(--text-body-md-lh);
+    letter-spacing:     var(--text-body-md-ls);
+    color:              var(--color-text-primary);
+    background-color:   var(--color-bg-tertiary);
+    -webkit-font-smoothing:  antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering:     optimizeLegibility;
+  }
+
+  /* --- Headings ------------------------------------------- */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-sans);
+    font-weight: 500;
+    color:       var(--color-text-primary);
+    line-height: 1.3;
+  }
+
+  h1 {
+    font-size:      var(--text-display-md-size);
+    letter-spacing: var(--text-display-md-ls);
+  }
+
+  h2 {
+    font-size:      var(--text-heading-xl-size);
+    letter-spacing: var(--text-heading-xl-ls);
+  }
+
+  h3 {
+    font-size:      var(--text-heading-lg-size);
+    letter-spacing: var(--text-heading-lg-ls);
+  }
+
+  h4 {
+    font-size: var(--text-heading-md-size);
+  }
+
+  h5, h6 {
+    font-size: var(--text-heading-sm-size);
+  }
+
+  /* --- Paragraphs & prose --------------------------------- */
+  p {
+    margin: 0;
+    color: var(--color-text-primary);
+  }
+
+  /* --- Links ---------------------------------------------- */
+  a {
+    color:           var(--color-text-link);
+    text-decoration: none;
+    transition:      opacity var(--transition-fast);
+  }
+
+  a:hover {
+    opacity: 0.8;
+  }
+
+  a:focus-visible {
+    outline:       none;
+    border-radius: var(--radius-sm);
+    box-shadow:    var(--shadow-focus);
+  }
+
+  /* --- Images --------------------------------------------- */
+  img,
+  video,
+  svg {
+    display:   block;
+    max-width: 100%;
+  }
+
+  /* --- Buttons -------------------------------------------- */
+  button {
+    cursor:      pointer;
+    font-family: var(--font-sans);
+    font-size:   var(--text-body-md-size);
+    border:      none;
+    background:  transparent;
+    padding:     0;
+  }
+
+  /* --- Inputs & form elements ----------------------------- */
+  input,
+  textarea,
+  select {
+    font-family: var(--font-sans);
+    font-size:   var(--text-body-md-size);
+    color:       var(--color-text-primary);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-text-tertiary);
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+  }
+
+  /* --- Code ----------------------------------------------- */
+  code,
+  kbd,
+  pre,
+  samp {
+    font-family: var(--font-mono);
+    font-size:   var(--text-code-size);
+  }
+
+  code {
+    background:    var(--color-bg-secondary);
+    border:        0.5px solid var(--color-border-tertiary);
+    border-radius: var(--radius-sm);
+    padding:       1px 5px;
+    font-size:     0.9em;
+  }
+
+  pre {
+    background:    var(--color-bg-secondary);
+    border:        0.5px solid var(--color-border-tertiary);
+    border-radius: var(--radius-md);
+    padding:       var(--space-4);
+    overflow-x:    auto;
+  }
+
+  pre code {
+    background:    transparent;
+    border:        none;
+    padding:       0;
+    font-size:     var(--text-code-size);
+  }
+
+  /* --- Lists ---------------------------------------------- */
+  ul,
+  ol {
+    padding-left: var(--space-5);
+    margin:       0;
+  }
+
+  li {
+    line-height: var(--text-body-md-lh);
+  }
+
+  /* --- Horizontal rule ------------------------------------ */
+  hr {
+    border:           none;
+    border-top:       0.5px solid var(--color-border-tertiary);
+    margin:           var(--space-4) 0;
+  }
+
+  /* --- Tables --------------------------------------------- */
+  table {
+    border-collapse: collapse;
+    width:           100%;
+  }
+
+  th {
+    font-weight:   500;
+    text-align:    left;
+    font-size:     var(--text-body-sm-size);
+    color:         var(--color-text-secondary);
+    padding:       var(--space-2) var(--space-3);
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+  }
+
+  td {
+    font-size:     var(--text-body-sm-size);
+    color:         var(--color-text-primary);
+    padding:       var(--space-2) var(--space-3);
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+    vertical-align: middle;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  /* --- Focus visible (global) ----------------------------- */
+  :focus-visible {
+    outline:       none;
+    box-shadow:    var(--shadow-focus);
+    border-radius: var(--radius-md);
+  }
+
+  /* --- Selection ------------------------------------------ */
+  ::selection {
+    background: var(--color-primary-100);
+    color:      var(--color-primary-900);
+  }
+
+  /* --- Scrollbar ------------------------------------------ */
+  ::-webkit-scrollbar {
+    width:  6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background:    var(--color-neutral-200);
+    border-radius: var(--radius-full);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-neutral-400);
+  }
+}
+
+
+/* ============================================================
+   TYPOGRAPHY UTILITY CLASSES
+   Use these on HTML elements when Tailwind utilities
+   are not granular enough for the full token spec.
+   ============================================================ */
+
+@layer components {
+
+  .text-display-lg {
+    font-family:    var(--font-sans);
+    font-size:      var(--text-display-lg-size);
+    font-weight:    var(--text-display-lg-weight);
+    line-height:    var(--text-display-lg-lh);
+    letter-spacing: var(--text-display-lg-ls);
+  }
+
+  .text-display-md {
+    font-family:    var(--font-sans);
+    font-size:      var(--text-display-md-size);
+    font-weight:    var(--text-display-md-weight);
+    line-height:    var(--text-display-md-lh);
+    letter-spacing: var(--text-display-md-ls);
+  }
+
+  .text-heading-xl {
+    font-family:    var(--font-sans);
+    font-size:      var(--text-heading-xl-size);
+    font-weight:    var(--text-heading-xl-weight);
+    line-height:    var(--text-heading-xl-lh);
+    letter-spacing: var(--text-heading-xl-ls);
+  }
+
+  .text-heading-lg {
+    font-family:    var(--font-sans);
+    font-size:      var(--text-heading-lg-size);
+    font-weight:    var(--text-heading-lg-weight);
+    line-height:    var(--text-heading-lg-lh);
+    letter-spacing: var(--text-heading-lg-ls);
+  }
+
+  .text-heading-md {
+    font-family:    var(--font-sans);
+    font-size:      var(--text-heading-md-size);
+    font-weight:    var(--text-heading-md-weight);
+    line-height:    var(--text-heading-md-lh);
+    letter-spacing: var(--text-heading-md-ls);
+  }
+
+  .text-heading-sm {
+    font-family:    var(--font-sans);
+    font-size:      var(--text-heading-sm-size);
+    font-weight:    var(--text-heading-sm-weight);
+    line-height:    var(--text-heading-sm-lh);
+    letter-spacing: var(--text-heading-sm-ls);
+  }
+
+  .text-body-lg {
+    font-family:    var(--font-sans);
+    font-size:      var(--text-body-lg-size);
+    font-weight:    var(--text-body-lg-weight);
+    line-height:    var(--text-body-lg-lh);
+    letter-spacing: var(--text-body-lg-ls);
+  }
+
+  .text-body-md {
+    font-family:    var(--font-sans);
+    font-size:      var(--text-body-md-size);
+    font-weight:    var(--text-body-md-weight);
+    line-height:    var(--text-body-md-lh);
+    letter-spacing: var(--text-body-md-ls);
+  }
+
+  .text-body-sm {
+    font-family:    var(--font-sans);
+    font-size:      var(--text-body-sm-size);
+    font-weight:    var(--text-body-sm-weight);
+    line-height:    var(--text-body-sm-lh);
+    letter-spacing: var(--text-body-sm-ls);
+  }
+
+  .text-caption {
+    font-family:    var(--font-sans);
+    font-size:      var(--text-caption-size);
+    font-weight:    var(--text-caption-weight);
+    line-height:    var(--text-caption-lh);
+    letter-spacing: var(--text-caption-ls);
+  }
+
+  .text-label {
+    font-family:    var(--font-sans);
+    font-size:      var(--text-label-size);
+    font-weight:    var(--text-label-weight);
+    line-height:    var(--text-label-lh);
+    letter-spacing: var(--text-label-ls);
+    text-transform: uppercase;
+  }
+
+  .text-code {
+    font-family:    var(--font-mono);
+    font-size:      var(--text-code-size);
+    font-weight:    var(--text-code-weight);
+    line-height:    var(--text-code-lh);
+    letter-spacing: var(--text-code-ls);
+  }
+
+
+  /* ----------------------------------------------------------
+     SURFACE / CARD UTILITIES
+  ---------------------------------------------------------- */
+
+  /* Base card — white surface with thin border */
+  .card {
+    background:    var(--color-bg-primary);
+    border:        0.5px solid var(--color-border-tertiary);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Elevated card — slightly stronger border for emphasis */
+  .card-elevated {
+    background:    var(--color-bg-primary);
+    border:        0.5px solid var(--color-border-secondary);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Metric / stat card — muted background, no border */
+  .card-metric {
+    background:    var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    padding:       var(--space-4);
+  }
+
+  /* Featured card — info-coloured border (2px, one exception) */
+  .card-featured {
+    background:    var(--color-bg-primary);
+    border:        2px solid var(--color-primary-200);
+    border-radius: var(--radius-lg);
+  }
+
+
+  /* ----------------------------------------------------------
+     DIVIDER
+  ---------------------------------------------------------- */
+
+  .divider {
+    border:     none;
+    border-top: 0.5px solid var(--color-border-tertiary);
+    margin:     0;
+  }
+
+
+  /* ----------------------------------------------------------
+     FOCUS RING
+     Apply to interactive elements that need custom focus.
+  ---------------------------------------------------------- */
+
+  .focus-ring:focus-visible {
+    outline:    none;
+    box-shadow: var(--shadow-focus);
+  }
+
+
+  /* ----------------------------------------------------------
+     TRUNCATE TEXT UTILITIES
+  ---------------------------------------------------------- */
+
+  .truncate-1 {
+    overflow:         hidden;
+    white-space:      nowrap;
+    text-overflow:    ellipsis;
+  }
+
+  .truncate-2 {
+    display:            -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow:           hidden;
+  }
+
+  .truncate-3 {
+    display:            -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow:           hidden;
+  }
+
+
+  /* ----------------------------------------------------------
+     SKELETON LOADER
+     Apply to placeholder elements while data loads.
+  ---------------------------------------------------------- */
+
+  .skeleton {
+    background:    var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    animation:     skeleton-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes skeleton-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.5; }
+  }
+
+
+  /* ----------------------------------------------------------
+     USAGE / PROGRESS BAR
+  ---------------------------------------------------------- */
+
+  .usage-bar {
+    height:        4px;
+    background:    var(--color-border-tertiary);
+    border-radius: var(--radius-full);
+    overflow:      hidden;
+  }
+
+  .usage-bar__fill {
+    height:        100%;
+    border-radius: var(--radius-full);
+    background:    var(--color-primary-600);
+    transition:    width var(--transition-slow),
+                   background-color var(--transition-base);
+  }
+
+  .usage-bar__fill--warning {
+    background: var(--color-warning-200);
+  }
+
+  .usage-bar__fill--danger {
+    background: var(--color-danger-600);
+  }
+
+
+  /* ----------------------------------------------------------
+     SCROLLABLE CONTAINERS
+  ---------------------------------------------------------- */
+
+  .scroll-y {
+    overflow-y:  auto;
+    overflow-x:  hidden;
+    overscroll-behavior: contain;
+  }
+
+  .scroll-x {
+    overflow-x:  auto;
+    overflow-y:  hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  .scroll-x::-webkit-scrollbar {
+    display: none;
+  }
+
+
+  /* ----------------------------------------------------------
+     OVERLAY / BACKDROP
+  ---------------------------------------------------------- */
+
+  .overlay-backdrop {
+    background: rgba(0, 0, 0, 0.45);
+  }
+}
+
+
+/* ============================================================
+   ANIMATION KEYFRAMES
+   Referenced by component-level CSS and Tailwind classes.
+   ============================================================ */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes slide-down {
+  from { opacity: 1; transform: translateY(0);    }
+  to   { opacity: 0; transform: translateY(8px);  }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+
+@keyframes slide-out-right {
+  from { opacity: 1; transform: translateX(0);    }
+  to   { opacity: 0; transform: translateX(20px); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes ping {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}

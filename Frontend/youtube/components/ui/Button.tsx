@@ -1,45 +1,114 @@
-import React, { ButtonHTMLAttributes } from 'react';
+'use client'
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
-  isLoading?: boolean;
+// src/components/ui/Button.tsx
+import React, { forwardRef } from 'react'
+import { Loader2 }           from 'lucide-react'
+import { cn }                from '@/utils/cn'
+
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success'
+export type ButtonSize    = 'sm' | 'md' | 'lg' | 'full'
+
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?:  ButtonVariant
+  size?:     ButtonSize
+  loading?:  boolean
+  leftIcon?: React.ReactNode
+  rightIcon?: React.ReactNode
+  fullWidth?: boolean
+  as?: React.ElementType
 }
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className = '', variant = 'primary', size = 'md', isLoading = false, children, disabled, ...props }, ref) => {
-    const baseStyles = 'inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-900 rounded-lg disabled:opacity-50 disabled:pointer-events-none';
-    
-    const variants = {
-      primary: 'bg-blue-500 text-white hover:bg-blue-600 shadow-sm',
-      secondary: 'bg-gray-800 text-gray-50 hover:bg-gray-700 border border-gray-700 shadow-sm',
-      ghost: 'bg-transparent text-gray-300 hover:text-gray-50 hover:bg-gray-800',
-      danger: 'bg-red-500 text-white hover:bg-red-600 shadow-sm',
-    };
+const variantStyles: Record<ButtonVariant, string> = {
+  primary:   'bg-primary-600 text-white border border-primary-600 hover:bg-primary-800 hover:border-primary-800 active:scale-[0.98] disabled:bg-primary-200 disabled:border-primary-200 focus-visible:ring-2 focus-visible:ring-primary-200 focus-visible:ring-offset-2',
+  secondary: 'bg-transparent text-[var(--color-text-primary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] hover:border-[var(--color-border-primary)] active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-primary-200 focus-visible:ring-offset-2',
+  ghost:     'bg-transparent text-[var(--color-text-secondary)] border border-transparent hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)] active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-primary-200 focus-visible:ring-offset-2',
+  danger:    'bg-transparent text-danger-800 border border-danger-200 hover:bg-danger-50 hover:border-danger-600 active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-danger-200 focus-visible:ring-offset-2',
+  success:   'bg-success-50 text-success-800 border border-success-200 hover:bg-success-200 hover:border-success-600 active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-success-200 focus-visible:ring-offset-2',
+}
 
-    const sizes = {
-      sm: 'px-3 py-1.5 text-sm',
-      md: 'px-4 py-2 text-base',
-      lg: 'px-6 py-3 text-lg',
-    };
+const sizeStyles: Record<ButtonSize, string> = {
+  sm:   'h-7 px-3 text-caption gap-1.5 rounded-md',
+  md:   'h-9 px-4 text-body-sm gap-2 rounded-md',
+  lg:   'h-11 px-5 text-body-md gap-2 rounded-lg',
+  full: 'h-11 w-full px-5 text-body-md gap-2 rounded-lg',
+}
+
+const iconSize: Record<ButtonSize, string> = {
+  sm: 'w-3.5 h-3.5', md: 'w-4 h-4', lg: 'w-[18px] h-[18px]', full: 'w-[18px] h-[18px]',
+}
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ variant = 'secondary', size = 'md', loading = false, leftIcon, rightIcon,
+     fullWidth = false, as: Component = 'button', className, children, disabled,
+     type = 'button', ...rest }, ref) => {
+    const isDisabled  = disabled || loading
+    const resolvedSize = fullWidth ? 'full' : size
 
     return (
-      <button
+      <Component
         ref={ref}
-        disabled={disabled || isLoading}
-        className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
-        {...props}
+        type={Component === 'button' ? type : undefined}
+        disabled={isDisabled}
+        aria-disabled={isDisabled}
+        aria-busy={loading}
+        className={cn(
+          'inline-flex items-center justify-center font-medium font-sans select-none whitespace-nowrap',
+          'transition-all duration-fast outline-none focus-visible:outline-none',
+          isDisabled ? 'cursor-not-allowed' : 'cursor-pointer',
+          variantStyles[variant],
+          sizeStyles[resolvedSize],
+          className,
+        )}
+        {...rest}
       >
-        {isLoading ? (
-          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+        {loading ? (
+          <Loader2 className={cn('animate-spin shrink-0', iconSize[resolvedSize])} aria-hidden="true" />
+        ) : leftIcon ? (
+          <span className={cn('shrink-0', iconSize[resolvedSize])} aria-hidden="true">{leftIcon}</span>
         ) : null}
-        {children}
-      </button>
-    );
+        {children && <span className={loading ? 'opacity-70' : undefined}>{children}</span>}
+        {rightIcon && !loading && (
+          <span className={cn('shrink-0', iconSize[resolvedSize])} aria-hidden="true">{rightIcon}</span>
+        )}
+      </Component>
+    )
   }
-);
+)
+Button.displayName = 'Button'
 
-Button.displayName = 'Button';
+export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  'aria-label': string
+  variant?:  ButtonVariant
+  size?:     'sm' | 'md' | 'lg'
+  loading?:  boolean
+  icon:      React.ReactNode
+}
+
+const iconBtnSize: Record<'sm'|'md'|'lg', string> = { sm: 'w-7 h-7 rounded-md', md: 'w-9 h-9 rounded-md', lg: 'w-11 h-11 rounded-lg' }
+const iconBtnIconSize: Record<'sm'|'md'|'lg', string> = { sm: 'w-3.5 h-3.5', md: 'w-4 h-4', lg: 'w-[18px] h-[18px]' }
+
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
+  ({ 'aria-label': ariaLabel, variant = 'secondary', size = 'md', loading = false,
+     icon, className, disabled, type = 'button', ...rest }, ref) => {
+    const isDisabled = disabled || loading
+    return (
+      <button
+        ref={ref} type={type} disabled={isDisabled}
+        aria-label={ariaLabel} aria-disabled={isDisabled} aria-busy={loading}
+        className={cn(
+          'inline-flex items-center justify-center shrink-0 font-sans select-none',
+          'transition-all duration-fast outline-none focus-visible:outline-none',
+          isDisabled ? 'cursor-not-allowed' : 'cursor-pointer',
+          variantStyles[variant], iconBtnSize[size], className,
+        )}
+        {...rest}
+      >
+        {loading
+          ? <Loader2 className={cn('animate-spin', iconBtnIconSize[size])} aria-hidden="true" />
+          : <span className={cn('shrink-0', iconBtnIconSize[size])} aria-hidden="true">{icon}</span>
+        }
+      </button>
+    )
+  }
+)
+IconButton.displayName = 'IconButton'

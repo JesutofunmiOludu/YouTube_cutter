@@ -1,10 +1,9 @@
 import React from 'react';
-import { Badge } from '../ui/Badge';
-
-export type VideoProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed';
+import Badge from '../ui/Badge';
+import type { ProcessingStatus } from '../../types';
 
 interface VideoStatusBadgeProps {
-  status: VideoProcessingStatus;
+  status: ProcessingStatus;
   className?: string;
 }
 
