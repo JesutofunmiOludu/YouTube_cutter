@@ -12,10 +12,10 @@ const FEATURES = [
 
 export function HomeFeatures() {
   return (
-    <section className="py-16 px-6 max-w-content mx-auto" aria-label="Features">
+    <section className="py-16 px-6 max-w-content mx-auto bg-white" aria-label="Features">
       <div className="text-center mb-10">
-        <h2 className="text-heading-xl text-[var(--color-text-primary)] mb-3">Everything you need to learn faster</h2>
-        <p className="text-body-lg text-[var(--color-text-secondary)] max-w-lg mx-auto">
+        <h2 className="text-heading-xl text-gray-900 mb-3">Everything you need to learn faster</h2>
+        <p className="text-body-lg text-gray-600 max-w-lg mx-auto">
           VidMind AI combines video processing, transcription, AI research, and chat — all in one place.
         </p>
       </div>
@@ -23,12 +23,12 @@ export function HomeFeatures() {
         {FEATURES.map((feat) => {
           const Icon = feat.icon
           return (
-            <div key={feat.title} className="bg-[var(--color-bg-primary)] border border-[var(--color-border-tertiary)] rounded-lg p-5 hover:border-[var(--color-border-secondary)] transition-colors duration-fast">
+            <div key={feat.title} className="bg-white border border-gray-200 rounded-lg p-5 hover:border-gray-300 transition-colors duration-fast">
               <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-4 ${feat.iconBg}`}>
                 <Icon className={`w-4 h-4 ${feat.iconColor}`} aria-hidden="true" />
               </div>
-              <h3 className="text-heading-sm text-[var(--color-text-primary)] mb-1.5">{feat.title}</h3>
-              <p className="text-body-sm text-[var(--color-text-secondary)] leading-relaxed">{feat.description}</p>
+              <h3 className="text-heading-sm text-gray-900 mb-1.5">{feat.title}</h3>
+              <p className="text-body-sm text-gray-600 leading-relaxed">{feat.description}</p>
             </div>
           )
         })}

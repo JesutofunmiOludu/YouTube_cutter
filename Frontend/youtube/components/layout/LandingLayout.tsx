@@ -17,7 +17,7 @@ export interface LandingLayoutProps {
 
 export function LandingLayout({ children }: LandingLayoutProps) {
   return (
-    <div className="min-h-dvh flex flex-col bg-[var(--color-bg-tertiary)]">
+    <div className="min-h-dvh flex flex-col bg-white">
       <HomeNav />
       <main className="flex-1 flex flex-col">
         {children}

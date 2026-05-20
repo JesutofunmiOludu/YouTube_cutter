@@ -19,11 +19,11 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary:   'bg-primary-600 text-white border border-primary-600 hover:bg-primary-800 hover:border-primary-800 active:scale-[0.98] disabled:bg-primary-200 disabled:border-primary-200 focus-visible:ring-2 focus-visible:ring-primary-200 focus-visible:ring-offset-2',
-  secondary: 'bg-transparent text-[var(--color-text-primary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] hover:border-[var(--color-border-primary)] active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-primary-200 focus-visible:ring-offset-2',
-  ghost:     'bg-transparent text-[var(--color-text-secondary)] border border-transparent hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)] active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-primary-200 focus-visible:ring-offset-2',
-  danger:    'bg-transparent text-danger-800 border border-danger-200 hover:bg-danger-50 hover:border-danger-600 active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-danger-200 focus-visible:ring-offset-2',
-  success:   'bg-success-50 text-success-800 border border-success-200 hover:bg-success-200 hover:border-success-600 active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-success-200 focus-visible:ring-offset-2',
+  primary:   'bg-blue-600 text-white border border-blue-600 hover:bg-blue-800 hover:border-blue-800 active:scale-[0.98] disabled:bg-blue-200 disabled:border-blue-200 focus-visible:ring-2 focus-visible:ring-blue-200 focus-visible:ring-offset-2',
+  secondary: 'bg-transparent text-gray-900 border border-gray-300 hover:bg-gray-50 hover:border-gray-200 active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-blue-200 focus-visible:ring-offset-2',
+  ghost:     'bg-transparent text-gray-500 border border-transparent hover:bg-gray-50 hover:text-gray-900 active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-blue-200 focus-visible:ring-offset-2',
+  danger:    'bg-transparent text-red-800 border border-red-200 hover:bg-red-50 hover:border-red-600 active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-red-200 focus-visible:ring-offset-2',
+  success:   'bg-transparent text-emerald-800 border border-emerald-200 hover:bg-emerald-50 hover:border-emerald-600 active:scale-[0.98] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-emerald-200 focus-visible:ring-offset-2',
 }
 
 const sizeStyles: Record<ButtonSize, string> = {

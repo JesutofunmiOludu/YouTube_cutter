@@ -13,25 +13,25 @@ function LogoMark() {
 
 export function HomeNav() {
   return (
-    <header className="sticky top-0 z-sticky bg-[var(--color-bg-primary)]/95 backdrop-blur-sm border-b border-[var(--color-border-tertiary)]">
+    <header className="sticky top-0 z-sticky bg-white/95 backdrop-blur-sm border-b border-gray-200">
       <div className="max-w-content mx-auto px-6 h-14 flex items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2 text-heading-sm font-medium text-[var(--color-text-primary)] hover:opacity-80 transition-opacity rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200">
+        <Link href="/" className="flex items-center gap-2 text-heading-sm font-medium text-gray-900 hover:opacity-80 transition-opacity rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200">
           <LogoMark />
           VidMind AI
         </Link>
         <nav className="hidden md:flex items-center gap-6">
           {['Features', 'Pricing'].map((item) => (
             <Link key={item} href={`/${item.toLowerCase()}`}
-              className="text-body-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">
+              className="text-body-sm text-gray-500 hover:text-gray-900 transition-colors">
               {item}
             </Link>
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <Link href="/login" className="hidden sm:inline-flex items-center h-9 px-4 rounded-md text-body-sm font-medium text-[var(--color-text-primary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors">
+          <Link href="/login" className="hidden sm:inline-flex items-center h-9 px-4 rounded-md text-body-sm font-medium text-gray-900 border border-gray-300 hover:bg-gray-50 transition-colors">
             Log in
           </Link>
-          <Link href="/register" className="inline-flex items-center h-9 px-4 rounded-md text-body-sm font-medium text-white bg-primary-600 border border-primary-600 hover:bg-primary-800 hover:border-primary-800 transition-colors">
+          <Link href="/register" className="inline-flex items-center h-9 px-4 rounded-md text-body-sm font-medium text-white bg-blue-600 border border-blue-600 hover:bg-blue-800 transition-colors">
             Sign up free
           </Link>
         </div>
