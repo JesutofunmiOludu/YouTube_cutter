@@ -6,7 +6,7 @@ export function HomeCTA() {
     <section className="py-16 px-6 bg-white">
       <div className="max-w-lg mx-auto text-center">
         <h2 className="text-display-md text-gray-900 mb-4">Stop watching. Start understanding.</h2>
-        <p className="text-body-lg text-gray-600 mb-8">
+        <p className="text-body-lg text-gray-700 mb-8">
           Join thousands of students and researchers who use VidMind AI to learn smarter.
         </p>
         <Link
@@ -15,7 +15,7 @@ export function HomeCTA() {
         >
           Get started for free
         </Link>
-        <p className="text-caption text-gray-500 mt-4">No credit card required</p>
+        <p className="text-caption text-gray-600 mt-4">No credit card required</p>
       </div>
     </section>
   )
