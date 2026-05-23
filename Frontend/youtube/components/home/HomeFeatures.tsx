@@ -15,7 +15,7 @@ export function HomeFeatures() {
     <section className="py-16 px-6 max-w-content mx-auto bg-white" aria-label="Features">
       <div className="text-center mb-10">
         <h2 className="text-heading-xl text-gray-900 mb-3">Everything you need to learn faster</h2>
-        <p className="text-body-lg text-gray-600 max-w-lg mx-auto">
+        <p className="text-body-lg text-gray-700 max-w-lg mx-auto">
           VidMind AI combines video processing, transcription, AI research, and chat — all in one place.
         </p>
       </div>
@@ -23,7 +23,7 @@ export function HomeFeatures() {
         {FEATURES.map((feat) => {
           const Icon = feat.icon
           return (
-            <div key={feat.title} className="bg-white border border-gray-200 rounded-lg p-5 hover:border-gray-300 transition-colors duration-fast">
+            <div key={feat.title} className="bg-white border border-gray-300 rounded-lg p-5 hover:border-gray-400 transition-colors duration-fast">
               <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-4 ${feat.iconBg}`}>
                 <Icon className={`w-4 h-4 ${feat.iconColor}`} aria-hidden="true" />
               </div>
