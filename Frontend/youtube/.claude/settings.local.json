@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Skill(superpowers:using-superpowers)"
+      "Skill(superpowers:using-superpowers)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }
