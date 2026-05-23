@@ -6,12 +6,12 @@ export function HomeStats() {
     { value: 'Free',  label: 'To get started' },
   ]
   return (
-    <div className="border-t border-b border-gray-200 bg-white">
-      <div className="max-w-content mx-auto px-6 py-6 grid grid-cols-3 divide-x divide-gray-200">
+    <div className="border-t border-b border-gray-300 bg-white">
+      <div className="max-w-content mx-auto px-6 py-6 grid grid-cols-3 divide-x divide-gray-300">
         {stats.map((s) => (
           <div key={s.label} className="flex flex-col items-center text-center px-4">
             <span className="text-display-md text-gray-900">{s.value}</span>
-            <span className="text-body-sm text-gray-600 mt-1">{s.label}</span>
+            <span className="text-body-sm text-gray-700 mt-1">{s.label}</span>
           </div>
         ))}
       </div>
