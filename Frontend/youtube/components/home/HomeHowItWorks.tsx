@@ -15,7 +15,7 @@ export function HomeHowItWorks() {
               {step.step}
             </div>
             <h3 className="text-heading-sm text-gray-900 mb-2">{step.title}</h3>
-            <p className="text-body-sm text-gray-600 leading-relaxed">{step.description}</p>
+            <p className="text-body-sm text-gray-700 leading-relaxed">{step.description}</p>
           </div>
         ))}
       </div>
