@@ -18,7 +18,9 @@ const config: Config = {
   // Tell Tailwind which files to scan for class names.
   // ----------------------------------------------------------
   content: [
-    './index.html',
+    './pages/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './styles/**/*.css',
     './src/**/*.{ts,tsx}',
   ],
 

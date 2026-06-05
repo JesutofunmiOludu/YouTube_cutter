@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import Card from '../ui/Card';
-import Button from '../ui/Button';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
 import { Copy, Trash2, KeyRound } from 'lucide-react';
 
 interface ApiKey {

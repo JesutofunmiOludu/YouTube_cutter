@@ -112,11 +112,11 @@ const MOCK_CUTS: VideoCut[] = [
 ]
 
 const MOCK_TRANSCRIPT: TranscriptSegment[] = [
-  { id: 's1', transcription_id: 't1', start_seconds: 0,   end_seconds: 15,  text: "Hey everyone, welcome to this complete React hooks course. Today we'll cover everything you need to know.", created_at: '' },
-  { id: 's2', transcription_id: 't1', start_seconds: 15,  end_seconds: 36,  text: "We'll start with the fundamentals, then move into state management with useState, side effects with useEffect, and then custom hooks.", created_at: '' },
-  { id: 's3', transcription_id: 't1', start_seconds: 36,  end_seconds: 65,  text: "Hooks were introduced in React 16.8 and completely changed how we write React components. Let me show you why they matter.", created_at: '' },
-  { id: 's4', transcription_id: 't1', start_seconds: 300, end_seconds: 320, text: "Now let's dive into useState. This is the most fundamental hook and you'll use it in almost every component you build.", created_at: '' },
-  { id: 's5', transcription_id: 't1', start_seconds: 320, end_seconds: 350, text: "useState returns an array with two elements: the current value and a setter function. Let me show you a counter example.", created_at: '' },
+  { id: 's1', transcription_id: 't1', segment_order: 1, start_seconds: 0,   end_seconds: 15,  text: "Hey everyone, welcome to this complete React hooks course. Today we'll cover everything you need to know.", confidence_score: null },
+  { id: 's2', transcription_id: 't1', segment_order: 2, start_seconds: 15,  end_seconds: 36,  text: "We'll start with the fundamentals, then move into state management with useState, side effects with useEffect, and then custom hooks.", confidence_score: null },
+  { id: 's3', transcription_id: 't1', segment_order: 3, start_seconds: 36,  end_seconds: 65,  text: "Hooks were introduced in React 16.8 and completely changed how we write React components. Let me show you why they matter.", confidence_score: null },
+  { id: 's4', transcription_id: 't1', segment_order: 4, start_seconds: 300, end_seconds: 320, text: "Now let's dive into useState. This is the most fundamental hook and you'll use it in almost every component you build.", confidence_score: null },
+  { id: 's5', transcription_id: 't1', segment_order: 5, start_seconds: 320, end_seconds: 350, text: "useState returns an array with two elements: the current value and a setter function. Let me show you a counter example.", confidence_score: null },
 ]
 
 // ── Helpers ───────────────────────────────────────────────
@@ -144,11 +144,11 @@ const ytCallbacks: Array<() => void> = []
 function loadYTApi(cb: () => void) {
   if (ytApiLoaded) { cb(); return }
   ytCallbacks.push(cb)
-  if (document.getElementById('yt-api')) return
-  const s = document.createElement('script')
+  if (window.document.getElementById('yt-api')) return
+  const s = window.document.createElement('script')
   s.id  = 'yt-api'
   s.src = 'https://www.youtube.com/iframe_api'
-  document.head.appendChild(s)
+  window.document.head.appendChild(s)
   window.onYouTubeIframeAPIReady = () => {
     ytApiLoaded = true
     ytCallbacks.forEach((fn) => fn())

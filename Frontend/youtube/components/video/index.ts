@@ -3,7 +3,7 @@
 // ============================================================
 
 export { default as VideoCard }        from './VideoCard'
-export { formatDuration, formatRelativeDate } from './VideoCard'
+export { formatDuration, formatRelativeDate, RelativeDate } from './VideoCard'
 export type { VideoCardProps, VideoCardVariant } from './VideoCard'
 
 export { default as VideoPlayer }      from './VideoPlayer'

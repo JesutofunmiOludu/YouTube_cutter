@@ -32,12 +32,12 @@ export function Tooltip({ content, children, placement = 'top', delay = 300, dis
   const show = () => { timer.current = setTimeout(() => setVisible(true), delay) }
   const hide = () => { if (timer.current) clearTimeout(timer.current); setVisible(false) }
 
-  const trigger = React.cloneElement(children, {
+  const trigger = React.cloneElement(children as React.ReactElement<any>, {
     'aria-describedby': visible ? tooltipId : undefined,
-    onMouseEnter: (e: React.MouseEvent) => { show(); children.props.onMouseEnter?.(e) },
-    onMouseLeave: (e: React.MouseEvent) => { hide(); children.props.onMouseLeave?.(e) },
-    onFocus:      (e: React.FocusEvent) => { show(); children.props.onFocus?.(e)      },
-    onBlur:       (e: React.FocusEvent) => { hide(); children.props.onBlur?.(e)       },
+    onMouseEnter: (e: React.MouseEvent) => { show(); (children as any).props.onMouseEnter?.(e) },
+    onMouseLeave: (e: React.MouseEvent) => { hide(); (children as any).props.onMouseLeave?.(e) },
+    onFocus:      (e: React.FocusEvent) => { show(); (children as any).props.onFocus?.(e)      },
+    onBlur:       (e: React.FocusEvent) => { hide(); (children as any).props.onBlur?.(e)       },
   })
 
   return (

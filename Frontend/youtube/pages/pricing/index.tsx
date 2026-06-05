@@ -2,7 +2,7 @@
 
 // src/app/(app)/pricing/page.tsx
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from 'next/router'
 import { Check, Crown, Zap, ArrowRight } from 'lucide-react'
 import { cn }          from '@/utils/cn'
 import { Button }      from '@/components/ui/Button'

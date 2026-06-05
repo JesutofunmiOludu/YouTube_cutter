@@ -1,6 +1,6 @@
 // ============================================================
 // VidMind AI — Dashboard Page (Redesigned)
-// src/pages/Dashboard/index.tsx
+// src/pages/dashboard/index.tsx
 //
 // Video Project Folder System:
 //  - Each video is a "project folder"
@@ -11,7 +11,8 @@
 //  - Quick search bar at the top
 // ============================================================
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { AppShell } from '@/components/layout/AppShell'
 import { useRouter }                 from 'next/router'
 import {
   Scissors,
@@ -33,11 +34,12 @@ import {
 } from 'lucide-react'
 import { cn }            from '@/utils/cn'
 import { useAuthStore }  from '@/store/auth.store'
-import Button            from '@components/ui/Button'
+import { Button } from '@components/ui/Button'
 import { StatusBadge }   from '@components/ui/Badge'
 import { UsageMeter }    from '@components/ui/ProgressBar'
 import { EmptyState, EmptyIcons } from '@components/ui'
-import { formatDuration, formatRelativeDate } from '@components/video/VideoCard'
+import { formatDuration, formatRelativeDate, RelativeDate } from '@components/video/VideoCard'
+import type { NextPageWithLayout } from '../_app'
 import type {
   UserVideo, VideoCut, ChatSession,
   ResearchSession, ProcessingStatus,
@@ -269,7 +271,7 @@ const ChatsTab: React.FC<{
             <div className="flex-1 min-w-0">
               <p className="text-body-sm font-medium text-[var(--color-text-primary)] truncate">{chat.title ?? 'Untitled chat'}</p>
               <p className="text-caption text-[var(--color-text-tertiary)]">
-                {chat.messages.length} messages · {formatRelativeDate(chat.updated_at)}
+                {chat.messages.length} messages · <RelativeDate date={chat.updated_at} />
               </p>
             </div>
             <ChevronRight className="w-3.5 h-3.5 text-[var(--color-text-tertiary)] shrink-0" aria-hidden="true" />
@@ -340,7 +342,12 @@ const ResearchTab: React.FC<{
                 <p className="text-body-sm font-medium text-[var(--color-text-primary)] truncate">{r.title ?? 'Research report'}</p>
                 <p className="text-caption text-[var(--color-text-tertiary)]">
                   {r.sources.length} sources
-                  {r.completed_at && ` · ${formatRelativeDate(r.completed_at)}`}
+                  {r.completed_at && (
+                    <>
+                      {' · '}
+                      <RelativeDate date={r.completed_at} />
+                    </>
+                  )}
                 </p>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-[var(--color-text-tertiary)] shrink-0" aria-hidden="true" />
@@ -500,9 +507,11 @@ const FolderCard: React.FC<{
   const dot    = STATUS_DOT[userVideo.processing_status]
 
   const approvedCuts = cuts.filter((c) => c.user_approved).length
-  const lastAccessed = userVideo.last_accessed_at
-    ? formatRelativeDate(userVideo.last_accessed_at)
-    : 'Never'
+  const lastAccessed = userVideo.last_accessed_at ? (
+    <RelativeDate date={userVideo.last_accessed_at} />
+  ) : (
+    'Never'
+  )
 
   return (
     <div
@@ -739,13 +748,19 @@ const OnboardingState: React.FC = () => {
 // PAGE
 // ============================================================
 
-const DashboardPage: React.FC = () => {
+const DashboardPage: NextPageWithLayout = () => {
   const router           = useRouter()
   const navigate         = (to: string) => router.push(to)
   const { user }         = useAuthStore()
   const isPremium        = user?.subscription_tier === 'premium'
   const firstName        = user?.first_name ?? 'there'
-  const greeting         = useMemo(() => getGreeting(firstName), [firstName])
+  const [greeting, setGreeting] = useState<string>('Good day, there')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setGreeting(getGreeting(firstName))
+    }
+  }, [firstName])
 
   // TODO: replace with React Query hooks
   const isLoading        = false
@@ -878,6 +893,10 @@ const DashboardPage: React.FC = () => {
       )}
     </div>
   )
+}
+
+DashboardPage.getLayout = function getLayout(page: React.ReactElement) {
+  return <AppShell>{page}</AppShell>
 }
 
 export default DashboardPage

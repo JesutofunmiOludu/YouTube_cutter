@@ -8,7 +8,7 @@
 
 import React from 'react'
 import { cn }     from '@/utils/cn'
-import Spinner    from './Spinner'
+import { Spinner } from './Spinner'
 
 // ------------------------------------------------------------
 // TYPES

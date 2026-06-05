@@ -9,6 +9,7 @@
 
 @import './variables.css';
 @import "tailwindcss";
+@config "./tailwind.config.ts";
 
 
 /* ============================================================

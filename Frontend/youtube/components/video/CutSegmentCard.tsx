@@ -17,7 +17,7 @@ import {
   Check,
 } from 'lucide-react'
 import { cn }              from '@/utils/cn'
-import Button              from '@components/ui/Button'
+import { Button } from '@components/ui/Button'
 import { IconButton }      from '@components/ui/Button'
 import { formatDuration }  from './VideoCard'
 import type { VideoCut }   from '@/types'

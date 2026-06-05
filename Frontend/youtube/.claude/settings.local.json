@@ -3,7 +3,10 @@
     "allow": [
       "Skill(superpowers:using-superpowers)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(npm run *)",
+      "PowerShell(Get-Process *)"
     ]
   }
 }

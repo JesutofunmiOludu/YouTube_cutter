@@ -2,7 +2,7 @@
 
 // src/app/(app)/research/[sessionId]/page.tsx
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/router'
 import { Plus, Globe, Clock, Trash2, Crown, Download } from 'lucide-react'
 import { cn }            from '@/utils/cn'
 import { Button }        from '@/components/ui/Button'
@@ -147,7 +147,6 @@ function PremiumGate() {
 // ── Page ─────────────────────────────────────────────────
 
 export default function ResearchPage() {
-  const params   = useParams<{ sessionId?: string }>()
   const router   = useRouter()
   const { user } = useAuthStore()
   const { toast } = useToast()
@@ -158,7 +157,7 @@ export default function ResearchPage() {
   const [sessions, setSessions] = useState<ResearchSession[]>(isPremium ? MOCK_SESSIONS : [])
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
-  const sessionId     = params.sessionId ?? null
+  const sessionId     = (router.query.sessionId as string) ?? null
   const activeSession = sessions.find((s) => s.id === sessionId) ?? null
 
   useEffect(() => {

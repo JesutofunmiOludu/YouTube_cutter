@@ -1,5 +1,5 @@
 import React from 'react';
-import Avatar from '../ui/Avatar';
+import { Avatar } from '@/components/ui/Avatar';
 import type { ChatMessage, User } from '@/types';
 
 export interface MessageBubbleProps {

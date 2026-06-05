@@ -1,37 +1,108 @@
 // src/components/home/HomeFeatures.tsx — Server Component
-import { Scissors, FileText, Globe, MessageSquare, Download, Clock } from 'lucide-react'
+import { Sparkles, Network, FileText, Globe, MessageSquare, BarChart2 } from 'lucide-react'
 
 const FEATURES = [
-  { icon: Scissors,     title: 'AI video cutting',    description: 'AI suggests the best points to split long videos into chapters — approve in one click.', iconBg: 'bg-primary-50', iconColor: 'text-primary-600' },
-  { icon: FileText,     title: 'Transcription',        description: 'Every word timestamped and searchable. Click any line to jump to that moment.',          iconBg: 'bg-success-50', iconColor: 'text-success-600' },
-  { icon: Globe,        title: 'Deep research',        description: 'AI reads the web and returns a fully cited research report on the video\'s topic.',       iconBg: 'bg-premium-50', iconColor: 'text-premium-600' },
-  { icon: MessageSquare,title: 'Chat with video',      description: 'Ask questions. Get answers grounded in the video. Compare multiple videos at once.',       iconBg: 'bg-warning-50', iconColor: 'text-warning-600' },
-  { icon: Download,     title: 'Batch download',       description: 'Download all your cuts in one click. Premium users keep files on our servers.',           iconBg: 'bg-primary-50', iconColor: 'text-primary-600' },
-  { icon: Clock,        title: 'Save hours',           description: 'Stop scrubbing through 4-hour tutorials. Let AI find the parts that matter.',             iconBg: 'bg-success-50', iconColor: 'text-success-600' },
+  {
+    icon:        Sparkles,
+    title:       'Instant Summaries',
+    description: 'Get the gist of any 2-hour lecture in under 60 seconds with our semantic compression AI.',
+  },
+  {
+    icon:        Network,
+    title:       'Topic Mapping',
+    description: 'Visually explore connections between different video segments and themes automatically.',
+  },
+  {
+    icon:        FileText,
+    title:       'Transcription',
+    description: 'Every word timestamped and searchable. Making the transcriptions readable. Export as PDF or Markdown.',
+  },
+  {
+    icon:        Globe,
+    title:       'Deep research',
+    description: 'AI reads the web and returns a cited research report on the video topic.',
+  },
+  {
+    icon:        MessageSquare,
+    title:       'Chat with video',
+    description: 'Share video knowledge graphs with your team to build a shared intelligence library.',
+  },
+  {
+    icon:        BarChart2,
+    title:       'Multi-video compare',
+    description: 'Add multiple videos to one chat and compare their insights side by side.',
+  },
 ]
 
 export function HomeFeatures() {
   return (
-    <section className="py-16 px-6 max-w-content mx-auto bg-white" aria-label="Features">
-      <div className="text-center mb-10">
-        <h2 className="text-heading-xl text-gray-900 mb-3">Everything you need to learn faster</h2>
-        <p className="text-body-lg text-gray-700 max-w-lg mx-auto">
-          VidMind AI combines video processing, transcription, AI research, and chat — all in one place.
-        </p>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {FEATURES.map((feat) => {
-          const Icon = feat.icon
-          return (
-            <div key={feat.title} className="bg-white border border-gray-300 rounded-lg p-5 hover:border-gray-400 transition-colors duration-fast">
-              <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-4 ${feat.iconBg}`}>
-                <Icon className={`w-4 h-4 ${feat.iconColor}`} aria-hidden="true" />
+    <section
+      className="py-24 px-6 bg-white"
+      aria-label="Features"
+    >
+      <div className="max-w-content mx-auto">
+
+        {/* Section heading with blue accent bar */}
+        <div className="mb-14 text-center sm:text-left">
+          <h2
+            className="text-gray-900 font-medium relative inline-block"
+            style={{ fontSize: '22px', lineHeight: '1.3', letterSpacing: '-0.01em' }}
+          >
+            Powering better workflows
+            <span
+              className="absolute -bottom-2 left-0 rounded-full"
+              style={{ width: '48px', height: '2px', backgroundColor: '#2563eb' }}
+            />
+          </h2>
+        </div>
+
+        {/* 3-column feature grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {FEATURES.map((feat) => {
+            const Icon = feat.icon
+            return (
+              <div
+                key={feat.title}
+                className="rounded-xl p-6 transition-all duration-200 group cursor-default"
+                style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                }}
+                onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
+                  e.currentTarget.style.borderColor = '#d1d5db'
+                  e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)'
+                }}
+                onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
+                  e.currentTarget.style.borderColor = '#e5e7eb'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              >
+                {/* Icon box */}
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center mb-5"
+                  style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}
+                >
+                  <Icon className="w-4 h-4" style={{ color: '#3b82f6' }} aria-hidden="true" />
+                </div>
+
+                <h3
+                  className="text-gray-900 font-medium mb-2"
+                  style={{ fontSize: '14px', lineHeight: '1.4' }}
+                >
+                  {feat.title}
+                </h3>
+
+                <p
+                  className="text-gray-600"
+                  style={{ fontSize: '13px', lineHeight: '1.6' }}
+                >
+                  {feat.description}
+                </p>
               </div>
-              <h3 className="text-heading-sm text-gray-900 mb-1.5">{feat.title}</h3>
-              <p className="text-body-sm text-gray-600 leading-relaxed">{feat.description}</p>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
+
       </div>
     </section>
   )

@@ -13,7 +13,7 @@ import React           from 'react'
 import { Play, Clock } from 'lucide-react'
 import { cn }          from '@/utils/cn'
 import { StatusBadge } from '@components/ui/Badge'
-import Button          from '@components/ui/Button'
+import { Button }    from '@components/ui/Button'
 import type { Video, UserVideo, ProcessingStatus } from '@/types'
 
 // ------------------------------------------------------------
@@ -29,6 +29,10 @@ export function formatDuration(seconds: number): string {
 }
 
 export function formatRelativeDate(dateStr: string): string {
+  if (typeof window === 'undefined') {
+    // Return empty string on server to avoid hydration mismatch
+    return '';
+  }
   const diffDays = Math.floor(
     (Date.now() - new Date(dateStr).getTime()) / 86_400_000
   )
@@ -39,6 +43,17 @@ export function formatRelativeDate(dateStr: string): string {
   if (diffDays < 365)  return `${Math.floor(diffDays / 30)} months ago`
   return `${Math.floor(diffDays / 365)} years ago`
 }
+
+export const RelativeDate: React.FC<{ date: string }> = ({ date }) => {
+  const [formatted, setFormatted] = React.useState('')
+
+  React.useEffect(() => {
+    setFormatted(formatRelativeDate(date))
+  }, [date])
+
+  return <>{formatted}</>
+}
+
 
 // ------------------------------------------------------------
 // THUMBNAIL
@@ -118,7 +133,9 @@ const GridCard: React.FC<VideoCardProps> = ({
             <span className="text-caption text-[var(--color-text-tertiary)]">{cutCount} cut{cutCount !== 1 ? 's' : ''}</span>
           )}
           {userVideo?.last_accessed_at && (
-            <span className="text-caption text-[var(--color-text-tertiary)] ml-auto">{formatRelativeDate(userVideo.last_accessed_at)}</span>
+            <span className="text-caption text-[var(--color-text-tertiary)] ml-auto">
+              <RelativeDate date={userVideo.last_accessed_at} />
+            </span>
           )}
         </div>
 

@@ -2,7 +2,7 @@
 
 // src/app/(app)/settings/page.tsx
 import { useState }   from 'react'
-import { useRouter }  from 'next/navigation'
+import { useRouter }  from 'next/router'
 import { useForm }    from 'react-hook-form'
 import {
   User, Lock, CreditCard, Trash2,

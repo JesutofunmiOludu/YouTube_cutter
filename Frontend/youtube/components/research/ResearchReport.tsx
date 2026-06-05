@@ -12,7 +12,7 @@
 import React, { useMemo }      from 'react'
 import { Download, Globe, Clock, Sparkles } from 'lucide-react'
 import { cn }                  from '@/utils/cn'
-import Button                  from '@components/ui/Button'
+import { Button } from '@components/ui/Button'
 import { Spinner }             from '@components/ui'
 import { Badge }               from '@components/ui'
 import { SourceCard }          from './SourceCard'

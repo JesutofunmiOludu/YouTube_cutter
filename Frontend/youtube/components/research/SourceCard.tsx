@@ -1,6 +1,6 @@
 import React from 'react';
-import Card from '../ui/Card';
-import Badge from '../ui/Badge';
+import { Card } from '../ui/Card';
+import { Badge } from '../ui/Badge';
 import type { SourceType } from '../../types';
 
 export interface SourceCardProps {

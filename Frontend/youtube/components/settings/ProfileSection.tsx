@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import Card from '../ui/Card';
-import Input from '../ui/Input';
+import { Card } from '../ui/Card';
+import { Input } from '../ui/Input';
 import Textarea from '../ui/Textarea';
-import Avatar from '../ui/Avatar';
-import Button from '../ui/Button';
+import { Avatar } from '@/components/ui/Avatar';
+import { Button } from '../ui/Button';
 
 export const ProfileSection: React.FC = () => {
   const [firstName, setFirstName] = useState('Alex');
@@ -42,7 +42,7 @@ export const ProfileSection: React.FC = () => {
               <label className="text-sm font-medium text-gray-200">First Name</label>
               <Input 
                 value={firstName} 
-                onChange={(e) => setFirstName(e.target.value)} 
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFirstName(e.target.value)} 
                 className="bg-gray-900 border-gray-700 text-gray-50 focus:border-[#3B82F6]" 
               />
             </div>
@@ -50,7 +50,7 @@ export const ProfileSection: React.FC = () => {
               <label className="text-sm font-medium text-gray-200">Last Name</label>
               <Input 
                 value={lastName} 
-                onChange={(e) => setLastName(e.target.value)} 
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLastName(e.target.value)} 
                 className="bg-gray-900 border-gray-700 text-gray-50 focus:border-[#3B82F6]" 
               />
             </div>
@@ -59,7 +59,7 @@ export const ProfileSection: React.FC = () => {
               <Input 
                 type="email" 
                 value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} 
                 className="bg-gray-900 border-gray-700 text-gray-50 focus:border-[#3B82F6]" 
               />
             </div>

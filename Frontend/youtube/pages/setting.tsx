@@ -6,7 +6,7 @@ import { SecuritySection } from '../components/settings/SecuritySection';
 import { BillingSection } from '../components/settings/BillingSection';
 import { AIPersonalizationSection } from '../components/settings/AIPersonalizationSection';
 import { APIKeysSection } from '../components/settings/APIKeysSection';
-import Button from '../components/ui/Button';
+import { Button } from '../components/ui/Button';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');

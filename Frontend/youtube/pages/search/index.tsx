@@ -2,7 +2,7 @@
 
 // src/app/(app)/search/page.tsx
 import { useState, useCallback, useTransition } from 'react'
-import { useRouter, useSearchParams }            from 'next/navigation'
+import { useRouter }                            from 'next/router'
 import {
   Search, SlidersHorizontal, Clock,
   Play, X, ArrowRight,
@@ -146,9 +146,8 @@ function FilterChip({ label, active, onClick }: {
 // ── Page ─────────────────────────────────────────────────
 
 export default function SearchPage() {
-  const router       = useRouter()
-  const searchParams = useSearchParams()
-  const initialQ     = searchParams.get('q') ?? ''
+  const router   = useRouter()
+  const initialQ = (router.query.q as string) ?? ''
 
   const [query,   setQuery]   = useState(initialQ)
   const [input,   setInput]   = useState(initialQ)
@@ -169,7 +168,7 @@ export default function SearchPage() {
     if (!trimmed) return
     startTransition(() => {
       setQuery(trimmed)
-      router.push(`/search?q=${encodeURIComponent(trimmed)}`, { scroll: false })
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`)
     })
   }, [input, router])
 

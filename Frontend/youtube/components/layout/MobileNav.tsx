@@ -6,7 +6,7 @@
 // ============================================================
 
 import Link                from 'next/link'
-import { usePathname }     from 'next/navigation'
+import { useRouter } from 'next/router'
 import { LayoutDashboard, Library, MessageSquare, Globe, User } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
@@ -19,7 +19,7 @@ const NAV_ITEMS = [
 ]
 
 export function MobileNav() {
-  const pathname = usePathname()
+  const { pathname } = useRouter()
 
   return (
     <nav

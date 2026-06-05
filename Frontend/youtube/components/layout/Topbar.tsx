@@ -6,7 +6,7 @@
 // ============================================================
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter }                    from 'next/navigation'
+import { useRouter }                    from 'next/router'
 import Link                             from 'next/link'
 import { Search, Bell, ChevronDown, Settings, CreditCard, LogOut, User } from 'lucide-react'
 import { cn }        from '@/utils/cn'

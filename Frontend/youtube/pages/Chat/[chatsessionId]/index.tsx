@@ -3,7 +3,7 @@
 // src/app/(app)/chat/[sessionId]/page.tsx
 // Also used as src/app/(app)/chat/page.tsx (no sessionId = new/list view)
 import { useState, useCallback, useEffect } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/router'
 import { Plus, MessageSquare, Clock, Trash2, ChevronRight } from 'lucide-react'
 import { cn }           from '@/utils/cn'
 import { Button }       from '@/components/ui/Button'
@@ -94,9 +94,7 @@ function SessionItem({ session, isActive, onSelect, onDelete }: {
 // ── Page ─────────────────────────────────────────────────
 
 export default function ChatPage() {
-  const params       = useParams<{ sessionId?: string }>()
   const router       = useRouter()
-  const searchParams = useSearchParams()
   const { user }     = useAuthStore()
   const { toast }    = useToast()
 
@@ -106,9 +104,9 @@ export default function ChatPage() {
   const [isTyping,  setIsTyping]  = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
-  const sessionId     = params.sessionId ?? null
+  const sessionId     = (router.query.chatsessionId as string) ?? null
   const activeSession = sessions.find((s) => s.id === sessionId) ?? null
-  const preVideoId    = searchParams.get('videoId')
+  const preVideoId    = (router.query.videoId as string) ?? null
 
   // Auto-select first session if none selected and sessions exist
   useEffect(() => {
