@@ -41,6 +41,7 @@ import {
   MessageSquare,
   Globe,
   FileText,
+  GripVertical,
 } from 'lucide-react'
 import { cn }         from '@/utils/cn'
 import { Spinner }    from '@/components/ui/Spinner'
@@ -714,13 +715,115 @@ function VideoPlayer({
   )
 }
 
-// ── (Timeline component removed — using CutTimeline from components/video) ──
+// ── ResizeHandle ──────────────────────────────────────────
+// A thin draggable divider placed between panels.
+// Drag left/right to resize; double-click to collapse/restore.
+
+function ResizeHandle({
+  onDrag,
+  onDoubleClick,
+  collapsed = false,
+}: {
+  onDrag:        (deltaX: number) => void
+  onDoubleClick: () => void
+  collapsed?:    boolean
+}) {
+  const dragging = useRef(false)
+  const lastX    = useRef(0)
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    dragging.current = true
+    lastX.current    = e.clientX
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging.current) return
+    onDrag(e.clientX - lastX.current)
+    lastX.current = e.clientX
+  }
+
+  const handlePointerUp = () => {
+    dragging.current = false
+  }
+
+  return (
+    <div
+      className={cn(
+        'group relative flex items-center justify-center shrink-0',
+        'cursor-col-resize select-none z-10',
+        'w-1.5 hover:w-2 transition-[width] duration-fast',
+        'bg-[var(--color-border-tertiary)] hover:bg-primary-400',
+      )}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onDoubleClick={onDoubleClick}
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Drag to resize panel. Double-click to collapse."
+      title="Drag to resize · Double-click to collapse"
+    >
+      {/* Grip dots — visible on hover */}
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-0.5">
+        <GripVertical className="w-3 h-3 text-white drop-shadow" aria-hidden="true" />
+      </div>
+
+      {/* Wide invisible hit target so it's easy to grab */}
+      <div className="absolute inset-y-0 -left-1.5 -right-1.5" aria-hidden="true" />
+    </div>
+  )
+}
 
 // ── Page ─────────────────────────────────────────────────
 
 export default function WorkspacePage() {
-  const router    = useRouter()
+  const router      = useRouter()
   const userVideoId = router.query.uservideoId as string | undefined
+
+  // ── Panel widths (px) ─────────────────────────────────────
+  const LEFT_DEFAULT  = 220
+  const LEFT_MIN      = 160
+  const LEFT_MAX      = 420
+  const LEFT_COLLAPSED = 0
+
+  const RIGHT_DEFAULT  = 240
+  const RIGHT_MIN      = 180
+  const RIGHT_MAX      = 420
+  const RIGHT_COLLAPSED = 0
+
+  const [leftWidth,      setLeftWidth]      = useState(LEFT_DEFAULT)
+  const [rightWidth,     setRightWidth]     = useState(RIGHT_DEFAULT)
+  const [leftPrevWidth,  setLeftPrevWidth]  = useState(LEFT_DEFAULT)
+  const [rightPrevWidth, setRightPrevWidth] = useState(RIGHT_DEFAULT)
+
+  const handleLeftResize = useCallback((deltaX: number) => {
+    setLeftWidth((w) => Math.max(LEFT_MIN, Math.min(LEFT_MAX, w + deltaX)))
+  }, [])
+
+  const handleRightResize = useCallback((deltaX: number) => {
+    setRightWidth((w) => Math.max(RIGHT_MIN, Math.min(RIGHT_MAX, w - deltaX)))
+  }, [])
+
+  const toggleLeftCollapse = useCallback(() => {
+    if (leftWidth > LEFT_MIN / 2) {
+      setLeftPrevWidth(leftWidth)
+      setLeftWidth(LEFT_COLLAPSED)
+    } else {
+      setLeftWidth(leftPrevWidth || LEFT_DEFAULT)
+    }
+  }, [leftWidth, leftPrevWidth])
+
+  const toggleRightCollapse = useCallback(() => {
+    if (rightWidth > RIGHT_MIN / 2) {
+      setRightPrevWidth(rightWidth)
+      setRightWidth(RIGHT_COLLAPSED)
+    } else {
+      setRightWidth(rightPrevWidth || RIGHT_DEFAULT)
+    }
+  }, [rightWidth, rightPrevWidth])
 
   // TODO: replace with useQuery
   const [userVideo, setUserVideo] = useState<UserVideo>(MOCK_USER_VIDEO)
@@ -818,8 +921,8 @@ export default function WorkspacePage() {
 
         {/* ── LEFT PANEL (Transcripts / Chat / Research + Add Video) ── */}
         <div
-          className="hidden md:flex flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-bg-primary)] shrink-0"
-          style={{ width: '220px' }}
+          className="hidden md:flex flex-col bg-[var(--color-bg-primary)] shrink-0 overflow-hidden transition-[width] duration-fast"
+          style={{ width: leftWidth > 0 ? leftWidth : 0 }}
         >
           <LeftPanel
             activeTab={leftTab}
@@ -830,6 +933,13 @@ export default function WorkspacePage() {
             userVideoId={userVideo.id}
           />
         </div>
+
+        {/* ── LEFT RESIZE HANDLE ── */}
+        <ResizeHandle
+          onDrag={handleLeftResize}
+          onDoubleClick={toggleLeftCollapse}
+          collapsed={leftWidth === 0}
+        />
 
         {/* ── CENTER — Video + Cut Suggestions ── */}
         <div className="flex flex-col flex-1 min-w-0 overflow-y-auto">
@@ -909,10 +1019,17 @@ export default function WorkspacePage() {
           </div>
         </div>
 
+        {/* ── RIGHT RESIZE HANDLE ── */}
+        <ResizeHandle
+          onDrag={handleRightResize}
+          onDoubleClick={toggleRightCollapse}
+          collapsed={rightWidth === 0}
+        />
+
         {/* ── RIGHT PANEL — Cut Clips ── */}
         <div
-          className="hidden lg:flex flex-col border-l border-[var(--color-border-tertiary)] bg-[var(--color-bg-primary)] shrink-0"
-          style={{ width: '240px' }}
+          className="hidden lg:flex flex-col bg-[var(--color-bg-primary)] shrink-0 overflow-hidden transition-[width] duration-fast"
+          style={{ width: rightWidth > 0 ? rightWidth : 0 }}
         >
           <CutClipsPanel
             cuts={cuts}
