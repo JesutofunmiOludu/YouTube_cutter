@@ -44,6 +44,7 @@ import {
 } from 'lucide-react'
 import { cn }         from '@/utils/cn'
 import { Spinner }    from '@/components/ui/Spinner'
+import CutTimeline    from '@/components/video/CutTimeline'
 import type {
   UserVideo,
   VideoCut,
@@ -713,85 +714,7 @@ function VideoPlayer({
   )
 }
 
-// ── Timeline bar ──────────────────────────────────────────
-
-function Timeline({
-  cuts,
-  duration,
-  currentTime,
-  onSeek,
-}: {
-  cuts:        VideoCut[]
-  duration:    number
-  currentTime: number
-  onSeek:      (s: number) => void
-}) {
-  const playheadPct = duration > 0 ? (currentTime / duration) * 100 : 0
-
-  return (
-    <div
-      className="relative h-8 w-full bg-[var(--color-bg-tertiary)] rounded-md overflow-hidden cursor-pointer border border-[var(--color-border-tertiary)]"
-      role="slider"
-      aria-valuenow={Math.round(currentTime)}
-      aria-valuemin={0}
-      aria-valuemax={Math.round(duration)}
-      tabIndex={0}
-      onClick={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect()
-        const pct  = (e.clientX - rect.left) / rect.width
-        onSeek(pct * duration)
-      }}
-      onKeyDown={(e) => {
-        const step = duration * 0.02
-        if (e.key === 'ArrowRight') onSeek(Math.min(currentTime + step, duration))
-        if (e.key === 'ArrowLeft')  onSeek(Math.max(currentTime - step, 0))
-      }}
-    >
-      {/* Cut markers */}
-      {cuts.map((cut, i) => {
-        const left  = duration > 0 ? (cut.start_seconds / duration) * 100 : 0
-        const width = duration > 0 ? ((cut.end_seconds - cut.start_seconds) / duration) * 100 : 0
-        return (
-          <div
-            key={cut.id}
-            className={cn(
-              'absolute top-0 h-full border-x',
-              cut.user_approved
-                ? 'bg-success-50/60 border-success-200'
-                : 'bg-primary-50/50 border-primary-200',
-            )}
-            style={{ left: `${left}%`, width: `${Math.max(width, 0.5)}%` }}
-          >
-            {width > 5 && (
-              <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[9px] font-medium text-[var(--color-text-tertiary)]">
-                {i + 1}
-              </span>
-            )}
-          </div>
-        )
-      })}
-
-      {/* Playhead */}
-      <div
-        className="absolute top-0 h-full w-0.5 bg-black pointer-events-none z-10"
-        style={{ left: `${playheadPct}%` }}
-        aria-hidden="true"
-      >
-        {/* Triangle playhead indicator */}
-        <div className="absolute -top-0 left-1/2 -translate-x-1/2 w-3 h-3 flex items-center justify-center">
-          <div
-            className="w-0 h-0"
-            style={{
-              borderLeft:   '5px solid transparent',
-              borderRight:  '5px solid transparent',
-              borderTop:    '8px solid black',
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
+// ── (Timeline component removed — using CutTimeline from components/video) ──
 
 // ── Page ─────────────────────────────────────────────────
 
@@ -811,7 +734,10 @@ export default function WorkspacePage() {
   // Seek player via window ref (avoids threading the ref through 3 levels of props)
   const seekPlayer = useCallback((seconds: number) => {
     const ref = (window as unknown as Record<string, unknown>)['__playerRef__'] as React.MutableRefObject<YTPlayer | null> | undefined
-    ref?.current?.seekTo(seconds, true)
+    // Guard: seekTo may not exist yet if the YT IFrame API hasn't finished initialising
+    if (typeof ref?.current?.seekTo === 'function') {
+      ref.current.seekTo(seconds, true)
+    }
     setCurrentTime(seconds)
   }, [])
 
@@ -953,11 +879,16 @@ export default function WorkspacePage() {
             </div>
 
             {/* Timeline */}
-            <Timeline
+            <CutTimeline
               cuts={cuts}
               duration={duration}
               currentTime={currentTime}
+              transcript={transcript}
               onSeek={seekPlayer}
+              onCutClick={(cut) => handleCut(cut.id)}
+              onCutResize={handleEditSave}
+              onCutMove={handleEditSave}
+              className="border border-[var(--color-border-tertiary)] rounded-lg overflow-hidden"
             />
           </div>
 

@@ -15,5 +15,8 @@ export type { CutSegmentCardProps }    from './CutSegmentCard'
 export { default as CutTimeline }      from './CutTimeline'
 export type { CutTimelineProps }       from './CutTimeline'
 
+export { default as TimelineRuler }    from './TimelineRuler'
+export type { TimelineRulerProps }     from './TimelineRuler'
+
 export { default as TranscriptPanel }  from './TranscriptPanel'
 export type { TranscriptPanelProps }   from './TranscriptPanel'
