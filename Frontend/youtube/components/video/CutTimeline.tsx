@@ -66,17 +66,18 @@ export interface CutTimelineProps {
   onCutResize?: (cutId: string, start: number, end: number) => void
   /** Called when user drags a clip to a new position */
   onCutMove?:   (cutId: string, start: number, end: number) => void
+  onAddCut?:    (start: number, end: number) => void
   className?:   string
 }
 
-type DragMode = 'none' | 'playhead' | 'clip-move' | 'clip-left' | 'clip-right'
+type DragMode = 'none' | 'playhead' | 'clip-move' | 'clip-left' | 'clip-right' | 'highlight-move' | 'highlight-left' | 'highlight-right'
 
 interface DragState {
   mode:         DragMode
   cutId:        string | null
   startX:       number   // pointer X when drag began (client coords)
-  origStart:    number   // clip start_seconds at drag begin
-  origEnd:      number   // clip end_seconds at drag begin
+  origStart:    number   // clip start_seconds or highlight start at drag begin
+  origEnd:      number   // clip end_seconds or highlight end at drag begin
 }
 
 // ------------------------------------------------------------
@@ -186,6 +187,7 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
   onCutClick,
   onCutResize,
   onCutMove,
+  onAddCut,
   className,
 }) => {
   // ── Refs ────────────────────────────────────────────────────
@@ -196,6 +198,7 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
   const [zoom,       setZoom]       = useState(1)
   const [widthPx,    setWidthPx]    = useState(800)
   const [scrollLeft, setScrollLeft] = useState(0)
+  const [highlightedRange, setHighlightedRange] = useState<{ start: number; end: number } | null>(null)
   const [drag,       setDrag]       = useState<DragState>({
     mode: 'none', cutId: null, startX: 0, origStart: 0, origEnd: 0,
   })
@@ -250,6 +253,25 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
     onSeek?.(xToTime(e.clientX))
   }, [drag.mode, xToTime, onSeek])
 
+  // ── Track pointer down for Shift+drag range selection ───────
+  const handleTrackPointerDown = useCallback((e: React.PointerEvent) => {
+    if (drag.mode !== 'none') return
+    const clickedTime = xToTime(e.clientX)
+    if (e.shiftKey) {
+      e.stopPropagation()
+      const target = e.currentTarget as HTMLElement
+      target.setPointerCapture(e.pointerId)
+      setHighlightedRange({ start: clickedTime, end: clickedTime })
+      setDrag({
+        mode: 'highlight-right',
+        cutId: null,
+        startX: e.clientX,
+        origStart: clickedTime,
+        origEnd: clickedTime,
+      })
+    }
+  }, [drag.mode, xToTime])
+
   // ── Keyboard ─────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!duration) return
@@ -285,6 +307,24 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
 
     if (drag.mode === 'playhead') {
       onSeek?.(xToTime(e.clientX))
+      return
+    }
+
+    if (drag.mode === 'highlight-move') {
+      const dur   = drag.origEnd - drag.origStart
+      const start = clamp(drag.origStart + deltaSec, 0, duration - dur)
+      const end   = start + dur
+      setHighlightedRange({ start, end })
+      return
+    }
+    if (drag.mode === 'highlight-left') {
+      const start = clamp(drag.origStart + deltaSec, 0, drag.origEnd - 0.5)
+      setHighlightedRange({ start, end: drag.origEnd })
+      return
+    }
+    if (drag.mode === 'highlight-right') {
+      const end = clamp(drag.origEnd + deltaSec, drag.origStart + 0.5, duration)
+      setHighlightedRange({ start: drag.origStart, end })
       return
     }
 
@@ -352,7 +392,7 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
       role="region"
     >
 
-      {/* ── Toolbar: zoom controls + time display ── */}
+      {/* ── Toolbar: zoom controls + highlight controls + time display ── */}
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--color-border-tertiary)] bg-[var(--color-bg-secondary)] shrink-0">
         <div className="flex items-center gap-1">
           <button
@@ -376,9 +416,54 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
           >
             +
           </button>
-          <span className="text-[10px] text-[var(--color-text-tertiary)] ml-2 hidden sm:inline">
-            Ctrl+scroll to zoom · ← → to nudge
+          <span className="text-[10px] text-[var(--color-text-tertiary)] ml-2 hidden lg:inline">
+            Ctrl+scroll to zoom · Shift+drag to select range
           </span>
+        </div>
+
+        {/* Highlight Range Controls */}
+        <div className="flex items-center gap-2">
+          {highlightedRange ? (
+            <div className="flex items-center gap-1.5 bg-indigo-50/80 px-2 py-0.5 rounded border border-indigo-200">
+              <span className="text-[11px] font-semibold text-indigo-600 tabular-nums">
+                {fmt(highlightedRange.start)} – {fmt(highlightedRange.end)} ({fmt(highlightedRange.end - highlightedRange.start)})
+              </span>
+              {onAddCut && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddCut(highlightedRange.start, highlightedRange.end)
+                    setHighlightedRange(null)
+                  }}
+                  className="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold transition-colors"
+                >
+                  Create Cut
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setHighlightedRange(null)}
+                className="text-[10px] font-semibold text-indigo-500 hover:text-indigo-700 px-1"
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                const start = Math.max(0, currentTime - 5)
+                const end = Math.min(duration, currentTime + 5)
+                setHighlightedRange({ start, end })
+              }}
+              className="px-2 py-1 rounded border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-tertiary)] text-[11px] font-semibold text-[var(--color-text-secondary)] transition-colors flex items-center gap-1.5"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-indigo-500">
+                <path d="M6 3v18M18 3v18M6 12h12" />
+              </svg>
+              Highlight Time Range
+            </button>
+          )}
         </div>
 
         {/* Current time / total */}
@@ -420,6 +505,7 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
             className="relative"
             style={{ height: `${TRACK_HEIGHT + (transcript.length > 0 ? TRACK_HEIGHT : 0)}px` }}
             onClick={handleTrackClick}
+            onPointerDown={handleTrackPointerDown}
           >
 
             {/* Track lane backgrounds */}
@@ -456,6 +542,57 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
                 </div>
               )}
             </div>
+
+            {/* ── HIGHLIGHTED RANGE OVERLAY ── */}
+            {highlightedRange && (
+              <div
+                className="absolute top-0 z-10 bg-indigo-500/15 border-l border-r border-indigo-500 flex items-center justify-between"
+                style={{
+                  left: `${(highlightedRange.start / duration) * 100}%`,
+                  width: `${((highlightedRange.end - highlightedRange.start) / duration) * 100}%`,
+                  height: TRACK_HEIGHT + (transcript.length > 0 ? TRACK_HEIGHT : 0),
+                }}
+              >
+                {/* Left resize handle */}
+                <div
+                  className="absolute -left-1.5 top-0 w-3 h-full cursor-w-resize z-20 flex items-center justify-center group/hl-left"
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    startDrag(e, 'highlight-left')
+                    setDrag(d => ({ ...d, origStart: highlightedRange.start, origEnd: highlightedRange.end }))
+                  }}
+                >
+                  <div className="w-1.5 h-6 bg-indigo-600 rounded-full border border-white shadow group-hover/hl-left:bg-indigo-700 transition-colors" />
+                </div>
+
+                {/* Center drag area */}
+                <div
+                  className="w-full h-full cursor-grab active:cursor-grabbing flex items-center justify-center"
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    startDrag(e, 'highlight-move')
+                    setDrag(d => ({ ...d, origStart: highlightedRange.start, origEnd: highlightedRange.end }))
+                  }}
+                  title="Drag to shift highlighted segment"
+                >
+                  <span className="text-[9px] font-bold text-indigo-700 pointer-events-none select-none px-1 bg-white/80 rounded border border-indigo-100 shadow-sm truncate max-w-[80%]">
+                    {fmt(highlightedRange.end - highlightedRange.start)}
+                  </span>
+                </div>
+
+                {/* Right resize handle */}
+                <div
+                  className="absolute -right-1.5 top-0 w-3 h-full cursor-e-resize z-20 flex items-center justify-center group/hl-right"
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    startDrag(e, 'highlight-right')
+                    setDrag(d => ({ ...d, origStart: highlightedRange.start, origEnd: highlightedRange.end }))
+                  }}
+                >
+                  <div className="w-1.5 h-6 bg-indigo-600 rounded-full border border-white shadow group-hover/hl-right:bg-indigo-700 transition-colors" />
+                </div>
+              </div>
+            )}
 
             {/* ── CUT CLIPS ── */}
             {cuts.map((cut, i) => {

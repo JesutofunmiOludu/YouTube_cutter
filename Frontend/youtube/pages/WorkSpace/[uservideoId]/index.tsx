@@ -43,14 +43,19 @@ import {
   FileText,
   GripVertical,
 } from 'lucide-react'
-import { cn }         from '@/utils/cn'
-import { Spinner }    from '@/components/ui/Spinner'
-import CutTimeline    from '@/components/video/CutTimeline'
+import { cn }              from '@/utils/cn'
+import { Spinner }         from '@/components/ui/Spinner'
+import CutTimeline         from '@/components/video/CutTimeline'
+import ChatWindow          from '@/components/chat/ChatWindow'
+import ResearchReport      from '@/components/research/ResearchReport'
 import type {
   UserVideo,
   VideoCut,
   Transcription,
   TranscriptSegment,
+  ChatSession,
+  ChatMessage,
+  ResearchSession,
 } from '@/types'
 
 // ── YouTube API types ─────────────────────────────────────
@@ -434,6 +439,53 @@ function CutClipsPanel({
 
 type LeftTab = 'transcripts' | 'chat' | 'research'
 
+// Mock chat session for the inline panel
+const MOCK_CHAT_SESSION: ChatSession = {
+  id:           'cs1',
+  user_id:      'u1',
+  title:        'React Hooks Q&A',
+  is_multi_video: false,
+  videos:       [MOCK_USER_VIDEO],
+  messages:     [
+    {
+      id: 'm1', chat_session_id: 'cs1', role: 'assistant',
+      content: 'Hi! I\'ve read through the React Hooks video. Ask me anything about the content — useState, useEffect, custom hooks, or anything else covered.',
+      token_count: null, created_at: new Date().toISOString(),
+    },
+  ],
+  created_at:   new Date().toISOString(),
+  updated_at:   new Date().toISOString(),
+  last_message: null,
+}
+
+// Mock research session for the inline panel
+const MOCK_RESEARCH_SESSION: ResearchSession = {
+  id:            'rs1',
+  user_id:       'u1',
+  user_video:    MOCK_USER_VIDEO,
+  title:         'React Hooks — Deep Research Report',
+  report_content: `## Overview
+React Hooks, introduced in React 16.8, represent a fundamental shift in how developers write React components. They allow functional components to use state and other React features that were previously only available in class components.
+
+## Key Hooks Covered
+The video covers the most essential hooks: **useState** for local state management, **useEffect** for side effects and lifecycle events, **useCallback** and **useMemo** for performance optimisations, and **useRef** for imperative DOM access and value persistence.
+
+## Why Hooks Matter
+Hooks eliminate the complexity of class components, mixins, and higher-order components. Code sharing between components becomes straightforward through custom hooks, making reuse patterns much simpler than before.
+
+## Industry Adoption
+As of 2024, React Hooks are the de-facto standard for all new React code. Virtually all major libraries (Redux Toolkit, React Query, Zustand) now expose hooks-first APIs.`,
+  status:        'completed',
+  sources:       [
+    { id: 'src1', research_session_id: 'rs1', source_type: 'article', title: 'React Hooks Documentation', url: 'https://react.dev/reference/react', excerpt: 'Official React documentation covering all built-in hooks with examples.', relevance_rank: 1, fetched_at: new Date().toISOString() },
+    { id: 'src2', research_session_id: 'rs1', source_type: 'article', title: 'A Complete Guide to useEffect', url: 'https://overreacted.io/a-complete-guide-to-useeffect/', excerpt: 'Deep-dive into useEffect by Dan Abramov, one of the core React team members.', relevance_rank: 2, fetched_at: new Date().toISOString() },
+    { id: 'src3', research_session_id: 'rs1', source_type: 'paper', title: 'Hooks: React\'s answer to composition', url: 'https://engineering.fb.com/2019/02/06/web/react-hooks/', excerpt: 'Facebook engineering post on the motivation and design of React Hooks.', relevance_rank: 3, fetched_at: new Date().toISOString() },
+  ],
+  completed_at:  new Date().toISOString(),
+  created_at:    new Date().toISOString(),
+  updated_at:    new Date().toISOString(),
+}
+
 function LeftPanel({
   activeTab,
   onTabChange,
@@ -451,13 +503,52 @@ function LeftPanel({
 }) {
   const router = useRouter()
 
-  const TABS: { id: LeftTab; label: string }[] = [
-    { id: 'transcripts', label: 'Transcripts' },
-    { id: 'chat',        label: 'Chat'        },
-    { id: 'research',    label: 'Research'    },
+  // ── Inline chat state ──────────────────────────────────────
+  const [chatSession,  setChatSession]  = useState<ChatSession>(MOCK_CHAT_SESSION)
+  const [chatTyping,   setChatTyping]   = useState(false)
+
+  const handleSendMessage = useCallback((content: string) => {
+    const userMsg: ChatMessage = {
+      id: `m${Date.now()}`, chat_session_id: chatSession.id,
+      role: 'user', content, token_count: null,
+      created_at: new Date().toISOString(),
+    }
+    setChatSession((s) => ({ ...s, messages: [...s.messages, userMsg] }))
+    setChatTyping(true)
+    // Simulate assistant reply after 1.5s
+    setTimeout(() => {
+      const reply: ChatMessage = {
+        id: `m${Date.now()}`, chat_session_id: chatSession.id,
+        role: 'assistant',
+        content: `Great question! Based on the video content, here's what I can tell you about "${content.slice(0, 40)}${content.length > 40 ? '...' : ''}":\n\nThis topic is covered thoroughly in the video. The presenter explains the concept with practical examples that make it easy to understand. I'd recommend rewatching the relevant section for deeper context.`,
+        token_count: null,
+        created_at: new Date().toISOString(),
+      }
+      setChatSession((s) => ({ ...s, messages: [...s.messages, reply] }))
+      setChatTyping(false)
+    }, 1500)
+  }, [chatSession.id])
+
+  // ── Inline research state ──────────────────────────────────
+  const [researchSession,  setResearchSession]  = useState<ResearchSession | null>(null)
+  const [researchLoading,  setResearchLoading]  = useState(false)
+
+  const handleStartResearch = useCallback(() => {
+    setResearchLoading(true)
+    setResearchSession(null)
+    setTimeout(() => {
+      setResearchSession(MOCK_RESEARCH_SESSION)
+      setResearchLoading(false)
+    }, 3000)
+  }, [])
+
+  const TABS: { id: LeftTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'transcripts', label: 'Transcripts', icon: <FileText  className="w-3.5 h-3.5" aria-hidden="true" /> },
+    { id: 'chat',        label: 'Chat',        icon: <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" /> },
+    { id: 'research',    label: 'Research',    icon: <Globe     className="w-3.5 h-3.5" aria-hidden="true" /> },
   ]
 
-  // Active segment
+  // Active transcript segment
   const activeSegId = (() => {
     for (let i = transcript.length - 1; i >= 0; i--) {
       const seg = transcript[i]!
@@ -477,23 +568,24 @@ function LeftPanel({
             aria-selected={activeTab === t.id}
             onClick={() => onTabChange(t.id)}
             className={cn(
-              'flex-1 py-3 text-body-sm font-medium border-b-2 transition-colors focus-visible:outline-none',
+              'flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[11px] font-semibold border-b-2 transition-colors focus-visible:outline-none uppercase tracking-wide',
               activeTab === t.id
                 ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
             )}
           >
+            {t.icon}
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Tab content */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Tab content — fills all remaining height */}
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
 
         {/* Transcripts */}
         {activeTab === 'transcripts' && (
-          <div className="flex flex-col">
+          <div className="flex flex-col flex-1 overflow-y-auto">
             {transcript.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-2 text-center px-4">
                 <FileText className="w-8 h-8 text-[var(--color-text-tertiary)]" aria-hidden="true" />
@@ -529,33 +621,48 @@ function LeftPanel({
           </div>
         )}
 
-        {/* Chat */}
+        {/* Chat — fully embedded ChatWindow */}
         {activeTab === 'chat' && (
-          <div className="flex flex-col items-center justify-center h-full gap-3 py-12 px-4 text-center">
-            <MessageSquare className="w-8 h-8 text-[var(--color-text-tertiary)]" aria-hidden="true" />
-            <p className="text-heading-sm text-[var(--color-text-primary)]">Chat about this video</p>
-            <p className="text-body-sm text-[var(--color-text-secondary)]">Ask questions and get answers grounded in the video content.</p>
-            <button
-              onClick={() => router.push(`/chat?videoId=${userVideoId}`)}
-              className="px-4 py-2 rounded-lg text-body-sm font-medium text-white bg-primary-600 hover:bg-primary-800 transition-colors"
-            >
-              Open chat
-            </button>
-          </div>
+          <ChatWindow
+            session={chatSession}
+            isTyping={chatTyping}
+            onSendMessage={handleSendMessage}
+            onSeek={onSeek}
+            className="flex-1 min-h-0"
+          />
         )}
 
-        {/* Research */}
+        {/* Research — fully embedded ResearchReport */}
         {activeTab === 'research' && (
-          <div className="flex flex-col items-center justify-center h-full gap-3 py-12 px-4 text-center">
-            <Globe className="w-8 h-8 text-[var(--color-text-tertiary)]" aria-hidden="true" />
-            <p className="text-heading-sm text-[var(--color-text-primary)]">Deep research</p>
-            <p className="text-body-sm text-[var(--color-text-secondary)]">AI scours the web and returns a fully cited report on this topic.</p>
-            <button
-              onClick={() => router.push(`/research?videoId=${userVideoId}`)}
-              className="px-4 py-2 rounded-lg text-body-sm font-medium text-white bg-primary-600 hover:bg-primary-800 transition-colors"
-            >
-              Start research
-            </button>
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            {!researchSession && !researchLoading && (
+              <div className="flex flex-col items-center justify-center flex-1 gap-4 py-12 px-4 text-center">
+                <div className="w-14 h-14 rounded-full bg-primary-50 flex items-center justify-center">
+                  <Globe className="w-7 h-7 text-primary-600" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-heading-sm text-[var(--color-text-primary)] mb-1">Deep Research</p>
+                  <p className="text-body-sm text-[var(--color-text-secondary)] max-w-[200px]">
+                    AI searches the web and returns a fully-cited report based on this video.
+                  </p>
+                </div>
+                <button
+                  onClick={handleStartResearch}
+                  className="px-4 py-2 rounded-lg text-body-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors flex items-center gap-2"
+                >
+                  <Globe className="w-4 h-4" aria-hidden="true" />
+                  Start Research
+                </button>
+              </div>
+            )}
+            {(researchLoading || researchSession) && (
+              <ResearchReport
+                session={researchSession}
+                isLoading={researchLoading}
+                onExport={() => window.print()}
+                className="flex-1 min-h-0 overflow-y-auto"
+              />
+            )}
           </div>
         )}
       </div>
@@ -643,7 +750,9 @@ function VideoPlayer({
   }
 
   // expose seekTo via ref on window (simple approach for this component tree)
-  ;(window as unknown as Record<string, unknown>)['__playerRef__'] = playerRef
+  if (typeof window !== 'undefined') {
+    ;(window as unknown as Record<string, unknown>)['__playerRef__'] = playerRef
+  }
 
   const pct = duration > 0 ? (current / duration) * 100 : 0
 
@@ -879,6 +988,25 @@ export default function WorkspacePage() {
     setCuts((prev) => [...prev, newCut])
   }
 
+  const handleAddCutRange = (start: number, end: number) => {
+    const newCut: VideoCut = {
+      id:             `c${Date.now()}`,
+      user_video_id:  userVideo.id,
+      cut_order:      cuts.length + 1,
+      start_seconds:  Math.round(start),
+      end_seconds:    Math.round(end),
+      title:          `Selection ${formatTime(Math.round(start))} - ${formatTime(Math.round(end))}`,
+      ai_suggested:   false,
+      ai_rationale:   null,
+      user_approved:  true,
+      download_url:   null,
+      download_status:'pending',
+      duration_seconds: Math.round(end - start),
+      created_at: '', updated_at: '',
+    }
+    setCuts((prev) => [...prev, newCut])
+  }
+
   const handleAddCutPoint = () => {
     handleSplitAtTime()
   }
@@ -988,7 +1116,6 @@ export default function WorkspacePage() {
               </button>
             </div>
 
-            {/* Timeline */}
             <CutTimeline
               cuts={cuts}
               duration={duration}
@@ -998,6 +1125,7 @@ export default function WorkspacePage() {
               onCutClick={(cut) => handleCut(cut.id)}
               onCutResize={handleEditSave}
               onCutMove={handleEditSave}
+              onAddCut={handleAddCutRange}
               className="border border-[var(--color-border-tertiary)] rounded-lg overflow-hidden"
             />
           </div>
