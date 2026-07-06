@@ -9,7 +9,7 @@ import Link                    from 'next/link'
 import { useRouter } from 'next/router'
 import {
   LayoutDashboard, PlaySquare, Search,
-  Globe, FileText, Settings, LogOut,
+  Globe, MessageSquare, Settings, LogOut,
 } from 'lucide-react'
 import { cn }        from '@/utils/cn'
 import { Avatar }    from '@/components/ui/Avatar'
@@ -39,9 +39,9 @@ function LogoMark({ collapsed }: { collapsed: boolean }) {
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Projects',  href: '/dashboard', icon: PlaySquare      },
-  { label: 'Searches',  href: '/search',   icon: Search          },
+  { label: 'Chat',      href: '/chat',      icon: MessageSquare   },
   { label: 'Research',  href: '/research',  icon: Globe           },
-  { label: 'Reports',   href: '/reports',   icon: FileText        },
+  { label: 'Searches',  href: '/search',    icon: Search          },
 ]
 
 function NavItem({

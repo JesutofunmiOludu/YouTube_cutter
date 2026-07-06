@@ -1,6 +1,4 @@
-'use client'
-
-// src/app/(app)/workspace/[userVideoId]/page.tsx
+// pages/workspace/[uservideoId]/index.tsx
 //
 // Layout (matches wireframe):
 // ┌──────────────────────────────────────────────────────────┐
@@ -21,6 +19,7 @@ import {
   useRef,
   useCallback,
   useEffect,
+  useMemo,
 } from 'react'
 import { useRouter }            from 'next/router'
 import Link                     from 'next/link'
@@ -41,7 +40,6 @@ import {
   MessageSquare,
   Globe,
   FileText,
-  GripVertical,
   X,
 } from 'lucide-react'
 import { cn }              from '@/utils/cn'
@@ -49,6 +47,7 @@ import { Spinner }         from '@/components/ui/Spinner'
 import CutTimeline         from '@/components/video/CutTimeline'
 import ChatWindow          from '@/components/chat/ChatWindow'
 import ResearchReport      from '@/components/research/ResearchReport'
+import { apiClient }       from '@/utils/apiClient'
 import type {
   UserVideo,
   VideoCut,
@@ -648,80 +647,39 @@ function LeftPanel({
   transcript,
   currentTime,
   onSeek,
+  chatSession,
+  chatLoading,
+  chatTyping,
+  onSendMessage,
+  onAddVideo,
+  onRemoveVideo,
+  researchSession,
+  researchLoading,
+  onStartResearch,
 }: {
   activeTab:   LeftTab
   onTabChange: (t: LeftTab) => void
   transcript:  TranscriptSegment[]
   currentTime: number
   onSeek:      (s: number) => void
+  chatSession: ChatSession | null
+  chatLoading: boolean
+  chatTyping: boolean
+  onSendMessage: (content: string) => void
+  onAddVideo: (video: UserVideo) => void
+  onRemoveVideo: (videoId: string) => void
+  researchSession: ResearchSession | null
+  researchLoading: boolean
+  onStartResearch: () => void
 }) {
   // ── Add Video modal state ────────────────────────────────
   const [showAddVideo, setShowAddVideo] = useState(false)
 
-  // ── Inline chat state ────────────────────────────────────
-  const [chatSession,  setChatSession]  = useState<ChatSession>(MOCK_CHAT_SESSION)
-  const [chatTyping,   setChatTyping]   = useState(false)
-
   const handleAddVideo = useCallback((video: UserVideo) => {
-    // Add video to chat session if not already there
-    setChatSession((s) => ({
-      ...s,
-      videos: s.videos.some((v) => v.id === video.id) ? s.videos : [...s.videos, video],
-      messages: [
-        ...s.messages,
-        {
-          id: `m_sys_${Date.now()}`,
-          chat_session_id: s.id,
-          role: 'assistant' as const,
-          content: `📹 **"${video.video.title}"** has been added to this chat. You can now ask me questions about it alongside your other videos!`,
-          token_count: null,
-          created_at: new Date().toISOString(),
-        },
-      ],
-    }))
+    onAddVideo(video)
     setShowAddVideo(false)
-    // Switch to chat so the user sees the confirmation message
     onTabChange('chat')
-  }, [onTabChange])
-
-  const handleRemoveVideo = useCallback((videoId: string) => {
-    setChatSession((s) => ({ ...s, videos: s.videos.filter((v) => v.id !== videoId) }))
-  }, [])
-
-  const handleSendMessage = useCallback((content: string) => {
-    const userMsg: ChatMessage = {
-      id: `m${Date.now()}`, chat_session_id: chatSession.id,
-      role: 'user', content, token_count: null,
-      created_at: new Date().toISOString(),
-    }
-    setChatSession((s) => ({ ...s, messages: [...s.messages, userMsg] }))
-    setChatTyping(true)
-    setTimeout(() => {
-      const videoTitles = chatSession.videos.map((v) => `"${v.video.title}"`).join(' and ')
-      const reply: ChatMessage = {
-        id: `m${Date.now()}`, chat_session_id: chatSession.id,
-        role: 'assistant',
-        content: `Based on ${videoTitles || 'the video'}, here's what I can tell you about "${content.slice(0, 40)}${content.length > 40 ? '...' : ''}":\n\nThis topic is covered thoroughly in the video. The presenter explains the concept with practical examples that make it easy to understand.`,
-        token_count: null,
-        created_at: new Date().toISOString(),
-      }
-      setChatSession((s) => ({ ...s, messages: [...s.messages, reply] }))
-      setChatTyping(false)
-    }, 1500)
-  }, [chatSession.id, chatSession.videos])
-
-  // ── Inline research state ────────────────────────────────
-  const [researchSession, setResearchSession] = useState<ResearchSession | null>(null)
-  const [researchLoading, setResearchLoading] = useState(false)
-
-  const handleStartResearch = useCallback(() => {
-    setResearchLoading(true)
-    setResearchSession(null)
-    setTimeout(() => {
-      setResearchSession(MOCK_RESEARCH_SESSION)
-      setResearchLoading(false)
-    }, 3000)
-  }, [])
+  }, [onAddVideo, onTabChange])
 
   const TABS: { id: LeftTab; label: string; icon: React.ReactNode }[] = [
     { id: 'transcripts', label: 'Transcripts', icon: <FileText  className="w-3.5 h-3.5" aria-hidden="true" /> },
@@ -737,6 +695,18 @@ function LeftPanel({
     }
     return transcript[0]?.id ?? null
   })()
+
+  // ── Transcript auto-scroll ──────────────────────────────
+  // Scroll the active segment into view whenever it changes so the
+  // highlight follows playback even when the list is long.
+  const transcriptScrollRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!transcriptScrollRef.current || !activeSegId) return
+    const el = transcriptScrollRef.current.querySelector<HTMLElement>(
+      `[data-seg-id="${activeSegId}"]`
+    )
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [activeSegId])
 
   return (
     <>
@@ -770,12 +740,12 @@ function LeftPanel({
           ))}
         </div>
 
-        {/* Tab content — fills all remaining height */}
+        {/* Tab content ── fills all remaining height */}
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
 
           {/* Transcripts */}
           {activeTab === 'transcripts' && (
-            <div className="flex flex-col flex-1 overflow-y-auto">
+            <div ref={transcriptScrollRef} className="flex flex-col flex-1 overflow-y-auto">
               {transcript.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-2 text-center px-4">
                   <FileText className="w-8 h-8 text-[var(--color-text-tertiary)]" aria-hidden="true" />
@@ -787,6 +757,7 @@ function LeftPanel({
                   return (
                     <button
                       key={seg.id}
+                      data-seg-id={seg.id}
                       onClick={() => onSeek(seg.start_seconds)}
                       className={cn(
                         'flex gap-3 px-4 py-3 text-left w-full transition-colors',
@@ -811,70 +782,81 @@ function LeftPanel({
             </div>
           )}
 
-          {/* Chat — fully embedded with videos list */}
+          {/* Chat ── fully embedded with videos list */}
           {activeTab === 'chat' && (
             <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-
-              {/* Videos in this chat */}
-              <div className="shrink-0 border-b border-[var(--color-border-tertiary)] bg-[var(--color-bg-secondary)] px-3 py-2.5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold text-[var(--color-text-tertiary)] uppercase tracking-widest">
-                    Videos in this chat
-                  </span>
-                  <button
-                    onClick={() => setShowAddVideo(true)}
-                    className="flex items-center gap-1 text-[10px] font-semibold text-primary-600 hover:text-primary-700 transition-colors"
-                    title="Add another video to this chat"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Add
-                  </button>
+              {chatLoading ? (
+                <div className="flex items-center justify-center flex-1">
+                  <Spinner size="md" />
                 </div>
-                <div className="flex flex-col gap-1">
-                  {chatSession.videos.length === 0 ? (
-                    <p className="text-caption text-[var(--color-text-tertiary)] italic">No videos attached yet.</p>
-                  ) : (
-                    chatSession.videos.map((uv) => (
-                      <div
-                        key={uv.id}
-                        className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-[var(--color-bg-tertiary)] group transition-colors"
+              ) : chatSession ? (
+                <>
+                  {/* Videos in this chat */}
+                  <div className="shrink-0 border-b border-[var(--color-border-tertiary)] bg-[var(--color-bg-secondary)] px-3 py-2.5">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-bold text-[var(--color-text-tertiary)] uppercase tracking-widest">
+                        Videos in this chat
+                      </span>
+                      <button
+                        onClick={() => setShowAddVideo(true)}
+                        className="flex items-center gap-1 text-[10px] font-semibold text-primary-600 hover:text-primary-700 transition-colors"
+                        title="Add another video to this chat"
                       >
-                        {/* Play icon */}
-                        <div className="w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-                          <Play className="w-2.5 h-2.5 text-primary-600 fill-primary-600" aria-hidden="true" />
-                        </div>
-                        {/* Title */}
-                        <span className="flex-1 text-[11px] font-medium text-[var(--color-text-primary)] truncate leading-tight">
-                          {uv.video.title}
-                        </span>
-                        {/* Remove (only if more than 1 video) */}
-                        {chatSession.videos.length > 1 && (
-                          <button
-                            onClick={() => handleRemoveVideo(uv.id)}
-                            className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-red-500 transition-all shrink-0"
-                            aria-label={`Remove ${uv.video.title}`}
+                        <Plus className="w-3 h-3" />
+                        Add
+                      </button>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {chatSession.videos.length === 0 ? (
+                        <p className="text-caption text-[var(--color-text-tertiary)] italic">No videos attached yet.</p>
+                      ) : (
+                        chatSession.videos.map((uv) => (
+                          <div
+                            key={uv.id}
+                            className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-[var(--color-bg-tertiary)] group transition-colors"
                           >
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+                            {/* Play icon */}
+                            <div className="w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                              <Play className="w-2.5 h-2.5 text-primary-600 fill-primary-600" aria-hidden="true" />
+                            </div>
+                            {/* Title */}
+                            <span className="flex-1 text-[11px] font-medium text-[var(--color-text-primary)] truncate leading-tight">
+                              {uv.video.title}
+                            </span>
+                            {/* Remove (only if more than 1 video) */}
+                            {chatSession.videos.length > 1 && (
+                              <button
+                                onClick={() => onRemoveVideo(uv.id)}
+                                className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-red-500 transition-all shrink-0"
+                                aria-label={`Remove ${uv.video.title}`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
 
-              {/* Chat messages */}
-              <ChatWindow
-                session={chatSession}
-                isTyping={chatTyping}
-                onSendMessage={handleSendMessage}
-                onSeek={onSeek}
-                className="flex-1 min-h-0"
-              />
+                  {/* Chat messages */}
+                  <ChatWindow
+                    session={chatSession}
+                    isTyping={chatTyping}
+                    onSendMessage={onSendMessage}
+                    onSeek={onSeek}
+                    className="flex-1 min-h-0"
+                  />
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center flex-1 py-12 gap-2 text-center px-4">
+                  <p className="text-body-sm text-[var(--color-text-secondary)]">No active chat session found.</p>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Research — fully embedded ResearchReport */}
+          {/* Research ── fully embedded ResearchReport */}
           {activeTab === 'research' && (
             <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
               {!researchSession && !researchLoading && (
@@ -889,7 +871,7 @@ function LeftPanel({
                     </p>
                   </div>
                   <button
-                    onClick={handleStartResearch}
+                    onClick={onStartResearch}
                     className="px-4 py-2 rounded-lg text-body-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors flex items-center gap-2"
                   >
                     <Globe className="w-4 h-4" aria-hidden="true" />
@@ -958,6 +940,13 @@ function VideoPlayer({
         playerVars: { controls: 0, disablekb: 1, modestbranding: 1, rel: 0 },
         events: {
           onReady: (e: { target: YTPlayer }) => {
+            // IMPORTANT: reassign from e.target here.
+            // new YT.Player() returns an uninitialised proxy; the real player
+            // object with playVideo / pauseVideo / seekTo only exists on
+            // e.target once the iframe is ready. We must store it before we
+            // call setIsReady(true) so that togglePlay can never reach a
+            // ref without those methods.
+            playerRef.current = e.target
             setDuration(e.target.getDuration())
             setIsReady(true)
           },
@@ -978,15 +967,25 @@ function VideoPlayer({
       })
     })
     return () => {
+      setIsReady(false)
       if (intervalRef.current) clearInterval(intervalRef.current)
       playerRef.current?.destroy()
+      playerRef.current = null
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [youtubeId])
 
-  const togglePlay = () => isPlaying ? playerRef.current?.pauseVideo() : playerRef.current?.playVideo()
-  const toggleMute = () => { isMuted ? playerRef.current?.unMute() : playerRef.current?.mute(); setIsMuted((v) => !v) }
+  const togglePlay = () => {
+    if (!isReady) return
+    isPlaying ? playerRef.current?.pauseVideo() : playerRef.current?.playVideo()
+  }
+  const toggleMute = () => {
+    if (!isReady) return
+    isMuted ? playerRef.current?.unMute() : playerRef.current?.mute()
+    setIsMuted((v) => !v)
+  }
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isReady) return
     const t = Number(e.target.value)
     playerRef.current?.seekTo(t, true)
     setCurrent(t)
@@ -997,16 +996,15 @@ function VideoPlayer({
     ;(window as unknown as Record<string, unknown>)['__playerRef__'] = playerRef
   }
 
-  const pct = duration > 0 ? (current / duration) * 100 : 0
-
   return (
     <div className="relative bg-black group">
       {/* YouTube iframe target */}
       <div id={containerId} className="w-full aspect-video" />
 
-      {/* Loading overlay */}
+      {/* Loading overlay — z-10 ensures it sits above the controls layer so
+           clicks cannot reach the play button before onReady fires */}
       {!isReady && (
-        <div className="absolute inset-0 bg-black flex items-center justify-center">
+        <div className="absolute inset-0 z-10 bg-black flex items-center justify-center">
           <Spinner size="lg" variant="white" />
         </div>
       )}
@@ -1040,7 +1038,8 @@ function VideoPlayer({
         {/* Controls row */}
         <div className="flex items-center gap-3 px-4 pb-3">
           <button onClick={togglePlay} aria-label={isPlaying ? 'Pause' : 'Play'}
-            className="text-white hover:text-white/80 transition-colors">
+            disabled={!isReady}
+            className="text-white hover:text-white/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             {isPlaying
               ? <Pause className="w-5 h-5" aria-hidden="true" />
               : <Play  className="w-5 h-5" aria-hidden="true" />
@@ -1051,7 +1050,8 @@ function VideoPlayer({
           </span>
           <div className="flex-1" />
           <button onClick={toggleMute} aria-label={isMuted ? 'Unmute' : 'Mute'}
-            className="text-white hover:text-white/80 transition-colors">
+            disabled={!isReady}
+            className="text-white hover:text-white/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             {isMuted
               ? <VolumeX className="w-4 h-4" aria-hidden="true" />
               : <Volume2 className="w-4 h-4" aria-hidden="true" />
@@ -1068,26 +1068,31 @@ function VideoPlayer({
 }
 
 // ── ResizeHandle ──────────────────────────────────────────
-// A thin draggable divider placed between panels.
-// Drag left/right to resize; double-click to collapse/restore.
 
 function ResizeHandle({
   onDrag,
+  onDragStart,
+  onDragEnd,
   onDoubleClick,
   collapsed = false,
 }: {
   onDrag:        (deltaX: number) => void
+  onDragStart?:  () => void
+  onDragEnd?:    () => void
   onDoubleClick: () => void
   collapsed?:    boolean
 }) {
-  const dragging = useRef(false)
-  const lastX    = useRef(0)
+  const dragging  = useRef(false)
+  const lastX     = useRef(0)
+  const [active, setActive] = useState(false)
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
     dragging.current = true
     lastX.current    = e.clientX
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    setActive(true)
+    onDragStart?.()
   }
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1097,16 +1102,21 @@ function ResizeHandle({
   }
 
   const handlePointerUp = () => {
-    dragging.current = false
+    if (dragging.current) {
+      dragging.current = false
+      setActive(false)
+      onDragEnd?.()
+    }
   }
 
   return (
     <div
       className={cn(
+        // Wide invisible hit zone — easy to grab
         'group relative flex items-center justify-center shrink-0',
         'cursor-col-resize select-none z-10',
-        'w-1.5 hover:w-2 transition-[width] duration-fast',
-        'bg-[var(--color-border-tertiary)] hover:bg-primary-400',
+        // Wider hit area: 12px total (4px visible bar + 4px each side padding)
+        'w-3',
       )}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -1118,13 +1128,46 @@ function ResizeHandle({
       aria-label="Drag to resize panel. Double-click to collapse."
       title="Drag to resize · Double-click to collapse"
     >
-      {/* Grip dots — visible on hover */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-0.5">
-        <GripVertical className="w-3 h-3 text-white drop-shadow" aria-hidden="true" />
+      {/* Visible bar — thin at rest, highlighted on hover/drag */}
+      <div
+        className={cn(
+          'absolute inset-y-0 w-[3px] rounded-full transition-all duration-150',
+          active
+            ? 'bg-primary-500 w-[4px] shadow-[0_0_8px_2px_rgba(99,102,241,0.35)]'
+            : 'bg-[var(--color-border-secondary)] group-hover:bg-primary-400 group-hover:w-[4px]',
+        )}
+      />
+
+      {/* Grip icon — appears on hover */}
+      <div
+        className={cn(
+          'relative z-10 flex flex-col items-center gap-[3px] transition-opacity duration-150',
+          active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+        )}
+      >
+        {/* Three horizontal grip dots */}
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className={cn(
+              'block w-[3px] h-[3px] rounded-full',
+              active ? 'bg-primary-500' : 'bg-[var(--color-text-tertiary)] group-hover:bg-primary-500',
+            )}
+          />
+        ))}
       </div>
 
-      {/* Wide invisible hit target so it's easy to grab */}
-      <div className="absolute inset-y-0 -left-1.5 -right-1.5" aria-hidden="true" />
+      {/* Tooltip that appears above the handle on hover */}
+      <div
+        className={cn(
+          'pointer-events-none absolute bottom-[calc(50%+6px)] left-1/2 -translate-x-1/2',
+          'whitespace-nowrap bg-[var(--color-bg-inverse)] text-[var(--color-text-inverse)]',
+          'text-[10px] font-medium px-2 py-1 rounded shadow-md',
+          'opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-300',
+        )}
+      >
+        {collapsed ? 'Double-click to expand' : 'Drag to resize'}
+      </div>
     </div>
   )
 }
@@ -1138,12 +1181,12 @@ export default function WorkspacePage() {
   // ── Panel widths (px) ─────────────────────────────────────
   const LEFT_DEFAULT  = 220
   const LEFT_MIN      = 160
-  const LEFT_MAX      = 420
+  const LEFT_MAX      = 800
   const LEFT_COLLAPSED = 0
 
   const RIGHT_DEFAULT  = 240
   const RIGHT_MIN      = 180
-  const RIGHT_MAX      = 420
+  const RIGHT_MAX      = 800
   const RIGHT_COLLAPSED = 0
 
   const [leftWidth,      setLeftWidth]      = useState(LEFT_DEFAULT)
@@ -1151,8 +1194,11 @@ export default function WorkspacePage() {
   const [leftPrevWidth,  setLeftPrevWidth]  = useState(LEFT_DEFAULT)
   const [rightPrevWidth, setRightPrevWidth] = useState(RIGHT_DEFAULT)
 
+  const [isLeftDragging, setIsLeftDragging] = useState(false)
+  const [isRightDragging, setIsRightDragging] = useState(false)
+
   const handleLeftResize = useCallback((deltaX: number) => {
-    setLeftWidth((w) => Math.max(LEFT_MIN, Math.min(LEFT_MAX, w + deltaX)))
+    setLeftWidth((w) => Math.max(0, Math.min(LEFT_MAX, w + deltaX)))
   }, [])
 
   const handleRightResize = useCallback((deltaX: number) => {
@@ -1177,86 +1223,257 @@ export default function WorkspacePage() {
     }
   }, [rightWidth, rightPrevWidth])
 
-  // TODO: replace with useQuery
-  const [userVideo, setUserVideo] = useState<UserVideo>(MOCK_USER_VIDEO)
-  const [cuts,      setCuts]      = useState<VideoCut[]>(MOCK_CUTS)
-  const transcript                = MOCK_TRANSCRIPT
+  // Live states
+  const [userVideo, setUserVideo] = useState<UserVideo | null>(null)
+  const [cuts,      setCuts]      = useState<VideoCut[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const [chatSession, setChatSession] = useState<ChatSession | null>(null)
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatTyping, setChatTyping] = useState(false)
+
+  const [researchSession, setResearchSession] = useState<ResearchSession | null>(null)
+  const [researchLoading, setResearchLoading] = useState(false)
 
   const [currentTime, setCurrentTime] = useState(0)
   const [leftTab,     setLeftTab]     = useState<LeftTab>('transcripts')
-  const duration = userVideo.video.duration_seconds
+  const [mobileTab,   setMobileTab]   = useState<'cuts' | 'transcripts' | 'chat' | 'research'>('cuts')
 
-  // Seek player via window ref (avoids threading the ref through 3 levels of props)
+  // Mobile drawer state
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false)
+
+  // Tracks the shift-drag selection from CutTimeline so the action
+  // buttons above can operate on it
+  const [highlightedRange, setHighlightedRange] = useState<{ start: number; end: number } | null>(null)
+
+  const duration = userVideo?.video?.duration_seconds ?? 0
+  const transcript = useMemo(() => {
+    return ((userVideo as any)?.transcription?.segments ?? []).map((seg: any) => ({
+      ...seg,
+      start_seconds: Number(seg.start_seconds),
+      end_seconds: Number(seg.end_seconds),
+    }))
+  }, [userVideo])
+
+  // Fetch everything on mount
+  useEffect(() => {
+    if (!router.isReady || !userVideoId) return
+    let active = true
+
+    const loadData = async () => {
+      try {
+        setIsLoading(true)
+        // 1. Fetch user video details
+        const videoRes = await apiClient.get(`/videos/${userVideoId}/`)
+        if (!active) return
+        setUserVideo(videoRes.data)
+        setCuts(videoRes.data.cuts || [])
+
+        // Map tab from query parameter if present
+        const queryTab = router.query.tab as string | undefined
+        if (queryTab && ['cuts', 'transcripts', 'chat', 'research'].includes(queryTab)) {
+          setMobileTab(queryTab as any)
+          if (queryTab !== 'cuts') {
+            setLeftTab(queryTab as any)
+          }
+        }
+
+        // 2. Load or create chat session
+        const chatsRes = await apiClient.get('/chat/sessions/')
+        const chatsList = chatsRes.data.results || chatsRes.data || []
+        const existingChat = chatsList.find((s: any) => s.video_ids?.includes(userVideoId))
+        
+        let targetChatId = existingChat?.id
+        if (!targetChatId) {
+          const createChatRes = await apiClient.post('/chat/sessions/', {
+            title: `Chat - ${videoRes.data.video.title}`,
+          })
+          targetChatId = createChatRes.data.id
+          await apiClient.post(`/chat/sessions/${targetChatId}/videos/`, {
+            user_video_id: userVideoId,
+          })
+        }
+
+        const chatDetailRes = await apiClient.get(`/chat/sessions/${targetChatId}/`)
+        if (!active) return
+        setChatSession(chatDetailRes.data)
+
+        // 3. Load research session if it exists
+        const researchListRes = await apiClient.get('/research/')
+        const researchList = researchListRes.data.results || researchListRes.data || []
+        const existingResearch = researchList.find((r: any) =>
+          (r.user_video?.id ?? r.user_video) === userVideoId
+        )
+        
+        if (existingResearch) {
+          const researchDetailRes = await apiClient.get(`/research/${existingResearch.id}/`)
+          if (!active) return
+          setResearchSession(researchDetailRes.data)
+        }
+      } catch (err) {
+        console.error('Failed to load workspace data', err)
+      } finally {
+        if (active) setIsLoading(false)
+      }
+    }
+
+    loadData()
+    return () => {
+      active = false
+    }
+  }, [userVideoId, router.isReady, router.query.tab])
+
   const seekPlayer = useCallback((seconds: number) => {
     const ref = (window as unknown as Record<string, unknown>)['__playerRef__'] as React.MutableRefObject<YTPlayer | null> | undefined
-    // Guard: seekTo may not exist yet if the YT IFrame API hasn't finished initialising
     if (typeof ref?.current?.seekTo === 'function') {
       ref.current.seekTo(seconds, true)
     }
     setCurrentTime(seconds)
   }, [])
 
-  const handleCut = (cutId: string) => {
-    setCuts((prev) =>
-      prev.map((c) => c.id === cutId ? { ...c, user_approved: !c.user_approved } : c)
-    )
-  }
-
-  const handleEditSave = (cutId: string, start: number, end: number) => {
-    setCuts((prev) =>
-      prev.map((c) => c.id === cutId
-        ? { ...c, start_seconds: start, end_seconds: end, duration_seconds: end - start }
-        : c
-      )
-    )
-  }
-
-  const handleSplitAtTime = () => {
-    if (currentTime <= 0 || currentTime >= duration) return
-    const newCut: VideoCut = {
-      id:             `c${Date.now()}`,
-      user_video_id:  userVideo.id,
-      cut_order:      cuts.length + 1,
-      start_seconds:  Math.round(currentTime),
-      end_seconds:    duration,
-      title:          `Split at ${formatTime(Math.round(currentTime))}`,
-      ai_suggested:   false,
-      ai_rationale:   null,
-      user_approved:  false,
-      download_url:   null,
-      download_status:'pending',
-      duration_seconds: duration - Math.round(currentTime),
-      created_at: '', updated_at: '',
+  // Cuts CRUD
+  const handleCut = async (cutId: string) => {
+    const cut = cuts.find((c) => c.id === cutId)
+    if (!cut) return
+    try {
+      const res = await apiClient.patch(`/videos/${userVideoId}/cuts/${cutId}/`, {
+        user_approved: !cut.user_approved,
+      })
+      setCuts((prev) => prev.map((c) => c.id === cutId ? res.data : c))
+    } catch (err) {
+      console.error('Failed to toggle cut approval', err)
     }
-    setCuts((prev) => [...prev, newCut])
   }
 
-  const handleAddCutRange = (start: number, end: number) => {
-    const newCut: VideoCut = {
-      id:             `c${Date.now()}`,
-      user_video_id:  userVideo.id,
-      cut_order:      cuts.length + 1,
-      start_seconds:  Math.round(start),
-      end_seconds:    Math.round(end),
-      title:          `Selection ${formatTime(Math.round(start))} - ${formatTime(Math.round(end))}`,
-      ai_suggested:   false,
-      ai_rationale:   null,
-      user_approved:  true,
-      download_url:   null,
-      download_status:'pending',
-      duration_seconds: Math.round(end - start),
-      created_at: '', updated_at: '',
+  const handleEditSave = async (cutId: string, start: number, end: number) => {
+    try {
+      const res = await apiClient.patch(`/videos/${userVideoId}/cuts/${cutId}/`, {
+        start_seconds: Math.round(start),
+        end_seconds: Math.round(end),
+      })
+      setCuts((prev) => prev.map((c) => c.id === cutId ? res.data : c))
+    } catch (err) {
+      console.error('Failed to edit cut range', err)
     }
-    setCuts((prev) => [...prev, newCut])
   }
 
-  const handleAddCutPoint = () => {
-    handleSplitAtTime()
+  const handleSplitAtTime = async (splitAt?: number) => {
+    const t = splitAt ?? currentTime
+    // Use rounded integers (matching the model's IntegerField) for the guard
+    const rStart = Math.round(t)
+    const rEnd   = Math.round(duration)
+    if (rStart <= 0 || rStart >= rEnd) return
+    try {
+      const res = await apiClient.post(`/videos/${userVideoId}/cuts/`, {
+        start_seconds: rStart,
+        end_seconds:   rEnd,
+        title: `Split at ${formatTime(rStart)}`,
+        user_approved: false,
+      })
+      setCuts((prev) => [...prev, res.data])
+    } catch (err) {
+      console.error('Failed to split cut', err)
+    }
   }
+
+  const handleAddCutRange = async (start: number, end: number) => {
+    const rStart = Math.round(start)
+    const rEnd   = Math.round(end)
+    // Reject zero-width selections (rounds to same integer → backend 400)
+    if (rEnd <= rStart) return
+    try {
+      const res = await apiClient.post(`/videos/${userVideoId}/cuts/`, {
+        start_seconds: rStart,
+        end_seconds:   rEnd,
+        title: `Selection ${formatTime(rStart)} – ${formatTime(rEnd)}`,
+        user_approved: true,
+      })
+      setCuts((prev) => [...prev, res.data])
+    } catch (err) {
+      console.error('Failed to add cut range', err)
+    }
+  }
+
+  // (handleAddCutPoint now inlined into the button — calls handleSplitAtTime directly)
+
+  // Chat actions
+  const handleSendMessage = useCallback(async (content: string) => {
+    if (!chatSession) return
+    const tempUserMsgId = `m_temp_${Date.now()}`
+    const userMsg: ChatMessage = {
+      id:              tempUserMsgId,
+      chat_session_id: chatSession.id,
+      role:            'user',
+      content,
+      token_count:     null,
+      created_at:      new Date().toISOString(),
+    }
+    setChatSession((s) => s ? { ...s, messages: [...s.messages, userMsg] } : null)
+    setChatTyping(true)
+
+    try {
+      await apiClient.post(`/chat/sessions/${chatSession.id}/messages/`, { content })
+      const res = await apiClient.get(`/chat/sessions/${chatSession.id}/`)
+      setChatSession(res.data)
+    } catch (err) {
+      console.error('Failed to send message', err)
+      setChatSession((s) => s ? { ...s, messages: s.messages.filter((m) => m.id !== tempUserMsgId) } : null)
+    } finally {
+      setChatTyping(false)
+    }
+  }, [chatSession])
+
+  const handleAddVideo = useCallback(async (video: UserVideo) => {
+    if (!chatSession) return
+    try {
+      await apiClient.post(`/chat/sessions/${chatSession.id}/videos/`, {
+        user_video_id: video.id,
+      })
+      const res = await apiClient.get(`/chat/sessions/${chatSession.id}/`)
+      setChatSession(res.data)
+    } catch (err) {
+      console.error('Failed to add video to chat', err)
+    }
+  }, [chatSession])
+
+  const handleRemoveVideo = useCallback(async (videoId: string) => {
+    if (!chatSession) return
+    try {
+      await apiClient.delete(`/chat/sessions/${chatSession.id}/videos/${videoId}/`)
+      const res = await apiClient.get(`/chat/sessions/${chatSession.id}/`)
+      setChatSession(res.data)
+    } catch (err) {
+      console.error('Failed to remove video from chat', err)
+    }
+  }, [chatSession])
+
+  // Research actions
+  const handleStartResearch = useCallback(async () => {
+    if (!userVideoId) return
+    setResearchLoading(true)
+    try {
+      const createRes = await apiClient.post('/research/', { user_video_id: userVideoId })
+      const detailRes = await apiClient.get(`/research/${createRes.data.id}/`)
+      setResearchSession(detailRes.data)
+    } catch (err) {
+      console.error('Failed to generate research report', err)
+    } finally {
+      setResearchLoading(false)
+    }
+  }, [userVideoId])
 
   const activeCutId = cuts.find(
     (c) => currentTime >= c.start_seconds && currentTime < c.end_seconds
   )?.id ?? null
+
+  // Loading spinner
+  if (isLoading || !userVideo) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[var(--color-bg-primary)]">
+        <Spinner size="lg" label="Loading workspace..." />
+      </div>
+    )
+  }
 
   return (
     <div
@@ -1287,32 +1504,85 @@ export default function WorkspacePage() {
         </button>
       </header>
 
+      {/* ── Mobile Tab Switcher ── */}
+      <div className="flex md:hidden border-b border-[var(--color-border-tertiary)] bg-[var(--color-bg-primary)] shrink-0" role="tablist">
+        {[
+          { id: 'cuts', label: 'Cuts' },
+          { id: 'transcripts', label: 'Transcripts' },
+          { id: 'chat', label: 'Chat' },
+          { id: 'research', label: 'Research' },
+        ].map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={mobileTab === t.id}
+            onClick={() => setMobileTab(t.id as any)}
+            className={cn(
+              'flex-1 py-2.5 text-center text-[10px] font-bold border-b-2 transition-colors uppercase tracking-wider',
+              mobileTab === t.id
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {/* ── Three-column body ── */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* ── LEFT PANEL (Transcripts / Chat / Research + Add Video) ── */}
         <div
-          className="hidden md:flex flex-col bg-[var(--color-bg-primary)] shrink-0 overflow-hidden transition-[width] duration-fast"
-          style={{ width: leftWidth > 0 ? leftWidth : 0 }}
+          className={cn(
+            "flex-col bg-[var(--color-bg-primary)] shrink-0 overflow-hidden",
+            !isLeftDragging && "transition-[width] duration-fast",
+            mobileTab !== 'cuts' ? 'flex flex-1 md:hidden' : 'hidden md:flex'
+          )}
+          style={{ width: leftWidth > 0 ? `${leftWidth}px` : 0 }}
         >
           <LeftPanel
-            activeTab={leftTab}
-            onTabChange={setLeftTab}
+            activeTab={mobileTab === 'cuts' ? leftTab : (mobileTab as any)}
+            onTabChange={(tab) => {
+              setLeftTab(tab)
+              // Only sync mobileTab when we're already in mobile left-panel
+              // mode (mobileTab !== 'cuts'). On desktop mobileTab must stay
+              // 'cuts' so the panel isn't hidden by the md:hidden class.
+              if (mobileTab !== 'cuts') {
+                setMobileTab(tab as any)
+              }
+            }}
             transcript={transcript}
             currentTime={currentTime}
             onSeek={seekPlayer}
+            chatSession={chatSession}
+            chatLoading={chatLoading}
+            chatTyping={chatTyping}
+            onSendMessage={handleSendMessage}
+            onAddVideo={handleAddVideo}
+            onRemoveVideo={handleRemoveVideo}
+            researchSession={researchSession}
+            researchLoading={researchLoading}
+            onStartResearch={handleStartResearch}
           />
         </div>
 
         {/* ── LEFT RESIZE HANDLE ── */}
-        <ResizeHandle
-          onDrag={handleLeftResize}
-          onDoubleClick={toggleLeftCollapse}
-          collapsed={leftWidth === 0}
-        />
+        <div className="hidden md:block">
+          <ResizeHandle
+            onDrag={handleLeftResize}
+            onDragStart={() => setIsLeftDragging(true)}
+            onDragEnd={() => setIsLeftDragging(false)}
+            onDoubleClick={toggleLeftCollapse}
+            collapsed={leftWidth === 0}
+          />
+        </div>
 
         {/* ── CENTER — Video + Cut Suggestions ── */}
-        <div className="flex flex-col flex-1 min-w-0 overflow-y-auto">
+        <div className={cn(
+          "flex flex-col flex-1 min-w-0 overflow-y-auto",
+          mobileTab !== 'cuts' && 'hidden md:flex'
+        )}>
 
           {/* Video player */}
           <VideoPlayer
@@ -1327,34 +1597,57 @@ export default function WorkspacePage() {
               Cut Suggestions
             </h2>
 
-            {/* Action buttons */}
+            {/* Action buttons — context-aware when a range is highlighted */}
             <div className="flex gap-2 mb-4 flex-wrap">
+              {/* Cut: toggles active cut approval, OR creates a cut for the highlighted range */}
               <button
-                onClick={() => handleCut(activeCutId ?? '')}
-                disabled={!activeCutId}
+                onClick={() => {
+                  if (highlightedRange) {
+                    handleAddCutRange(highlightedRange.start, highlightedRange.end)
+                  } else {
+                    handleCut(activeCutId ?? '')
+                  }
+                }}
+                disabled={!highlightedRange && !activeCutId}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2 rounded-lg text-body-sm font-medium border transition-colors',
-                  activeCutId
-                    ? 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)]'
-                    : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)] border-[var(--color-border-tertiary)] cursor-not-allowed',
+                  highlightedRange
+                    ? 'bg-primary-600 text-white border-primary-600 hover:bg-primary-700'
+                    : activeCutId
+                      ? 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)]'
+                      : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)] border-[var(--color-border-tertiary)] cursor-not-allowed',
                 )}
               >
                 <Scissors className="w-4 h-4" aria-hidden="true" />
-                Cut
+                {highlightedRange ? 'Cut Selection' : 'Cut'}
               </button>
+
+              {/* Add Cut Point: splits at current time OR at start of highlighted range */}
               <button
-                onClick={handleAddCutPoint}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-body-sm font-medium bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+                onClick={() => handleSplitAtTime(highlightedRange?.start)}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 rounded-lg text-body-sm font-medium border transition-colors',
+                  highlightedRange
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100'
+                    : 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)]',
+                )}
               >
                 <Plus className="w-4 h-4" aria-hidden="true" />
-                Add Cut Point
+                {highlightedRange ? 'Split at Start' : 'Add Cut Point'}
               </button>
+
+              {/* Split Time: same as Add Cut Point when range is active */}
               <button
-                onClick={handleSplitAtTime}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-body-sm font-medium bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+                onClick={() => handleSplitAtTime(highlightedRange?.start)}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 rounded-lg text-body-sm font-medium border transition-colors',
+                  highlightedRange
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100'
+                    : 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)]',
+                )}
               >
                 <Clock className="w-4 h-4" aria-hidden="true" />
-                Split Time
+                {highlightedRange ? 'Split at Selection' : 'Split Time'}
               </button>
             </div>
 
@@ -1368,6 +1661,7 @@ export default function WorkspacePage() {
               onCutResize={handleEditSave}
               onCutMove={handleEditSave}
               onAddCut={handleAddCutRange}
+              onHighlightedRangeChange={setHighlightedRange}
               className="border border-[var(--color-border-tertiary)] rounded-lg overflow-hidden"
             />
           </div>
@@ -1390,15 +1684,22 @@ export default function WorkspacePage() {
         </div>
 
         {/* ── RIGHT RESIZE HANDLE ── */}
-        <ResizeHandle
-          onDrag={handleRightResize}
-          onDoubleClick={toggleRightCollapse}
-          collapsed={rightWidth === 0}
-        />
+        <div className="hidden lg:block">
+          <ResizeHandle
+            onDrag={handleRightResize}
+            onDragStart={() => setIsRightDragging(true)}
+            onDragEnd={() => setIsRightDragging(false)}
+            onDoubleClick={toggleRightCollapse}
+            collapsed={rightWidth === 0}
+          />
+        </div>
 
         {/* ── RIGHT PANEL — Cut Clips ── */}
         <div
-          className="hidden lg:flex flex-col bg-[var(--color-bg-primary)] shrink-0 overflow-hidden transition-[width] duration-fast"
+          className={cn(
+            "hidden lg:flex flex-col bg-[var(--color-bg-primary)] shrink-0 overflow-hidden",
+            !isRightDragging && "transition-[width] duration-fast"
+          )}
           style={{ width: rightWidth > 0 ? rightWidth : 0 }}
         >
           <CutClipsPanel
@@ -1408,6 +1709,85 @@ export default function WorkspacePage() {
           />
         </div>
       </div>
+
+      {/* ── Floating Action Bubble (FAB) ── */}
+      <button
+        onClick={() => setIsMobileDrawerOpen(true)}
+        className="fixed bottom-20 right-4 z-40 md:hidden w-14 h-14 rounded-full bg-primary-600 text-white shadow-lg flex items-center justify-center hover:bg-primary-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200"
+        aria-label="Quick actions"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      {/* ── Quick Actions Drawer Overlay ── */}
+      {isMobileDrawerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-black/60 md:hidden animate-fade-in"
+          onClick={() => setIsMobileDrawerOpen(false)}
+        >
+          <div
+            className="w-[80vw] max-w-sm h-full bg-[var(--color-bg-primary)] border-l border-[var(--color-border-tertiary)] p-5 flex flex-col gap-4 shadow-2xl animate-slide-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] pb-3">
+              <div>
+                <h3 className="text-heading-md text-[var(--color-text-primary)]">Quick Actions</h3>
+                <p className="text-caption text-[var(--color-text-tertiary)]">Select a section</p>
+              </div>
+              <button
+                onClick={() => setIsMobileDrawerOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-secondary)]"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick action buttons */}
+            <div className="flex flex-col gap-2">
+              {[
+                { id: 'cuts', label: 'Cut Videos', desc: 'View and download all your cut clips', color: 'bg-red-500/10 text-red-500 border-red-500/20' },
+                { id: 'transcripts', label: 'Transcription', desc: 'Read the full auto-generated transcript', color: 'bg-primary-500/10 text-primary-500 border-primary-500/20' },
+                { id: 'chat', label: 'Chat with AI', desc: 'Ask questions and add additional videos', color: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20' },
+                { id: 'research', label: 'Deep Research', desc: 'Research this video topic deeper across the web', color: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
+              ].map((act) => (
+                <button
+                  key={act.id}
+                  onClick={() => {
+                    setMobileTab(act.id as any)
+                    if (act.id !== 'cuts') {
+                      setLeftTab(act.id as any)
+                    }
+                    setIsMobileDrawerOpen(false)
+                  }}
+                  className="flex items-start gap-3 p-3 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-tertiary)] text-left transition-colors"
+                >
+                  <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0 font-bold", act.color)}>
+                    {act.id === 'cuts' && <Scissors className="w-5 h-5" />}
+                    {act.id === 'transcripts' && <FileText className="w-5 h-5" />}
+                    {act.id === 'chat' && <MessageSquare className="w-5 h-5" />}
+                    {act.id === 'research' && <Globe className="w-5 h-5" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-body-sm font-semibold text-[var(--color-text-primary)]">{act.label}</p>
+                    <p className="text-caption text-[var(--color-text-secondary)] mt-0.5 leading-snug">{act.desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-auto pt-4 border-t border-[var(--color-border-tertiary)] text-center">
+              <button
+                onClick={() => setIsMobileDrawerOpen(false)}
+                className="text-caption text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors"
+              >
+                Close Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -30,11 +30,12 @@ function deleteCookie() {
 // ── Types ─────────────────────────────────────────────────
 
 interface AuthState {
-  user:      User | null
-  token:     string | null
-  isLoading: boolean
+  user:         User | null
+  token:        string | null
+  refreshToken: string | null
+  isLoading:    boolean
 
-  setAuth:    (user: User, token: string) => void
+  setAuth:    (user: User, token: string, refreshToken?: string) => void
   updateUser: (partial: Partial<User>)    => void
   clearAuth:  ()                           => void
   setLoading: (v: boolean)                => void
@@ -45,13 +46,19 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      user:      null,
-      token:     null,
-      isLoading: true,
+      user:         null,
+      token:        null,
+      refreshToken: null,
+      isLoading:    true,
 
-      setAuth: (user, token) => {
+      setAuth: (user, token, refreshToken) => {
         setCookie(token)
-        set({ user, token, isLoading: false })
+        set((state) => ({
+          user,
+          token,
+          refreshToken: refreshToken !== undefined ? refreshToken : state.refreshToken,
+          isLoading: false
+        }))
       },
 
       updateUser: (partial) =>
@@ -61,7 +68,7 @@ export const useAuthStore = create<AuthState>()(
 
       clearAuth: () => {
         deleteCookie()
-        set({ user: null, token: null, isLoading: false })
+        set({ user: null, token: null, refreshToken: null, isLoading: false })
       },
 
       setLoading: (v) => set({ isLoading: v }),
@@ -75,7 +82,11 @@ export const useAuthStore = create<AuthState>()(
           removeItem: () => {},
         }
       ),
-      partialize: (state) => ({ user: state.user, token: state.token }),
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        refreshToken: state.refreshToken,
+      }),
       onRehydrateStorage: () => (state) => {
         state?.setLoading(false)
         // Re-sync cookie from localStorage on hydration

@@ -41,10 +41,23 @@ export function HomeNav() {
         </nav>
 
         {/* CTA group */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Link
             href="/login"
-            className="hidden sm:inline-flex items-center h-9 px-4 rounded-md text-body-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            className="inline-flex items-center h-9 px-4 rounded-full text-body-sm font-medium transition-colors"
+            style={{
+              color: '#374151',
+              border: '1.5px solid #d1d5db',
+              backgroundColor: '#ffffff',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#9ca3af'
+              e.currentTarget.style.backgroundColor = '#f9fafb'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#d1d5db'
+              e.currentTarget.style.backgroundColor = '#ffffff'
+            }}
           >
             Log in
           </Link>
@@ -55,7 +68,7 @@ export function HomeNav() {
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1d4ed8')}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2563eb')}
           >
-            Get Started
+            Get started
           </Link>
         </div>
       </div>

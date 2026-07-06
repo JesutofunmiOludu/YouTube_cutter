@@ -1,24 +1,20 @@
-# Site Vision & Roadmap - VidMind AI
+# Site Vision & Roadmap - YouTube Cutter Redesign
 
 ## 🎯 Vision
-VidMind AI is a smart video learning and research platform that transforms how users consume, understand, and research YouTube video content.
+YouTube Cutter is a professional-grade mobile video editing app featuring interactive waveforms, AI-predicted cut suggestions, and side-panel workspace menus.
 
 ## 🏗️ Stitch Project Details
-- **Project ID**: 8594475461849068938
-- **Title**: VidMind AI UI Design
+- **Project ID**: 5931206253751010244
+- **Title**: Mobile App UI Redesign
 
 ## 🗺️ Sitemap
-- [x] `index` (Landing Page)
-- [x] `auth` (Login & Register)
-- [x] `dashboard` (User Dashboard)
-- [x] `search` (Search Results)
-- [x] `workspace` (Main Video Workspace)
-- [x] `chat` (Chat interface)
-- [x] `research` (Deep research report)
-- [x] `subscription` (Subscription plan selection)
-- [x] `settings` (User settings)
+- [x] `video_editor` (Main Video Editor Screen)
+- [x] `cut_clips` (AI Cut Suggestions Panel)
+- [x] `transcripts` (Transcription Panel)
+- [x] `bubble_menu` (Floating Bubble Side Drawer Menu)
 
 ## 🚀 Roadmap
-1. **Landing Page**: Hook users with clear value propositions and CTAs.
-2. **Auth**: Seamless onboarding flow.
-3. **Workspace**: Core experience with video player, AI cuts, transcript, and chat.
+1. **video_editor**: High-fidelity timeline with marker, selection handles, cut/split, and suggestions. (Completed)
+2. **cut_clips**: Details of AI cut clips, download options. (Completed)
+3. **transcripts**: Time-coded transcripts reader with active line highlights. (Completed)
+4. **bubble_menu**: Overlay drawer menu containing navigation cards for cuts, transcript, chat, and research. (Completed)

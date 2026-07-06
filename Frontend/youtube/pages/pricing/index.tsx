@@ -9,6 +9,8 @@ import { Button }      from '@/components/ui/Button'
 import { Badge }       from '@/components/ui/Badge'
 import { useAuthStore } from '@/store/auth.store'
 import { useToast }    from '@/components/ui/Toast'
+import { AppShell }    from '@/components/layout/AppShell'
+
 
 // ── Plan config ───────────────────────────────────────────
 
@@ -376,3 +378,7 @@ export default function PricingPage() {
     </div>
   )
 }
+
+PricingPage.getLayout = function getLayout(page: React.ReactElement) {
+  return <AppShell>{page}</AppShell>
+}

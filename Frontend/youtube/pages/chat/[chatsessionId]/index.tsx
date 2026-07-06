@@ -12,8 +12,11 @@ import { EmptyState, EmptyIcons } from '@/components/ui/EmptyState'
 import { ConfirmModal } from '@/components/ui/Modal'
 import { useToast }     from '@/components/ui/Toast'
 import { useAuthStore } from '@/store/auth.store'
-import ChatWindow       from '@/components/chat/ChatWindow'
-import type { ChatSession, ChatMessage } from '@/types'
+import { AppShell }     from '@/components/layout/AppShell'
+import { ChatWindow, AddVideoModal } from '@/components/chat'
+import { apiClient }    from '@/utils/apiClient'
+import { Spinner }      from '@/components/ui/Spinner'
+import type { ChatSession, ChatMessage, UserVideo } from '@/types'
 
 // ── Mock data ─────────────────────────────────────────────
 
@@ -98,45 +101,128 @@ export default function ChatPage() {
   const { user }     = useAuthStore()
   const { toast }    = useToast()
 
-  // TODO: replace with React Query
-  const [sessions, setSessions] = useState<ChatSession[]>(MOCK_SESSIONS)
-  const [messages, setMessages] = useState<ChatMessage[]>(MOCK_MESSAGES)
+  const [sessions, setSessions] = useState<ChatSession[]>([])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [activeSession, setActiveSession] = useState<ChatSession | null>(null)
   const [isTyping,  setIsTyping]  = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [showAddVideo, setShowAddVideo] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   const sessionId     = (router.query.chatsessionId as string) ?? null
-  const activeSession = sessions.find((s) => s.id === sessionId) ?? null
   const preVideoId    = (router.query.videoId as string) ?? null
 
-  // Auto-select first session if none selected and sessions exist
-  useEffect(() => {
-    if (!sessionId && sessions.length > 0) {
-      router.replace(`/chat/${sessions[0]!.id}`)
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await apiClient.get('/chat/sessions/')
+      const list = res.data.results || res.data
+      setSessions(list)
+      return list
+    } catch (err) {
+      console.error('Failed to fetch sessions', err)
+      return []
     }
-  }, [sessionId, sessions, router])
+  }, [])
 
-  const handleNewChat = () => {
-    const newSession: ChatSession = {
-      id:            `ch${Date.now()}`,
-      user_id:       user?.id ?? '',
-      title:         'New chat',
-      is_multi_video: false,
-      videos:        [],
-      messages:      [],
-      created_at:    new Date().toISOString(),
-      updated_at:    new Date().toISOString(),
-      last_message:  null,
+  // Auto-select first session or handle redirecting with pre-attached video
+  useEffect(() => {
+    if (!router.isReady) return
+    let cancelled = false
+
+    const initChat = async () => {
+      try {
+        setIsLoading(true)
+        const list = await fetchSessions()
+        if (cancelled) return
+
+        if (!sessionId && preVideoId) {
+          const videoRes = await apiClient.get(`/videos/${preVideoId}/`)
+          const createRes = await apiClient.post('/chat/sessions/', {
+            title: `Chat - ${videoRes.data.video.title}`,
+          })
+          await apiClient.post(`/chat/sessions/${createRes.data.id}/videos/`, {
+            user_video_id: preVideoId,
+          })
+          if (!cancelled) {
+            router.replace(`/chat/${createRes.data.id}`)
+          }
+        } else if (!sessionId && list.length > 0) {
+          router.replace(`/chat/${list[0].id}`)
+        } else if (sessionId) {
+          const detailRes = await apiClient.get(`/chat/sessions/${sessionId}/`)
+          if (!cancelled) {
+            setActiveSession(detailRes.data)
+            setMessages(detailRes.data.messages || [])
+            setIsLoading(false)
+          }
+        } else {
+          setIsLoading(false)
+        }
+      } catch (err) {
+        console.error('Failed to init chat', err)
+        if (!cancelled) {
+          toast.error('Failed to initialize chat session.')
+          setIsLoading(false)
+        }
+      }
     }
-    setSessions((prev) => [newSession, ...prev])
-    setMessages([])
-    router.push(`/chat/${newSession.id}`)
+
+    initChat()
+
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, preVideoId, router.isReady, fetchSessions])
+
+  const handleAddVideo = useCallback(async (video: UserVideo) => {
+    if (!sessionId) return
+    try {
+      await apiClient.post(`/chat/sessions/${sessionId}/videos/`, {
+        user_video_id: video.id,
+      })
+      const detailRes = await apiClient.get(`/chat/sessions/${sessionId}/`)
+      setActiveSession(detailRes.data)
+      setMessages(detailRes.data.messages || [])
+      setShowAddVideo(false)
+      fetchSessions()
+    } catch (err) {
+      console.error('Failed to add video', err)
+      toast.error('Failed to add video to chat.')
+    }
+  }, [sessionId, fetchSessions])
+
+  const handleRemoveVideo = useCallback(async (videoId: string) => {
+    if (!sessionId) return
+    try {
+      await apiClient.delete(`/chat/sessions/${sessionId}/videos/${videoId}/`)
+      const detailRes = await apiClient.get(`/chat/sessions/${sessionId}/`)
+      setActiveSession(detailRes.data)
+      setMessages(detailRes.data.messages || [])
+      fetchSessions()
+    } catch (err) {
+      console.error('Failed to remove video', err)
+      toast.error('Failed to remove video from chat.')
+    }
+  }, [sessionId, fetchSessions])
+
+  const handleNewChat = async () => {
+    try {
+      const createRes = await apiClient.post('/chat/sessions/', {
+        title: 'New chat',
+      })
+      fetchSessions()
+      router.push(`/chat/${createRes.data.id}`)
+    } catch (err) {
+      console.error('Failed to create new chat', err)
+      toast.error('Failed to create a new chat session.')
+    }
   }
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!sessionId) return
-
+    const tempUserMsgId = `m_temp_${Date.now()}`
     const userMsg: ChatMessage = {
-      id:              `m${Date.now()}`,
+      id:              tempUserMsgId,
       chat_session_id: sessionId,
       role:            'user',
       content,
@@ -146,30 +232,50 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMsg])
     setIsTyping(true)
 
-    // TODO: call chatService.sendMessage(sessionId, content)
-    await new Promise((r) => setTimeout(r, 1200))
-
-    const aiMsg: ChatMessage = {
-      id:              `m${Date.now() + 1}`,
-      chat_session_id: sessionId,
-      role:            'assistant',
-      content:         'That\'s a great question! Based on the video content, I can explain this in detail. The instructor covers this concept at [0:38:45] where they demonstrate the practical application step by step.',
-      token_count:     null,
-      created_at:      new Date().toISOString(),
+    try {
+      await apiClient.post(`/chat/sessions/${sessionId}/messages/`, {
+        content,
+      })
+      const detailRes = await apiClient.get(`/chat/sessions/${sessionId}/`)
+      setMessages(detailRes.data.messages || [])
+      fetchSessions()
+    } catch (err) {
+      console.error('Failed to send message', err)
+      setMessages((prev) => prev.filter((m) => m.id !== tempUserMsgId))
+      toast.error('Failed to send message.')
+    } finally {
+      setIsTyping(false)
     }
-    setMessages((prev) => [...prev, aiMsg])
-    setIsTyping(false)
-  }, [sessionId])
+  }, [sessionId, fetchSessions])
 
-  const handleDeleteSession = (id: string) => {
-    setSessions((prev) => prev.filter((s) => s.id !== id))
-    setDeleteTarget(null)
-    toast.success('Chat deleted')
-    if (sessionId === id) router.push('/chat')
+  const handleDeleteSession = async (id: string) => {
+    try {
+      await apiClient.delete(`/chat/sessions/${id}/`)
+      setDeleteTarget(null)
+      toast.success('Chat deleted')
+      const list = await fetchSessions()
+      if (sessionId === id) {
+        if (list.length > 0) {
+          router.push(`/chat/${list[0].id}`)
+        } else {
+          router.push('/chat')
+        }
+      }
+    } catch (err) {
+      console.error('Failed to delete chat session', err)
+      toast.error('Failed to delete chat session.')
+    }
   }
 
   return (
     <div className="flex h-full -m-5 overflow-hidden">
+      {/* Add Video Modal */}
+      {showAddVideo && (
+        <AddVideoModal
+          onAdd={handleAddVideo}
+          onClose={() => setShowAddVideo(false)}
+        />
+      )}
 
       {/* ── Sidebar — session list ── */}
       <div className="hidden md:flex flex-col w-64 shrink-0 border-r border-[var(--color-border-tertiary)] bg-[var(--color-bg-secondary)]">
@@ -194,7 +300,7 @@ export default function ChatPage() {
                 key={session.id}
                 session={session}
                 isActive={session.id === sessionId}
-                onSelect={() => { setMessages(MOCK_MESSAGES); router.push(`/chat/${session.id}`) }}
+                onSelect={() => router.push(`/chat/${session.id}`)}
                 onDelete={() => setDeleteTarget(session.id)}
               />
             ))
@@ -204,13 +310,18 @@ export default function ChatPage() {
 
       {/* ── Main — chat window ── */}
       <div className="flex flex-col flex-1 min-w-0 bg-[var(--color-bg-primary)]">
-        {activeSession ? (
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Spinner size="lg" />
+          </div>
+        ) : activeSession ? (
           <ChatWindow
             session={{ ...activeSession, messages }}
             currentUser={user}
             isTyping={isTyping}
             onSendMessage={handleSendMessage}
-            onAddVideo={() => router.push('/search')}
+            onAddVideo={() => setShowAddVideo(true)}
+            onRemoveVideo={handleRemoveVideo}
             className="h-full"
           />
         ) : (
@@ -242,3 +353,7 @@ export default function ChatPage() {
     </div>
   )
 }
+
+ChatPage.getLayout = function getLayout(page: React.ReactElement) {
+  return <AppShell>{page}</AppShell>
+}

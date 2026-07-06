@@ -34,6 +34,8 @@ import {
 } from 'lucide-react'
 import { cn }            from '@/utils/cn'
 import { useAuthStore }  from '@/store/auth.store'
+import { apiClient }     from '@/utils/apiClient'
+import { useToast }      from '@/components/ui/Toast'
 import { Button } from '@components/ui/Button'
 import { StatusBadge }   from '@components/ui/Badge'
 import { UsageMeter }    from '@components/ui/ProgressBar'
@@ -762,10 +764,88 @@ const DashboardPage: NextPageWithLayout = () => {
     }
   }, [firstName])
 
-  // TODO: replace with React Query hooks
-  const isLoading        = false
-  const projects         = MOCK_PROJECTS
-  const usage            = MOCK_USAGE
+  const { toast } = useToast()
+  const [projects, setProjects] = useState<VideoProject[]>([])
+  const [usage, setUsage] = useState({
+    searches: { used: 0, limit: 5 },
+    cuts: { used: 0, limit: 3 },
+    transcriptions: { used: 0, limit: 3 },
+  })
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true)
+      try {
+        // 1. Fetch user videos
+        const videosRes = await apiClient.get('/videos/')
+        const userVideos: UserVideo[] = videosRes.data.results || videosRes.data || []
+
+        // 2. Fetch chat sessions
+        const chatsRes = await apiClient.get('/chat/sessions/')
+        const chats: ChatSession[] = chatsRes.data.results || chatsRes.data || []
+
+        // 3. Fetch research sessions
+        const researchRes = await apiClient.get('/research/')
+        const research: ResearchSession[] = researchRes.data.results || researchRes.data || []
+
+        // 4. Fetch usage
+        const usageRes = await apiClient.get('/billing/usage/')
+        const usageData = usageRes.data
+
+        // 5. Build VideoProject list by fetching details for each video (which returns cuts)
+        const projectList: VideoProject[] = await Promise.all(
+          userVideos.map(async (uv) => {
+            try {
+              const detailRes = await apiClient.get(`/videos/${uv.id}/`)
+              const detail = detailRes.data
+
+              // Filter chats that have this video attached
+              const videoChats = chats.filter((c: any) =>
+                c.video_ids?.includes(uv.id)
+              )
+
+              // Filter research sessions for this video
+              const videoResearch = research.filter((r) => {
+                const rUvId = typeof r.user_video === 'object' && r.user_video !== null ? r.user_video.id : r.user_video
+                return rUvId === uv.id
+              })
+
+              return {
+                userVideo: detail,
+                cuts: detail.cuts || [],
+                chats: videoChats,
+                research: videoResearch,
+              }
+            } catch (err) {
+              return {
+                userVideo: uv,
+                cuts: [],
+                chats: [],
+                research: [],
+              }
+            }
+          })
+        )
+
+        setProjects(projectList)
+
+        if (usageData) {
+          setUsage({
+            searches: { used: usageData.searches_count || 0, limit: isPremium ? 9999 : 5 },
+            cuts: { used: usageData.cuts_count || 0, limit: isPremium ? 9999 : 3 },
+            transcriptions: { used: usageData.transcriptions_count || 0, limit: isPremium ? 9999 : 3 },
+          })
+        }
+      } catch (err) {
+        toast.error('Failed to load dashboard data.')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadData()
+  }, [isPremium])
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
 

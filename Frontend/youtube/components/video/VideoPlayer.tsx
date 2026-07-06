@@ -118,12 +118,14 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     const [currentTime,  setCurrentTime]  = useState(0)
     const [duration,     setDuration]     = useState(0)
     const [isReady,      setIsReady]      = useState(false)
+    // Mirror isReady into a ref so closures (handle, intervals) can read it
+    const isReadyRef = useRef(false)
 
     // Expose handle to parent
     useImperativeHandle(ref, () => ({
-      seekTo:  (s) => playerRef.current?.seekTo(s, true),
-      play:    ()  => playerRef.current?.playVideo(),
-      pause:   ()  => playerRef.current?.pauseVideo(),
+      seekTo:  (s) => { if (isReadyRef.current) playerRef.current?.seekTo(s, true) },
+      play:    ()  => { if (isReadyRef.current) playerRef.current?.playVideo() },
+      pause:   ()  => { if (isReadyRef.current) playerRef.current?.pauseVideo() },
       getTime: ()  => playerRef.current?.getCurrentTime() ?? 0,
     }))
 
@@ -141,6 +143,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           events: {
             onReady: (e) => {
               setDuration(e.target.getDuration())
+              isReadyRef.current = true
               setIsReady(true)
             },
             onStateChange: (e) => {
@@ -168,21 +171,21 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     }, [youtubeId])
 
     const togglePlay = () => {
-      if (!playerRef.current) return
+      if (!playerRef.current || !isReadyRef.current) return
       isPlaying
         ? playerRef.current.pauseVideo()
         : playerRef.current.playVideo()
     }
 
     const toggleMute = () => {
-      if (!playerRef.current) return
+      if (!playerRef.current || !isReadyRef.current) return
       isMuted ? playerRef.current.unMute() : playerRef.current.mute()
       setIsMuted((v) => !v)
     }
 
     const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
       const t = Number(e.target.value)
-      playerRef.current?.seekTo(t, true)
+      if (playerRef.current && isReadyRef.current) playerRef.current.seekTo(t, true)
       setCurrentTime(t)
     }
 

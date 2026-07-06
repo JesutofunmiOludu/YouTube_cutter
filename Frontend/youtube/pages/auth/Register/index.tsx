@@ -18,6 +18,7 @@ import AuthLayout                      from '@components/layout/AuthLayout'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { useAuthStore }                from '@/store/auth.store'
+import { apiClient }                   from '@/utils/apiClient'
 import { useToast }                    from '@components/ui/Toast'
 import { cn }                          from '@/utils/cn'
 import type { RegisterFormValues }     from '@/types'
@@ -127,11 +128,15 @@ const RegisterPage: React.FC = () => {
     }
 
     try {
-      // TODO: replace with real API call
-      // const { user, token } = await authService.register(values)
-      // setAuth(user, token)
-
-      await new Promise((r) => setTimeout(r, 900))
+      const res = await apiClient.post('/auth/register/', {
+        first_name: values.first_name,
+        last_name: values.last_name,
+        email: values.email,
+        password: values.password,
+        password2: values.confirm_password,
+      })
+      const { user, access, refresh } = res.data
+      setAuth(user, access, refresh)
       toast.success('Account created! Welcome to VidMind AI 🎉')
 
       // Redirect to intended action

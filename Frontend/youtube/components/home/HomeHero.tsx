@@ -148,6 +148,17 @@ export function HomeHero() {
           </button>
         </div>
       </form>
+
+      {/* Already have an account */}
+      <p className="mt-8 text-gray-500" style={{ fontSize: '13px' }}>
+        Already have an account?{' '}
+        <a
+          href="/login"
+          className="font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2 transition-colors"
+        >
+          Log in
+        </a>
+      </p>
     </section>
   )
 }

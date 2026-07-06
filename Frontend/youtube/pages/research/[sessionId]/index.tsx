@@ -1,7 +1,7 @@
 'use client'
 
 // src/app/(app)/research/[sessionId]/page.tsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { Plus, Globe, Clock, Trash2, Crown, Download } from 'lucide-react'
 import { cn }            from '@/utils/cn'
@@ -11,7 +11,10 @@ import { EmptyState, EmptyIcons } from '@/components/ui/EmptyState'
 import { ConfirmModal }  from '@/components/ui/Modal'
 import { useToast }      from '@/components/ui/Toast'
 import { useAuthStore }  from '@/store/auth.store'
+import { AppShell }      from '@/components/layout/AppShell'
 import ResearchReport    from '@/components/research/ResearchReport'
+import { apiClient }     from '@/utils/apiClient'
+import { Spinner }       from '@/components/ui/Spinner'
 import type { ResearchSession, UserVideo } from '@/types'
 
 // ── Mock data ─────────────────────────────────────────────
@@ -153,29 +156,99 @@ export default function ResearchPage() {
 
   const isPremium = user?.subscription_tier === 'premium'
 
-  // TODO: replace with React Query
-  const [sessions, setSessions] = useState<ResearchSession[]>(isPremium ? MOCK_SESSIONS : [])
+  const [sessions, setSessions] = useState<ResearchSession[]>([])
+  const [activeSession, setActiveSession] = useState<ResearchSession | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const sessionId     = (router.query.sessionId as string) ?? null
-  const activeSession = sessions.find((s) => s.id === sessionId) ?? null
+  const sessionId = (router.query.sessionId as string) ?? null
+
+  const fetchSessions = useCallback(async () => {
+    if (!isPremium) return []
+    try {
+      const res = await apiClient.get('/research/')
+      const list = res.data.results || res.data
+      setSessions(list)
+      return list
+    } catch (err) {
+      console.error('Failed to fetch research sessions', err)
+      return []
+    }
+  }, [isPremium])
 
   useEffect(() => {
-    if (!sessionId && sessions.length > 0) {
-      router.replace(`/research/${sessions[0]!.id}`)
+    if (!router.isReady) return
+    let cancelled = false
+
+    const initResearch = async () => {
+      try {
+        setIsLoading(true)
+        const list = await fetchSessions()
+        if (cancelled) return
+
+        if (!sessionId && list.length > 0) {
+          router.replace(`/research/${list[0].id}`)
+        } else if (sessionId) {
+          const detailRes = await apiClient.get(`/research/${sessionId}/`)
+          if (!cancelled) {
+            setActiveSession(detailRes.data)
+            setIsLoading(false)
+          }
+        } else {
+          setIsLoading(false)
+        }
+      } catch (err) {
+        console.error('Failed to init research page', err)
+        if (!cancelled) {
+          toast.error('Failed to load research report.')
+          setIsLoading(false)
+        }
+      }
     }
-  }, [sessionId, sessions, router])
+
+    initResearch()
+
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, router.isReady, fetchSessions])
 
   const handleExport = () => {
-    // TODO: generate PDF/MD from activeSession.report_content
-    toast.info('Export coming soon!')
+    if (!activeSession?.report_content) return
+    try {
+      const blob = new Blob([activeSession.report_content], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${activeSession.title || 'research-report'}.md`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Report exported as Markdown')
+    } catch (err) {
+      console.error('Export failed', err)
+      toast.error('Export failed')
+    }
   }
 
-  const handleDeleteSession = (id: string) => {
-    setSessions((prev) => prev.filter((s) => s.id !== id))
-    setDeleteTarget(null)
-    toast.success('Report deleted')
-    if (sessionId === id) router.push('/research')
+  const handleDeleteSession = async (id: string) => {
+    try {
+      await apiClient.delete(`/research/${id}/`)
+      setDeleteTarget(null)
+      toast.success('Report deleted')
+      const list = await fetchSessions()
+      if (sessionId === id) {
+        if (list.length > 0) {
+          router.push(`/research/${list[0].id}`)
+        } else {
+          router.push('/research')
+        }
+      }
+    } catch (err) {
+      console.error('Failed to delete report', err)
+      toast.error('Failed to delete report.')
+    }
   }
 
   return (
@@ -228,6 +301,10 @@ export default function ResearchPage() {
       <div className="flex flex-col flex-1 min-w-0 bg-[var(--color-bg-primary)]">
         {!isPremium ? (
           <PremiumGate />
+        ) : isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Spinner size="lg" />
+          </div>
         ) : activeSession ? (
           <ResearchReport
             session={activeSession}
@@ -264,3 +341,7 @@ export default function ResearchPage() {
     </div>
   )
 }
+
+ResearchPage.getLayout = function getLayout(page: React.ReactElement) {
+  return <AppShell>{page}</AppShell>
+}

@@ -17,6 +17,8 @@ import { Avatar }      from '@/components/ui/Avatar'
 import { ConfirmModal } from '@/components/ui/Modal'
 import { useToast }    from '@/components/ui/Toast'
 import { useAuthStore } from '@/store/auth.store'
+import { AppShell }    from '@/components/layout/AppShell'
+
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -401,3 +403,8 @@ export default function SettingsPage() {
     </div>
   )
 }
+
+SettingsPage.getLayout = function getLayout(page: React.ReactElement) {
+  return <AppShell>{page}</AppShell>
+}
+

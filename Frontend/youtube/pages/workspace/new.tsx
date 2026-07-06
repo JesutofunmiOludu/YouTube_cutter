@@ -17,6 +17,8 @@ import {
   Zap,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { apiClient } from '@/utils/apiClient'
+import { useToast } from '@/components/ui/Toast'
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -82,42 +84,96 @@ export default function WorkspaceNewPage() {
     }
   }, [url, titleParam])
 
-  // Simulate the processing pipeline
-  // TODO: replace with real API calls to the Django backend
+  // Real processing pipeline connecting to Django backend
+  const { toast } = useToast()
+
   useEffect(() => {
     if (!videoId || error) return
-
-    const durations = [1200, 2500, 1800, 1000] // ms per step
 
     let cancelled = false
 
     const runSteps = async () => {
-      for (let i = 0; i < INITIAL_STEPS.length; i++) {
-        if (cancelled) return
+      // Step 1: Fetching video metadata (POST /api/videos/)
+      setSteps((prev) =>
+        prev.map((s) => s.id === 'fetch' ? { ...s, status: 'running' } : s)
+      )
 
-        // Start this step
+      let userVideoId = ''
+      try {
+        const res = await apiClient.post('/videos/', { youtube_id: videoId })
+        const uv = res.data
+        userVideoId = uv.id
         setSteps((prev) =>
-          prev.map((s, idx) => idx === i ? { ...s, status: 'running' } : s)
+          prev.map((s) => s.id === 'fetch' ? { ...s, status: 'done' } : s)
         )
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.response?.data?.error || 'Failed to fetch video metadata.')
+          setSteps((prev) =>
+            prev.map((s) => s.id === 'fetch' ? { ...s, status: 'error' } : s)
+          )
+        }
+        return
+      }
 
-        await new Promise((res) => setTimeout(res, durations[i]))
+      // Steps 2, 3, 4: Poll status & simulate progress for transcript and analysis
+      let completed = false
+      let attempts = 0
+      const maxAttempts = 30 // 60 seconds max
+
+      while (!completed && attempts < maxAttempts && !cancelled) {
+        try {
+          const checkRes = await apiClient.get(`/videos/${userVideoId}/`)
+          const status = checkRes.data.processing_status
+
+          if (status === 'completed') {
+            completed = true
+          } else if (status === 'failed') {
+            if (!cancelled) {
+              setError('AI processing failed for this video.')
+              setSteps((prev) => prev.map((s) => ({ ...s, status: 'error' })))
+            }
+            return
+          } else {
+            // Processing or pending, wait and check again
+            setSteps((prev) =>
+              prev.map((s) => s.id === 'transcribe' ? { ...s, status: 'running' } : s)
+            )
+            await new Promise((res) => setTimeout(res, 2000))
+            attempts++
+          }
+        } catch (err) {
+          if (!cancelled) {
+            setError('Failed to query video status.')
+          }
+          return
+        }
+      }
+
+      if (cancelled) return
+
+      // Smoothly transition remaining steps for high-end UI feel
+      const remaining = ['transcribe', 'analyse', 'cuts']
+      for (const stepId of remaining) {
         if (cancelled) return
-
-        // Mark done
         setSteps((prev) =>
-          prev.map((s, idx) => idx === i ? { ...s, status: 'done' } : s)
+          prev.map((s) => s.id === stepId ? { ...s, status: 'running' } : s)
+        )
+        await new Promise((res) => setTimeout(res, 600))
+        if (cancelled) return
+        setSteps((prev) =>
+          prev.map((s) => s.id === stepId ? { ...s, status: 'done' } : s)
         )
       }
 
-      // All steps done — navigate to workspace
-      // TODO: use the real userVideoId returned by the backend
-      const mockUserVideoId = 'uv1'
-      await router.push(`/workspace/${mockUserVideoId}`)
+      await new Promise((res) => setTimeout(res, 500))
+      if (!cancelled) {
+        toast.success('Workspace is ready!')
+        router.push(`/workspace/${userVideoId}`)
+      }
     }
 
-    runSteps().catch(() => {
-      if (!cancelled) setError('Something went wrong. Please try again.')
-    })
+    runSteps()
 
     return () => { cancelled = true }
   }, [videoId, error, router])

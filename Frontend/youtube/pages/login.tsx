@@ -17,6 +17,7 @@ import { useForm }                        from 'react-hook-form'
 import AuthLayout                         from '@components/layout/AuthLayout'
 import { Button, Input }                  from '@components/ui'
 import { useAuthStore }                   from '@/store/auth.store'
+import { apiClient }                      from '@/utils/apiClient'
 import { useToast }                       from '@components/ui/Toast'
 import { cn }                             from '@/utils/cn'
 import type { LoginFormValues }           from '@/types'
@@ -124,12 +125,12 @@ const LoginPage: React.FC = () => {
   // Email/password login
   const onSubmit = async (values: LoginFormValues) => {
     try {
-      // TODO: replace with real API call
-      // const { user, token } = await authService.login(values)
-      // setAuth(user, token)
-
-      // Simulated success for now
-      await new Promise((r) => setTimeout(r, 800))
+      const res = await apiClient.post('/auth/login/', {
+        email: values.email,
+        password: values.password,
+      })
+      const { user, access, refresh } = res.data
+      setAuth(user, access, refresh)
       toast.success('Welcome back!')
       router.replace(from)
     } catch (err: unknown) {

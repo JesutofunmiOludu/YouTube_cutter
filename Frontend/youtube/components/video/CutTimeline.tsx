@@ -30,7 +30,7 @@ import type { VideoCut, TranscriptSegment } from '@/types'
 
 const MIN_ZOOM        = 1
 const MAX_ZOOM        = 20
-const ZOOM_STEP       = 0.5
+const ZOOM_STEP       = 0.25
 const HANDLE_WIDTH_PX = 6  // edge resize handle width in px
 const TRACK_HEIGHT    = 36 // px height of each track row
 const RULER_HEIGHT    = 28 // px
@@ -67,6 +67,9 @@ export interface CutTimelineProps {
   /** Called when user drags a clip to a new position */
   onCutMove?:   (cutId: string, start: number, end: number) => void
   onAddCut?:    (start: number, end: number) => void
+  /** Called whenever the user creates, moves, resizes, or clears the
+   *  shift-drag highlight range. Lets the parent track the selection. */
+  onHighlightedRangeChange?: (range: { start: number; end: number } | null) => void
   className?:   string
 }
 
@@ -188,6 +191,7 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
   onCutResize,
   onCutMove,
   onAddCut,
+  onHighlightedRangeChange,
   className,
 }) => {
   // ── Refs ────────────────────────────────────────────────────
@@ -199,6 +203,14 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
   const [widthPx,    setWidthPx]    = useState(800)
   const [scrollLeft, setScrollLeft] = useState(0)
   const [highlightedRange, setHighlightedRange] = useState<{ start: number; end: number } | null>(null)
+  // Wrapper that syncs internal state AND notifies parent
+  const updateHighlightedRange = useCallback(
+    (range: { start: number; end: number } | null) => {
+      setHighlightedRange(range)
+      onHighlightedRangeChange?.(range)
+    },
+    [onHighlightedRangeChange]
+  )
   const [drag,       setDrag]       = useState<DragState>({
     mode: 'none', cutId: null, startX: 0, origStart: 0, origEnd: 0,
   })
@@ -239,6 +251,11 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
     setZoom((z) => clamp(z + delta, MIN_ZOOM, MAX_ZOOM))
   }, [])
 
+  // Reset to fit-all whenever a new video is loaded
+  useEffect(() => {
+    setZoom(MIN_ZOOM)
+  }, [duration])
+
   // Scroll-wheel to zoom
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
@@ -261,7 +278,7 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
       e.stopPropagation()
       const target = e.currentTarget as HTMLElement
       target.setPointerCapture(e.pointerId)
-      setHighlightedRange({ start: clickedTime, end: clickedTime })
+      updateHighlightedRange({ start: clickedTime, end: clickedTime })
       setDrag({
         mode: 'highlight-right',
         cutId: null,
@@ -314,17 +331,17 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
       const dur   = drag.origEnd - drag.origStart
       const start = clamp(drag.origStart + deltaSec, 0, duration - dur)
       const end   = start + dur
-      setHighlightedRange({ start, end })
+      updateHighlightedRange({ start, end })
       return
     }
     if (drag.mode === 'highlight-left') {
       const start = clamp(drag.origStart + deltaSec, 0, drag.origEnd - 0.5)
-      setHighlightedRange({ start, end: drag.origEnd })
+      updateHighlightedRange({ start, end: drag.origEnd })
       return
     }
     if (drag.mode === 'highlight-right') {
       const end = clamp(drag.origEnd + deltaSec, drag.origStart + 0.5, duration)
-      setHighlightedRange({ start: drag.origStart, end })
+      updateHighlightedRange({ start: drag.origStart, end })
       return
     }
 
@@ -404,9 +421,21 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
           >
             −
           </button>
-          <span className="text-caption text-[var(--color-text-tertiary)] w-10 text-center tabular-nums">
-            {zoom.toFixed(1)}×
-          </span>
+          {/* Fit button — click to reset to full-video view */}
+          <button
+            type="button"
+            onClick={() => setZoom(MIN_ZOOM)}
+            title="Reset to fit (1×)"
+            className={cn(
+              'px-1.5 h-6 rounded text-[10px] font-bold tabular-nums transition-colors',
+              zoom === MIN_ZOOM
+                ? 'text-[var(--color-text-tertiary)] cursor-default'
+                : 'text-primary-600 hover:bg-primary-50 hover:text-primary-700',
+            )}
+            aria-label="Reset zoom to fit"
+          >
+            {zoom.toFixed(2).replace(/\.?0+$/, '')}×
+          </button>
           <button
             type="button"
             onClick={() => adjustZoom(ZOOM_STEP)}
@@ -433,7 +462,7 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
                   type="button"
                   onClick={() => {
                     onAddCut(highlightedRange.start, highlightedRange.end)
-                    setHighlightedRange(null)
+                    updateHighlightedRange(null)
                   }}
                   className="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold transition-colors"
                 >
@@ -442,7 +471,7 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
               )}
               <button
                 type="button"
-                onClick={() => setHighlightedRange(null)}
+                onClick={() => updateHighlightedRange(null)}
                 className="text-[10px] font-semibold text-indigo-500 hover:text-indigo-700 px-1"
               >
                 Clear
@@ -454,7 +483,7 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
               onClick={() => {
                 const start = Math.max(0, currentTime - 5)
                 const end = Math.min(duration, currentTime + 5)
-                setHighlightedRange({ start, end })
+                updateHighlightedRange({ start, end })
               }}
               className="px-2 py-1 rounded border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-tertiary)] text-[11px] font-semibold text-[var(--color-text-secondary)] transition-colors flex items-center gap-1.5"
             >
@@ -522,26 +551,8 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
               />
             )}
 
-            {/* Track labels (sticky left) */}
-            <div
-              className="absolute left-0 top-0 z-20 flex flex-col pointer-events-none"
-              style={{ transform: `translateX(${scrollLeft}px)` }}
-            >
-              <div
-                className="flex items-center px-2 bg-[var(--color-bg-secondary)] border-r border-[var(--color-border-tertiary)] text-[10px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider"
-                style={{ height: TRACK_HEIGHT, width: 72 }}
-              >
-                Cuts
-              </div>
-              {transcript.length > 0 && (
-                <div
-                  className="flex items-center px-2 bg-[var(--color-bg-tertiary)] border-r border-t border-[var(--color-border-tertiary)] text-[10px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider"
-                  style={{ height: TRACK_HEIGHT, width: 72 }}
-                >
-                  Transcript
-                </div>
-              )}
-            </div>
+
+
 
             {/* ── HIGHLIGHTED RANGE OVERLAY ── */}
             {highlightedRange && (

@@ -1,7 +1,7 @@
 'use client'
 
 // src/app/(app)/search/page.tsx
-import { useState, useCallback, useTransition } from 'react'
+import { useState, useCallback, useTransition, useEffect } from 'react'
 import { useRouter }                            from 'next/router'
 import {
   Search, SlidersHorizontal, Clock,
@@ -13,6 +13,9 @@ import { Badge }           from '@/components/ui/Badge'
 import { Spinner }         from '@/components/ui/Spinner'
 import { EmptyState, EmptyIcons } from '@/components/ui/EmptyState'
 import { VideoGridSkeleton } from '@/components/ui/SkeletonCard'
+import { AppShell }        from '@/components/layout/AppShell'
+import { apiClient }       from '@/utils/apiClient'
+import { useToast }        from '@/components/ui/Toast'
 import type { Video }      from '@/types'
 
 // ── Types ─────────────────────────────────────────────────
@@ -157,10 +160,55 @@ export default function SearchPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [isPending, startTransition]  = useTransition()
 
-  // TODO: replace with useQuery
-  const isLoading = false
-  const results   = query ? MOCK_VIDEOS : []
+  const { toast } = useToast()
+  const [results, setResults] = useState<Video[]>([])
+  const [isLoading, setIsLoading] = useState(false)
   const hasResults = results.length > 0
+
+  useEffect(() => {
+    // If the URL has a search query, update the search input and query state
+    if (router.query.q && router.query.q !== query) {
+      const q = router.query.q as string
+      setQuery(q)
+      setInput(q)
+    }
+  }, [router.query.q])
+
+  useEffect(() => {
+    if (!query) {
+      setResults([])
+      return
+    }
+
+    const performFetch = async () => {
+      setIsLoading(true)
+      try {
+        const res = await apiClient.get('/videos/search/', {
+          params: { q: query }
+        })
+        const mapped = (res.data.results || []).map((v: any, index: number) => ({
+          id: `v-${v.youtube_id}-${index}`,
+          youtube_id: v.youtube_id,
+          title: v.title,
+          description: null,
+          thumbnail_url: v.thumbnail_url,
+          duration_seconds: 0, // YouTube search list API doesn't return duration unless we request contentDetails.
+          channel_id: '',
+          channel_name: v.channel_name,
+          category: 'Tutorial',
+          published_at: v.published_at,
+          created_at: '',
+        }))
+        setResults(mapped)
+      } catch (err) {
+        toast.error('Search failed. Please try again.')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    performFetch()
+  }, [query])
 
   const handleSearch = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -361,3 +409,7 @@ export default function SearchPage() {
     </div>
   )
 }
+
+SearchPage.getLayout = function getLayout(page: React.ReactElement) {
+  return <AppShell>{page}</AppShell>
+}
