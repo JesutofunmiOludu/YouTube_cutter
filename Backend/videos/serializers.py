@@ -98,71 +98,10 @@ class UserVideoSerializer(serializers.ModelSerializer):
         )
 
         if created:
-            # Seed default transcription and segments so workspace has data immediately
-            from .models import Transcription, TranscriptSegment, VideoCut
-            transcription = Transcription.objects.create(
-                user_video=user_video,
-                status=Transcription.Status.COMPLETED,
-                full_text="Hey everyone, welcome to this complete course. Today we'll cover everything you need to know. We'll start with the fundamentals, then move into state management, side effects, and custom logic. This completely changed how we build. Let's dive in!"
-            )
-            # Seed 3 transcript segments
-            TranscriptSegment.objects.create(
-                transcription=transcription,
-                segment_order=1,
-                start_seconds=0.0,
-                end_seconds=15.0,
-                text="Hey everyone, welcome to this complete course. Today we'll cover everything you need to know."
-            )
-            TranscriptSegment.objects.create(
-                transcription=transcription,
-                segment_order=2,
-                start_seconds=15.0,
-                end_seconds=36.0,
-                text="We'll start with the fundamentals, then move into state management, side effects, and custom logic."
-            )
-            TranscriptSegment.objects.create(
-                transcription=transcription,
-                segment_order=3,
-                start_seconds=36.0,
-                end_seconds=65.0,
-                text="This completely changed how we build. Let's dive in!"
-            )
-
-            # Seed suggested cuts
-            VideoCut.objects.create(
-                user_video=user_video,
-                cut_order=1,
-                start_seconds=0,
-                end_seconds=15,
-                title="Introduction",
-                ai_suggested=True,
-                ai_rationale="Introductory chapter break.",
-                user_approved=False
-            )
-            VideoCut.objects.create(
-                user_video=user_video,
-                cut_order=2,
-                start_seconds=15,
-                end_seconds=36,
-                title="Fundamentals",
-                ai_suggested=True,
-                ai_rationale="Core concepts overview.",
-                user_approved=False
-            )
-            VideoCut.objects.create(
-                user_video=user_video,
-                cut_order=3,
-                start_seconds=36,
-                end_seconds=65,
-                title="Diving Deep",
-                ai_suggested=True,
-                ai_rationale="Deep dive shift.",
-                user_approved=False
-            )
-
-            # Set status to completed
-            user_video.processing_status = UserVideo.ProcessingStatus.COMPLETED
-            user_video.save(update_fields=['processing_status'])
+            # Run the full AI setup pipeline in a background thread:
+            import threading
+            from .processing_pipeline import run_video_setup
+            threading.Thread(target=run_video_setup, args=(user_video,), daemon=True).start()
 
         return user_video
 

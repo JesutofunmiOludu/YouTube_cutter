@@ -1,5 +1,6 @@
 """
 Gemini AI Service for YouTube Cutter.
+Uses the new google-genai Python SDK.
 
 Handles:
   - Chat: Contextual Q&A about one or many YouTube videos using their transcripts
@@ -9,10 +10,13 @@ from __future__ import annotations
 
 import logging
 import textwrap
+import time
 from typing import TYPE_CHECKING
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from django.conf import settings
+from django.utils import timezone
 
 if TYPE_CHECKING:
     from chat.models import ChatSession, ResearchSession
@@ -20,18 +24,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # ── Model names ────────────────────────────────────────────
-CHAT_MODEL     = 'gemini-1.5-flash'
-RESEARCH_MODEL = 'gemini-1.5-pro'   # pro for longer, more detailed reports
+CHAT_MODEL     = 'gemini-3.1-pro-preview'
+RESEARCH_AGENT = 'deep-research-preview-04-2026'
 
 
-def _get_client() -> genai.GenerativeModel | None:
-    """Configure the Gemini SDK and return a GenerativeModel, or None if no key."""
+def _get_client() -> genai.Client | None:
+    """Configure and return the new Google GenAI client, or None if no key."""
     api_key = getattr(settings, 'GEMINI_API_KEY', '')
     if not api_key:
-        logger.warning('GEMINI_AI_API not set — AI features will return stubs.')
+        logger.warning('GEMINI_API_KEY not set — AI features will return stubs.')
         return None
-    genai.configure(api_key=api_key)
-    return genai
+    return genai.Client(api_key=api_key)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -42,11 +45,9 @@ def generate_chat_reply(user_content: str, session: 'ChatSession') -> str:
     """
     Generate an AI reply to the user's message using the video transcript(s)
     attached to this chat session as context.
-
-    Falls back to a stub if no API key is configured.
     """
-    g = _get_client()
-    if g is None:
+    client = _get_client()
+    if client is None:
         return _stub_chat_reply(user_content)
 
     # Build context from all videos attached to this session
@@ -70,12 +71,15 @@ def generate_chat_reply(user_content: str, session: 'ChatSession') -> str:
     """).strip()
 
     try:
-        model = genai.GenerativeModel(
-            model_name=CHAT_MODEL,
-            system_instruction=system_prompt,
+        chat = client.chats.create(
+            model=CHAT_MODEL,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.3,
+            ),
+            history=history,
         )
-        chat  = model.start_chat(history=history)
-        resp  = chat.send_message(user_content)
+        resp = chat.send_message(user_content)
         return resp.text
 
     except Exception as exc:  # noqa: BLE001
@@ -122,9 +126,9 @@ def _build_video_context(session: 'ChatSession') -> str:
     return '\n\n---\n\n'.join(blocks) if blocks else 'No videos attached to this session.'
 
 
-def _build_chat_history(session: 'ChatSession', exclude_last: bool = True) -> list[dict]:
+def _build_chat_history(session: 'ChatSession', exclude_last: bool = True) -> list[types.Content]:
     """
-    Convert stored ChatMessages into Gemini's history format.
+    Convert stored ChatMessages into new Google GenAI SDK's types.Content format.
     Optionally excludes the last message (the current user turn).
     """
     from chat.models import ChatMessage
@@ -140,29 +144,29 @@ def _build_chat_history(session: 'ChatSession', exclude_last: bool = True) -> li
     history = []
     for m in msgs:
         role = 'user' if m['role'] == ChatMessage.Role.USER else 'model'
-        history.append({'role': role, 'parts': [m['content']]})
+        history.append(
+            types.Content(
+                role=role,
+                parts=[types.Part(text=m['content'])]
+            )
+        )
     return history
 
 
 # ═══════════════════════════════════════════════════════════
-# RESEARCH
+# RESEARCH (Deep Research Agent)
 # ═══════════════════════════════════════════════════════════
 
-def generate_research_report(session: 'ResearchSession') -> tuple[str, list[dict]]:
+def start_deep_research_interaction(session: 'ResearchSession') -> str | None:
     """
-    Generate a structured research report for the given ResearchSession.
-
-    Returns:
-        (report_markdown: str, sources: list[dict])
-        where each source dict has: title, url, source_type, excerpt, relevance_rank
+    Start the Google Deep Research agent for the given ResearchSession.
+    Returns the interaction ID, or None if it failed or returned a stub.
     """
-    g = _get_client()
-    if g is None:
-        return _stub_research_report(session), []
+    client = _get_client()
+    if client is None:
+        return None
 
     video = session.user_video.video
-
-    # Pull transcript if available
     transcript_text = _get_transcript_text(session.user_video)
 
     prompt = textwrap.dedent(f"""
@@ -210,20 +214,41 @@ def generate_research_report(session: 'ResearchSession') -> tuple[str, list[dict
     """).strip()
 
     try:
-        model  = genai.GenerativeModel(model_name=RESEARCH_MODEL)
-        resp   = model.generate_content(prompt)
-        raw    = resp.text
-        report, sources = _parse_research_response(raw)
-        return report, sources
+        interaction = client.interactions.create(
+            input=prompt,
+            agent=RESEARCH_AGENT,
+            background=True
+        )
+        return interaction.id
+    except Exception as exc:
+        logger.error('Failed to trigger Gemini Deep Research: %s', exc)
+        return None
 
-    except Exception as exc:  # noqa: BLE001
-        logger.error('Gemini research error: %s', exc)
-        return (
-            '## Research Report\n\n'
-            'An error occurred while generating the research report. '
-            'Please try again.\n\n'
-            f'_Error: {exc}_'
-        ), []
+
+def poll_and_save_research(session: 'ResearchSession') -> tuple[str, list[dict]]:
+    """
+    Polls the active Google Deep Research interaction and parses results when complete.
+    """
+    client = _get_client()
+    if client is None or not session.research_interaction_id:
+        return _stub_research_report(session), []
+
+    try:
+        interaction = client.interactions.get(session.research_interaction_id)
+        
+        if interaction.status == "completed":
+            raw = interaction.outputs[-1].text
+            report, sources = _parse_research_response(raw)
+            return report, sources
+        elif interaction.status == "failed":
+            raise Exception(f"Deep Research failed: {interaction.error}")
+        else:
+            # Still running
+            return "", []
+
+    except Exception as exc:
+        logger.error('Deep Research polling failed: %s', exc)
+        return f"Research generation failed: {exc}", []
 
 
 def _get_transcript_text(user_video) -> str:
@@ -266,7 +291,7 @@ def _parse_research_response(raw: str) -> tuple[str, list[dict]]:
 
 
 # ═══════════════════════════════════════════════════════════
-# Stubs (when no API key is set)
+# Stubs (when no API key is set or fallback is needed)
 # ═══════════════════════════════════════════════════════════
 
 def _stub_chat_reply(user_content: str) -> str:

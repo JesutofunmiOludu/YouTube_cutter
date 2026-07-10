@@ -234,11 +234,11 @@ class ResearchSessionListCreateView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         session = serializer.save(user=request.user, user_video=user_video)
 
-        # Trigger Gemini research generation synchronously
-        # (move to a Celery task for production)
-        _run_research(session)
+        # Trigger Gemini research generation asynchronously in a background thread
+        import threading
+        threading.Thread(target=_run_research, args=(session,), daemon=True).start()
 
-        # Return the fully populated session
+        # Return the session details (which will show 'processing' status)
         detail = ResearchSessionDetailSerializer(session)
         return Response(detail.data, status=status.HTTP_201_CREATED)
 
@@ -269,34 +269,77 @@ def _generate_ai_reply(user_content: str, session: ChatSession) -> str:
 
 def _run_research(session: ResearchSession) -> None:
     """
-    Use Gemini to generate a structured research report + sources,
-    then persist them to the database.
+    Use Gemini Deep Research agent to generate a structured research report + sources,
+    polling in the background and persisting results to the database when complete.
     """
     session.status = ResearchSession.Status.PROCESSING
     session.save(update_fields=['status'])
 
-    try:
-        report_md, raw_sources = gemini_service.generate_research_report(session)
-
-        # Persist the report
+    # Start Deep Research interaction on Google's servers
+    interaction_id = gemini_service.start_deep_research_interaction(session)
+    
+    if not interaction_id:
+        # Fallback immediately to stub research report if API key or interaction fails
+        report_md = gemini_service._stub_research_report(session)
         session.report_content = report_md
-        session.status         = ResearchSession.Status.COMPLETED
-        session.completed_at   = timezone.now()
+        session.status = ResearchSession.Status.COMPLETED
+        session.completed_at = timezone.now()
         session.save(update_fields=['report_content', 'status', 'completed_at'])
+        return
 
-        # Persist each source returned by Gemini
-        for source_data in raw_sources:
-            ResearchSource.objects.create(
-                research_session=session,
-                source_type=source_data.get('source_type', 'website'),
-                title=source_data.get('title', '')[:500],
-                url=source_data.get('url', ''),
-                excerpt=source_data.get('excerpt', ''),
-                relevance_rank=source_data.get('relevance_rank', 99),
-            )
+    # Update session with interaction ID
+    session.research_interaction_id = interaction_id
+    session.save(update_fields=['research_interaction_id'])
 
-    except Exception as exc:  # noqa: BLE001
-        import logging
-        logging.getLogger(__name__).error('Research generation failed: %s', exc)
+    # Poll status in background thread
+    import time
+    completed = False
+    attempts = 0
+    max_attempts = 60 # 10 minutes max (each interaction check sleeps 10s)
+
+    while not completed and attempts < max_attempts:
+        try:
+            report_md, raw_sources = gemini_service.poll_and_save_research(session)
+            
+            if report_md and raw_sources:
+                # Polling returned completed report and sources
+                session.report_content = report_md
+                session.status         = ResearchSession.Status.COMPLETED
+                session.completed_at   = timezone.now()
+                session.save(update_fields=['report_content', 'status', 'completed_at'])
+
+                # Persist each source
+                # Clear any previous sources first (idempotent re-run)
+                ResearchSource.objects.filter(research_session=session).delete()
+                for source_data in raw_sources:
+                    ResearchSource.objects.create(
+                        research_session=session,
+                        source_type=source_data.get('source_type', 'website'),
+                        title=source_data.get('title', '')[:500],
+                        url=source_data.get('url', ''),
+                        excerpt=source_data.get('excerpt', ''),
+                        relevance_rank=source_data.get('relevance_rank', 99),
+                    )
+                completed = True
+            elif report_md.startswith("Research generation failed"):
+                # Job failed on Google's end
+                session.status = ResearchSession.Status.FAILED
+                session.save(update_fields=['status'])
+                completed = True
+            elif report_md == "" and not raw_sources:
+                # Still running, wait and check again
+                time.sleep(10)
+                attempts += 1
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error('Error in background research polling loop: %s', exc)
+            session.status = ResearchSession.Status.FAILED
+            session.save(update_fields=['status'])
+            completed = True
+
+    if not completed:
+        # Timeout reached
+        logger.error('Deep Research polling timed out for session %s', session.id)
         session.status = ResearchSession.Status.FAILED
         session.save(update_fields=['status'])
+

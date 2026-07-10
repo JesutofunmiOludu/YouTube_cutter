@@ -89,3 +89,30 @@ def _parse_iso_duration(duration: str) -> int:
     minutes = int(match.group(2) or 0)
     seconds = int(match.group(3) or 0)
     return hours * 3600 + minutes * 60 + seconds
+
+
+def download_youtube_audio(youtube_id: str) -> str:
+    """
+    Download the audio track from a YouTube video using yt-dlp.
+    Avoids transcoding by fetching m4a directly (AAC), ensuring it runs without ffmpeg.
+    Returns the path of the downloaded file.
+    """
+    import os
+    import tempfile
+    import yt_dlp
+
+    video_url = f"https://www.youtube.com/watch?v={youtube_id}"
+    temp_dir = tempfile.gettempdir()
+
+    ydl_opts = {
+        'format': 'm4a/bestaudio',
+        'outtmpl': os.path.join(temp_dir, f"yt_audio_{youtube_id}.%(ext)s"),
+        'quiet': True,
+        'no_warnings': True,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(video_url, download=True)
+        file_path = ydl.prepare_filename(info)
+        return file_path
+

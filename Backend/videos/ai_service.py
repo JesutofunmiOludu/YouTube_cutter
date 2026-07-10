@@ -1,12 +1,14 @@
 """
 videos/ai_service.py
 ====================
-Gemini-powered AI service for video analysis.
+Gemini-powered AI service for video analysis using the new google-genai SDK.
 
 Responsibilities
 ----------------
 - suggest_cuts(user_video) → list[dict]
     Analyse the transcript and suggest optimal edit cut points.
+- suggest_cuts_and_transcript_from_audio(user_video, audio_path) → tuple[list[dict], list[dict]]
+    Extract transcript and cuts directly from a local audio file.
 """
 from __future__ import annotations
 
@@ -16,7 +18,8 @@ import re
 import textwrap
 from typing import TYPE_CHECKING
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from django.conf import settings
 
 if TYPE_CHECKING:
@@ -24,19 +27,18 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-CUT_MODEL = 'gemini-1.5-flash'
+CUT_MODEL = 'gemini-3.1-pro-preview'
 
 
 # ── Private: SDK client ────────────────────────────────────
 
-def _get_model(model_name: str = CUT_MODEL):
-    """Configure the Gemini SDK and return a GenerativeModel, or None if no key."""
+def _get_client() -> genai.Client | None:
+    """Configure the Gemini SDK and return a Client, or None if no key."""
     api_key = getattr(settings, 'GEMINI_API_KEY', '')
     if not api_key:
-        logger.warning('GEMINI_API_KEY not set — AI cut suggestions will return stubs.')
+        logger.warning('GEMINI_API_KEY not set — AI features will return stubs.')
         return None
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel(model_name=model_name)
+    return genai.Client(api_key=api_key)
 
 
 # ── Public API ─────────────────────────────────────────────
@@ -56,8 +58,8 @@ def suggest_cuts(user_video: 'UserVideo') -> list[dict]:
 
     Falls back to a sensible stub when no API key is configured.
     """
-    model = _get_model()
-    if model is None:
+    client = _get_client()
+    if client is None:
         return _stub_cuts(user_video)
 
     transcript_text = _build_transcript(user_video)
@@ -65,7 +67,7 @@ def suggest_cuts(user_video: 'UserVideo') -> list[dict]:
 
     prompt = textwrap.dedent(f"""
         You are an expert video editor. A user has uploaded a YouTube video and wants
-        AI-suggested cut points to break it into digestible segments.
+        AI-suggested cut points to break it into digestible, standalone segments.
 
         **Video Details**
         - Title: {video.title}
@@ -80,6 +82,11 @@ def suggest_cuts(user_video: 'UserVideo') -> list[dict]:
         Analyse the content and identify the best 4–8 natural cut points that would
         create standalone, shareable video segments.
 
+        **Cuts Selection Strategy:**
+        1. Look for clear semantic transitions in the transcript (e.g., when the speaker moves to a new topic, says "moving on", "firstly", "in conclusion", etc.).
+        2. Ensure the cuts align precisely with the sentence start boundaries in the transcript.
+        3. Do not cut in the middle of a sentence or continuous thought.
+
         For each segment, provide:
         - start_seconds (integer)
         - end_seconds (integer)
@@ -89,7 +96,6 @@ def suggest_cuts(user_video: 'UserVideo') -> list[dict]:
         Rules:
         - Segments must be contiguous and cover the full video (first segment starts at 0, last ends at {video.duration_seconds})
         - Each segment should be between 30 seconds and 10 minutes long
-        - Cut at natural topic changes, not mid-sentence
         - If the video is under 2 minutes, suggest 2–3 segments only
 
         Respond ONLY with a valid JSON array, no markdown fences, no extra text:
@@ -105,10 +111,11 @@ def suggest_cuts(user_video: 'UserVideo') -> list[dict]:
     """).strip()
 
     try:
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=0.3,          # Deterministic for structured output
+        response = client.models.generate_content(
+            model=CUT_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.3,
                 response_mime_type='application/json',
             ),
         )
@@ -118,6 +125,109 @@ def suggest_cuts(user_video: 'UserVideo') -> list[dict]:
     except Exception as exc:  # noqa: BLE001
         logger.error('Gemini cut suggestion failed for video %s: %s', user_video.id, exc)
         return _stub_cuts(user_video)
+
+
+def suggest_cuts_and_transcript_from_audio(user_video: 'UserVideo', audio_path: str) -> tuple[list[dict], list[dict]]:
+    """
+    Extract transcript segments and suggest cuts directly from an audio file.
+    Returns:
+        (cuts: list[dict], transcript_segments: list[dict])
+    """
+    client = _get_client()
+    if client is None:
+        return _stub_cuts(user_video), []
+
+    video = user_video.video
+
+    try:
+        # 1. Upload audio file to Google GenAI Files API
+        logger.info('Uploading audio file %s to Gemini API...', audio_path)
+        audio_file = client.files.upload(file=audio_path)
+        logger.info('Upload complete. URI: %s', audio_file.uri)
+
+        prompt = textwrap.dedent(f"""
+            You are an expert video transcriber and editor.
+            Analyze the provided audio file of a YouTube video and perform two tasks:
+
+            1. Transcribe the entire audio file into short, sequential transcript segments with start_seconds and end_seconds timestamps.
+            2. Identify the best 4–8 natural cut points that would create standalone, shareable video segments.
+
+            **Video Details**
+            - Title: {video.title}
+            - Channel: {video.channel_name}
+            - Total Duration: {video.duration_seconds} seconds
+
+            **Rules for Transcript Segments:**
+            - Break speech into short, sequential segments, each under 10 seconds or single sentences.
+            - Ensure every segment has accurate `start_seconds` and `end_seconds` (floats/decimals) aligned with the audio.
+            - Provide the exact spoken text for each segment.
+
+            **Rules for Cuts:**
+            - Cuts must be contiguous, starting at 0 and ending at {video.duration_seconds}.
+            - Cut at natural topic transitions or pauses.
+
+            Respond ONLY with a valid JSON object matching this structure (no markdown formatting, no extra text):
+            {{
+              "transcript": [
+                {{
+                  "start_seconds": 0.0,
+                  "end_seconds": 4.5,
+                  "text": "Welcome to this video tutorial."
+                }}
+              ],
+              "cuts": [
+                {{
+                  "start_seconds": 0,
+                  "end_seconds": 120,
+                  "title": "Introduction",
+                  "rationale": "Introductory remarks."
+                }}
+              ]
+            }}
+        """).strip()
+
+        logger.info('Processing audio via Gemini 3.1 Pro...')
+        response = client.models.generate_content(
+            model=CUT_MODEL,
+            contents=[audio_file, prompt],
+            config=types.GenerateContentConfig(
+                temperature=0.2,
+                response_mime_type='application/json',
+            ),
+        )
+
+        # Cleanup uploaded file from Google's servers
+        try:
+            client.files.delete(name=audio_file.name)
+        except Exception as delete_exc:
+            logger.warning('Failed to delete uploaded file: %s', delete_exc)
+
+        # Parse response
+        data = json.loads(response.text.strip())
+        raw_cuts = data.get('cuts', [])
+        raw_transcript = data.get('transcript', [])
+
+        # Validate and format cuts
+        cuts = _parse_cuts(json.dumps(raw_cuts), user_video)
+        
+        # Validate transcript segments
+        transcript_segments = []
+        for i, item in enumerate(raw_transcript, start=1):
+            try:
+                transcript_segments.append({
+                    'segment_order': i,
+                    'start_seconds': float(item['start_seconds']),
+                    'end_seconds': float(item['end_seconds']),
+                    'text': str(item['text']).strip(),
+                })
+            except (KeyError, ValueError, TypeError):
+                continue
+
+        return cuts, transcript_segments
+
+    except Exception as exc:
+        logger.error('Gemini audio transcribing and cut generation failed: %s', exc)
+        return _stub_cuts(user_video), []
 
 
 # ── Private helpers ────────────────────────────────────────

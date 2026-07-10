@@ -30,8 +30,9 @@ class VideoListCreateTest(APITestCase):
         )
         auth_client(self.client, self.user)
 
+    @patch('videos.processing_pipeline.run_video_setup')          # mock the pipeline
     @patch('videos.utils.fetch_or_create_video')
-    def test_save_video_returns_201(self, mock_fetch):
+    def test_save_video_returns_201(self, mock_fetch, mock_pipeline):
         from videos.models import Video
         mock_fetch.return_value = Video.objects.create(
             youtube_id='test123',
@@ -40,6 +41,37 @@ class VideoListCreateTest(APITestCase):
         )
         res = self.client.post(self.url, {'youtube_id': 'test123'}, format='json')
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+
+    @patch('videos.processing_pipeline.run_video_setup')
+    @patch('videos.utils.fetch_or_create_video')
+    def test_pipeline_called_on_new_video(self, mock_fetch, mock_pipeline):
+        """Pipeline must be called exactly once when a new UserVideo is created."""
+        from videos.models import Video
+        mock_fetch.return_value = Video.objects.create(
+            youtube_id='new456',
+            title='New Video',
+            duration_seconds=300,
+        )
+        self.client.post(self.url, {'youtube_id': 'new456'}, format='json')
+        mock_pipeline.assert_called_once()
+
+    @patch('videos.processing_pipeline.run_video_setup')
+    @patch('videos.utils.fetch_or_create_video')
+    def test_pipeline_not_called_for_existing_video(self, mock_fetch, mock_pipeline):
+        """Pipeline must NOT fire again if the UserVideo already exists."""
+        from videos.models import Video, UserVideo
+        video = Video.objects.create(
+            youtube_id='dup789',
+            title='Dup Video',
+            duration_seconds=200,
+        )
+        # Pre-create the UserVideo so this POST is a duplicate
+        UserVideo.objects.create(user=self.user, video=video)
+        mock_fetch.return_value = video
+
+        self.client.post(self.url, {'youtube_id': 'dup789'}, format='json')
+        mock_pipeline.assert_not_called()
+
 
     def test_list_videos_returns_200(self):
         res = self.client.get(self.url)

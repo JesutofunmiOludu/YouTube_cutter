@@ -134,6 +134,12 @@ class ResearchSession(models.Model):
         choices=Status.choices,
         default=Status.PENDING,
     )
+    research_interaction_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Google Deep Research interaction ID for background polling",
+    )
     completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
