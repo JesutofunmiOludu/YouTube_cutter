@@ -134,14 +134,21 @@ const LoginPage: React.FC = () => {
       toast.success('Welcome back!')
       router.replace(from)
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: Record<string, string[]> } }
-      const data   = apiErr?.response?.data ?? {}
-
-      // Map API field errors to form errors
-      if (data.email)             setError('email',    { message: data.email[0] })
-      if (data.password)          setError('password', { message: data.password[0] })
-      if (data.non_field_errors)  toast.error(data.non_field_errors[0] ?? 'Login failed')
-      else if (!data.email && !data.password) toast.error('Invalid email or password')
+      const apiErr = err as any
+      const errorPayload = apiErr?.response?.data?.error
+      if (errorPayload) {
+        if (errorPayload.details && Array.isArray(errorPayload.details)) {
+          errorPayload.details.forEach((detail: any) => {
+            if (detail.field === 'email') setError('email', { message: detail.message })
+            else if (detail.field === 'password') setError('password', { message: detail.message })
+            else toast.error(detail.message)
+          })
+        } else {
+          toast.error(errorPayload.message ?? 'Login failed')
+        }
+      } else {
+        toast.error('Login failed')
+      }
     }
   }
 

@@ -55,6 +55,16 @@ class UserVideo(models.Model):
         COMPLETED = "completed", "Completed"
         FAILED = "failed", "Failed"
 
+    class ProcessingStage(models.TextChoices):
+        PENDING = "pending", "Queued"
+        METADATA = "metadata", "Fetching video metadata"
+        TRANSCRIPT = "transcript", "Searching YouTube subtitles"
+        DOWNLOADING = "downloading", "Downloading audio (48kbps M4A)"
+        TRANSCRIBING = "transcribing", "Gemini transcribing & segmenting"
+        SAVING = "saving", "Saving cuts and transcript"
+        COMPLETED = "completed", "Ready!"
+        FAILED = "failed", "Failed"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -81,6 +91,11 @@ class UserVideo(models.Model):
         max_length=20,
         choices=ProcessingStatus.choices,
         default=ProcessingStatus.PENDING,
+    )
+    processing_stage = models.CharField(
+        max_length=30,
+        choices=ProcessingStage.choices,
+        default=ProcessingStage.PENDING,
     )
     saved_at = models.DateTimeField(auto_now_add=True)
     last_accessed_at = models.DateTimeField(null=True, blank=True)

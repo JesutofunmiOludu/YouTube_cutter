@@ -105,7 +105,7 @@ def download_youtube_audio(youtube_id: str) -> str:
     temp_dir = tempfile.gettempdir()
 
     ydl_opts = {
-        'format': 'm4a/bestaudio',
+        'format': '139/m4a/bestaudio',
         'outtmpl': os.path.join(temp_dir, f"yt_audio_{youtube_id}.%(ext)s"),
         'quiet': True,
         'no_warnings': True,

@@ -195,13 +195,21 @@ class ChatSessionRemoveVideoView(APIView):
 # ── GET/POST /api/research/ ────────────────────────────────
 class ResearchSessionListCreateView(generics.ListCreateAPIView):
     """
-    POST triggers a Gemini research report.
-    Throttled to 'research' scope (10/hour).
-    Freemium: 1 research report per month on free tier.
+    GET  → list user's research sessions (no expensive throttle — runs on every workspace load).
+    POST → trigger a Gemini research report (throttled to 'research' scope, 20/hour).
     """
     permission_classes = [permissions.IsAuthenticated]
-    throttle_scope     = 'research'
-    throttle_classes   = [ScopedRateThrottle]
+
+    def get_throttles(self):
+        """
+        Only apply the expensive 'research' ScopedRateThrottle for write requests.
+        Read (list) requests use only the default 'user' baseline throttle (1000/hour)
+        so that every workspace page load does not burn the research creation quota.
+        """
+        if self.request.method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+            self.throttle_scope = 'research'
+            return [ScopedRateThrottle()]
+        return []   # GET list: governed by the 'user' 1000/hour baseline only
 
     def get_queryset(self):
         return ResearchSession.objects.filter(user=self.request.user)
@@ -241,6 +249,7 @@ class ResearchSessionListCreateView(generics.ListCreateAPIView):
         # Return the session details (which will show 'processing' status)
         detail = ResearchSessionDetailSerializer(session)
         return Response(detail.data, status=status.HTTP_201_CREATED)
+
 
 
 # ── GET /api/research/<id>/ ────────────────────────────────

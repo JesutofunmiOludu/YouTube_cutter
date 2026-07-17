@@ -41,9 +41,11 @@ import {
   Globe,
   FileText,
   X,
+  Loader2,
 } from 'lucide-react'
 import { cn }              from '@/utils/cn'
 import { Spinner }         from '@/components/ui/Spinner'
+import { useToast }        from '@/components/ui/Toast'
 import CutTimeline         from '@/components/video/CutTimeline'
 import ChatWindow          from '@/components/chat/ChatWindow'
 import ResearchReport      from '@/components/research/ResearchReport'
@@ -243,20 +245,65 @@ function CutCard({
   index,
   isActive,
   totalDuration,
+  userVideoId,
   onCut,
   onEditSave,
+  onMetaSave,
   onSeek,
 }: {
   cut:           VideoCut
   index:         number
   isActive:      boolean
   totalDuration: number
+  userVideoId:   string
   onCut:         (id: string) => void
   onEditSave:    (id: string, start: number, end: number) => void
+  onMetaSave:    (id: string, title: string, rationale: string) => void
   onSeek:        (s: number) => void
 }) {
-  const [editing, setEditing] = useState(false)
+  const [editMode, setEditMode]           = useState<'none' | 'time' | 'meta'>('none')
+  const [editTitle, setEditTitle]         = useState(cut.title ?? '')
+  const [editRationale, setEditRationale] = useState(cut.ai_rationale ?? '')
+  const [isSuggesting, setIsSuggesting]   = useState(false)
+  const [suggestError, setSuggestError]   = useState('')
+  const [suggestNote, setSuggestNote]     = useState('')   // shown when source === 'fallback'
   const duration = cut.end_seconds - cut.start_seconds
+
+  // Keep local edit state in sync if the parent updates the cut
+  // (e.g. after an AI re-suggest)
+  useEffect(() => {
+    setEditTitle(cut.title ?? '')
+    setEditRationale(cut.ai_rationale ?? '')
+  }, [cut.title, cut.ai_rationale])
+
+  function submitMeta() {
+    onMetaSave(cut.id, editTitle.trim() || `Segment ${index + 1}`, editRationale.trim())
+    setEditMode('none')
+  }
+
+  async function suggestLabels() {
+    setIsSuggesting(true)
+    setSuggestError('')
+    setSuggestNote('')
+    try {
+      const res = await apiClient.post(
+        `/videos/${userVideoId}/cuts/${cut.id}/suggest-labels/`
+      )
+      setEditTitle(res.data.title ?? editTitle)
+      setEditRationale(res.data.description ?? editRationale)
+      if (res.data.source === 'fallback') {
+        setSuggestNote(
+          'No transcript found for this segment — suggestion is based on the video title and segment position. Feel free to edit it.'
+        )
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message ?? 'AI suggestion failed. Please try again.'
+      setSuggestError(msg)
+    } finally {
+      setIsSuggesting(false)
+    }
+  }
+
 
   return (
     <div
@@ -267,7 +314,7 @@ function CutCard({
           : 'border-[var(--color-border-tertiary)] bg-[var(--color-bg-secondary)]',
       )}
     >
-      {/* Header row */}
+      {/* ── Header row ── */}
       <div className="flex items-start gap-3">
         {/* Index badge */}
         <div
@@ -282,47 +329,145 @@ function CutCard({
         </div>
 
         <div className="flex-1 min-w-0">
-          {/* Title */}
-          <p className="text-heading-sm text-[var(--color-text-primary)] mb-0.5">
-            {cut.title ?? `Segment ${index + 1}`}
-          </p>
+          {editMode === 'meta' ? (
+            // ── Inline meta-editor ──────────────────────────────
+            <div className="flex flex-col gap-2">
+              {/* ✨ AI Suggest button row */}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wide">
+                  Edit Details
+                </span>
+                <button
+                  type="button"
+                  onClick={suggestLabels}
+                  disabled={isSuggesting}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-gradient-to-r from-purple-500 to-primary-500 text-white hover:from-purple-600 hover:to-primary-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-sm"
+                >
+                  {isSuggesting ? (
+                    <><Spinner size="sm" /> Generating…</>
+                  ) : (
+                    <>✨ AI Suggest</>
+                  )}
+                </button>
+              </div>
 
-          {/* Time range */}
-          <button
-            onClick={() => onSeek(cut.start_seconds)}
-            className="text-body-sm text-[var(--color-text-secondary)] hover:text-primary-600 transition-colors focus-visible:outline-none focus-visible:underline tabular-nums"
-            aria-label={`Seek to ${formatTime(cut.start_seconds)}`}
-          >
-            {formatTime(cut.start_seconds)} → {formatTime(cut.end_seconds)}
-            <span className="ml-1 text-[var(--color-text-tertiary)]">
-              · {formatDuration(duration)}
-            </span>
-          </button>
+              {/* Error message */}
+              {suggestError && (
+                <p className="text-[11px] text-danger-600 bg-danger-50 rounded px-2 py-1">
+                  {suggestError}
+                </p>
+              )}
 
-          {/* AI rationale */}
-          {cut.ai_rationale && !editing && (
-            <p className="text-caption text-[var(--color-text-tertiary)] italic mt-1 leading-relaxed">
-              AI: {cut.ai_rationale}
-            </p>
+              {/* Fallback note (no transcript available) */}
+              {suggestNote && !suggestError && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 leading-relaxed">
+                  ⚠️ {suggestNote}
+                </p>
+              )}
+
+              {/* Title input */}
+              <div>
+                <label className="block text-[10px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wide mb-0.5">
+                  Title
+                </label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder={`Segment ${index + 1}`}
+                  maxLength={200}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-bg-primary)] text-body-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+                  onKeyDown={(e) => { if (e.key === 'Enter') submitMeta(); if (e.key === 'Escape') setEditMode('none') }}
+                />
+              </div>
+              {/* Subtitle / rationale textarea */}
+              <div>
+                <label className="block text-[10px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wide mb-0.5">
+                  Description / Subtitle
+                </label>
+                <textarea
+                  value={editRationale}
+                  onChange={(e) => setEditRationale(e.target.value)}
+                  placeholder="Describe what this segment covers…"
+                  maxLength={500}
+                  rows={2}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-bg-primary)] text-body-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent resize-none"
+                  onKeyDown={(e) => { if (e.key === 'Escape') setEditMode('none') }}
+                />
+              </div>
+              {/* Save / Cancel */}
+              <div className="flex gap-2">
+                <button
+                  onClick={submitMeta}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition-colors"
+                >
+                  <Check className="w-3.5 h-3.5" /> Save
+                </button>
+                <button
+                  onClick={() => { setEditTitle(cut.title ?? ''); setEditRationale(cut.ai_rationale ?? ''); setSuggestError(''); setEditMode('none') }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            // ── Read-only display ────────────────────────────────
+            <>
+              {/* Title row with inline edit pencil */}
+              <div className="flex items-center gap-1.5 group/title">
+                <p className="text-heading-sm text-[var(--color-text-primary)] mb-0.5 truncate">
+                  {cut.title ?? `Segment ${index + 1}`}
+                </p>
+                <button
+                  onClick={() => setEditMode('meta')}
+                  title="Edit title & description"
+                  className="opacity-0 group-hover/title:opacity-100 transition-opacity p-0.5 rounded hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] hover:text-primary-600 shrink-0"
+                  aria-label="Edit title and description"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* Time range */}
+              <button
+                onClick={() => onSeek(cut.start_seconds)}
+                className="text-body-sm text-[var(--color-text-secondary)] hover:text-primary-600 transition-colors focus-visible:outline-none focus-visible:underline tabular-nums"
+                aria-label={`Seek to ${formatTime(cut.start_seconds)}`}
+              >
+                {formatTime(cut.start_seconds)} → {formatTime(cut.end_seconds)}
+                <span className="ml-1 text-[var(--color-text-tertiary)]">
+                  · {formatDuration(duration)}
+                </span>
+              </button>
+
+              {/* AI rationale / subtitle */}
+              {cut.ai_rationale && (
+                <p className="text-caption text-[var(--color-text-tertiary)] italic mt-1 leading-relaxed">
+                  {cut.ai_rationale}
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>
 
-      {/* Inline edit drawer */}
-      {editing && (
+      {/* ── Inline time-edit drawer ── */}
+      {editMode === 'time' && (
         <EditTimeDrawer
           cut={cut}
           totalDuration={totalDuration}
           onSave={(s, e) => {
             onEditSave(cut.id, s, e)
-            setEditing(false)
+            setEditMode('none')
           }}
-          onCancel={() => setEditing(false)}
+          onCancel={() => setEditMode('none')}
         />
       )}
 
-      {/* Action buttons */}
-      {!editing && (
+      {/* ── Action buttons (hidden while editing) ── */}
+      {editMode === 'none' && (
         <div className="flex gap-2 mt-3">
           <button
             onClick={() => onCut(cut.id)}
@@ -339,11 +484,19 @@ function CutCard({
             }
           </button>
           <button
-            onClick={() => setEditing(true)}
+            onClick={() => setEditMode('time')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
           >
             <Pencil className="w-3.5 h-3.5" />
             Edit Time
+          </button>
+          <button
+            onClick={() => setEditMode('meta')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+            title="Edit title and description"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            Edit Details
           </button>
         </div>
       )}
@@ -592,6 +745,15 @@ function AddVideoModal({
 
 // ── Left panel tabs ───────────────────────────────────────
 
+const STAGE_SEQUENCE = [
+  { stage: 'pending',      label: 'Queued in background' },
+  { stage: 'metadata',     label: 'Fetching video metadata' },
+  { stage: 'transcript',   label: 'Checking YouTube subtitles' },
+  { stage: 'downloading',  label: 'Downloading audio (48kbps M4A)' },
+  { stage: 'transcribing', label: 'Gemini transcribing & segmenting' },
+  { stage: 'saving',       label: 'Saving cuts and transcript' },
+]
+
 type LeftTab = 'transcripts' | 'chat' | 'research'
 
 // Mock chat session for the inline panel
@@ -839,6 +1001,16 @@ function LeftPanel({
                     </div>
                   </div>
 
+                  {/* Warning banner if no transcript is available */}
+                  {transcript.length === 0 && (
+                    <div className="mx-4 my-2 p-2.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-caption flex gap-2 items-start shrink-0 leading-normal">
+                      <span>⚠️</span>
+                      <div>
+                        Chat is running in <strong>General Knowledge mode</strong> because this video has no transcript.
+                      </div>
+                    </div>
+                  )}
+
                   {/* Chat messages */}
                   <ChatWindow
                     session={chatSession}
@@ -880,12 +1052,20 @@ function LeftPanel({
                 </div>
               )}
               {(researchLoading || researchSession) && (
-                <ResearchReport
-                  session={researchSession}
-                  isLoading={researchLoading}
-                  onExport={() => window.print()}
-                  className="flex-1 min-h-0 overflow-y-auto"
-                />
+                <>
+                  {transcript.length === 0 && (
+                    <div className="mx-4 my-2 p-2 rounded bg-[var(--color-bg-secondary)] border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] text-[11px] font-medium flex items-center gap-1.5 shrink-0">
+                      <Globe className="w-3.5 h-3.5 text-[var(--color-text-tertiary)]" />
+                      <span>Report generated from the video's subject matter (no transcript available).</span>
+                    </div>
+                  )}
+                  <ResearchReport
+                    session={researchSession}
+                    isLoading={researchLoading}
+                    onExport={() => window.print()}
+                    className="flex-1 min-h-0 overflow-y-auto"
+                  />
+                </>
               )}
             </div>
           )}
@@ -919,10 +1099,12 @@ function VideoPlayer({
   youtubeId,
   title,
   onTimeUpdate,
+  onPlayingChange,
 }: {
-  youtubeId:    string
-  title:        string
-  onTimeUpdate: (t: number) => void
+  youtubeId:        string
+  title:            string
+  onTimeUpdate:     (t: number) => void
+  onPlayingChange?: (playing: boolean) => void
 }) {
   const containerId = `yt-${youtubeId}`
   const playerRef   = useRef<YTPlayer | null>(null)
@@ -953,6 +1135,7 @@ function VideoPlayer({
           onStateChange: (e: { data: number }) => {
             const playing = e.data === window.YT.PlayerState.PLAYING
             setIsPlaying(playing)
+            onPlayingChange?.(playing)
             if (playing) {
               intervalRef.current = setInterval(() => {
                 const t = playerRef.current?.getCurrentTime() ?? 0
@@ -1177,6 +1360,7 @@ function ResizeHandle({
 export default function WorkspacePage() {
   const router      = useRouter()
   const userVideoId = router.query.uservideoId as string | undefined
+  const { toast }   = useToast()
 
   // ── Panel widths (px) ─────────────────────────────────────
   const LEFT_DEFAULT  = 220
@@ -1236,6 +1420,7 @@ export default function WorkspacePage() {
   const [researchLoading, setResearchLoading] = useState(false)
 
   const [currentTime, setCurrentTime] = useState(0)
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false)
   const [leftTab,     setLeftTab]     = useState<LeftTab>('transcripts')
   const [mobileTab,   setMobileTab]   = useState<'cuts' | 'transcripts' | 'chat' | 'research'>('cuts')
 
@@ -1323,6 +1508,48 @@ export default function WorkspacePage() {
     }
   }, [userVideoId, router.isReady, router.query.tab])
 
+  // Polling for processing status/stage updates
+  useEffect(() => {
+    if (!userVideo || userVideo.processing_status === 'completed' || userVideo.processing_status === 'failed') return
+    let active = true
+    let timer: NodeJS.Timeout
+
+    const poll = async () => {
+      try {
+        const res = await apiClient.get(`/videos/${userVideoId}/`)
+        if (!active) return
+        setUserVideo(res.data)
+        
+        if (res.data.processing_status === 'completed') {
+          // Re-load cuts once complete
+          const cutsRes = await apiClient.get(`/videos/${userVideoId}/cuts/`)
+          setCuts(cutsRes.data.results || cutsRes.data || [])
+          
+          // Re-fetch chat session to link the new transcript
+          const chatsRes = await apiClient.get('/chat/sessions/')
+          const chatsList = chatsRes.data.results || chatsRes.data || []
+          const existingChat = chatsList.find((s: any) => s.video_ids?.includes(userVideoId))
+          if (existingChat) {
+            const chatDetailRes = await apiClient.get(`/chat/sessions/${existingChat.id}/`)
+            setChatSession(chatDetailRes.data)
+          }
+        }
+      } catch (err) {
+        console.error('Polling error', err)
+      } finally {
+        if (active && userVideo?.processing_status !== 'completed' && userVideo?.processing_status !== 'failed') {
+          timer = setTimeout(poll, 3000)
+        }
+      }
+    }
+
+    timer = setTimeout(poll, 3000)
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [userVideoId, userVideo?.processing_status])
+
   const seekPlayer = useCallback((seconds: number) => {
     const ref = (window as unknown as Record<string, unknown>)['__playerRef__'] as React.MutableRefObject<YTPlayer | null> | undefined
     if (typeof ref?.current?.seekTo === 'function') {
@@ -1354,6 +1581,27 @@ export default function WorkspacePage() {
       setCuts((prev) => prev.map((c) => c.id === cutId ? res.data : c))
     } catch (err) {
       console.error('Failed to edit cut range', err)
+    }
+  }
+
+  const handleMetaSave = async (cutId: string, title: string, rationale: string) => {
+    // Optimistic update so the UI feels instant
+    setCuts((prev) => prev.map((c) =>
+      c.id === cutId ? { ...c, title, ai_rationale: rationale } : c
+    ))
+    try {
+      const res = await apiClient.patch(`/videos/${userVideoId}/cuts/${cutId}/`, {
+        title,
+        ai_rationale: rationale,
+      })
+      // Sync with server response
+      setCuts((prev) => prev.map((c) => c.id === cutId ? res.data : c))
+    } catch (err) {
+      console.error('Failed to save cut metadata', err)
+      // Revert optimistic update on failure
+      setCuts((prev) => prev.map((c) =>
+        c.id === cutId ? { ...c, title: c.title, ai_rationale: c.ai_rationale } : c
+      ))
     }
   }
 
@@ -1415,13 +1663,19 @@ export default function WorkspacePage() {
       await apiClient.post(`/chat/sessions/${chatSession.id}/messages/`, { content })
       const res = await apiClient.get(`/chat/sessions/${chatSession.id}/`)
       setChatSession(res.data)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to send message', err)
       setChatSession((s) => s ? { ...s, messages: s.messages.filter((m) => m.id !== tempUserMsgId) } : null)
+      const errMsg = err.response?.data?.error?.message || err.response?.data?.detail || 'Failed to send message.'
+      if (err.response?.status === 403) {
+        toast.warning(errMsg)
+      } else {
+        toast.error(errMsg)
+      }
     } finally {
       setChatTyping(false)
     }
-  }, [chatSession])
+  }, [chatSession, toast])
 
   const handleAddVideo = useCallback(async (video: UserVideo) => {
     if (!chatSession) return
@@ -1455,12 +1709,18 @@ export default function WorkspacePage() {
       const createRes = await apiClient.post('/research/', { user_video_id: userVideoId })
       const detailRes = await apiClient.get(`/research/${createRes.data.id}/`)
       setResearchSession(detailRes.data)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to generate research report', err)
+      const errMsg = err.response?.data?.error?.message || err.response?.data?.detail || 'Failed to generate research report.'
+      if (err.response?.status === 403) {
+        toast.warning(errMsg)
+      } else {
+        toast.error(errMsg)
+      }
     } finally {
       setResearchLoading(false)
     }
-  }, [userVideoId])
+  }, [userVideoId, toast])
 
   const activeCutId = cuts.find(
     (c) => currentTime >= c.start_seconds && currentTime < c.end_seconds
@@ -1471,6 +1731,110 @@ export default function WorkspacePage() {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[var(--color-bg-primary)]">
         <Spinner size="lg" label="Loading workspace..." />
+      </div>
+    )
+  }
+
+  // Progress Stepper Overlay
+  if (userVideo.processing_status === 'pending' || userVideo.processing_status === 'processing') {
+    const currentStage = userVideo.processing_stage || 'pending'
+    const currentIdx = STAGE_SEQUENCE.findIndex(s => s.stage === currentStage)
+
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[var(--color-bg-tertiary)] px-4 py-12">
+        <div className="w-full max-w-md bg-[var(--color-bg-primary)] rounded-2xl border border-[var(--color-border-secondary)] p-6 shadow-xl animate-slide-up">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6 border-b border-[var(--color-border-tertiary)] pb-4">
+            <button
+              onClick={() => router.back()}
+              className="text-caption text-primary-600 hover:text-primary-800 transition-colors flex items-center gap-0.5 focus-visible:outline-none"
+            >
+              ← Back
+            </button>
+            <div className="w-px h-4 bg-[var(--color-border-tertiary)]" />
+            <div className="flex-1 min-w-0">
+              <h2 className="text-body-sm font-semibold text-[var(--color-text-primary)] truncate">
+                {userVideo.video.title}
+              </h2>
+              <p className="text-caption text-[var(--color-text-tertiary)] truncate">
+                {userVideo.video.channel_name}
+              </p>
+            </div>
+          </div>
+
+          {/* Stepper Content */}
+          <div className="flex flex-col gap-5">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-5 h-5 text-primary-600 animate-spin shrink-0" />
+              <div>
+                <p className="text-body-sm font-bold text-[var(--color-text-primary)]">
+                  Analyzing & Segmenting Video
+                </p>
+                <p className="text-caption text-[var(--color-text-secondary)]">
+                  This takes up to 2-3 minutes for videos without subtitles.
+                </p>
+              </div>
+            </div>
+
+            {/* Stage Steps */}
+            <div className="relative pl-6 flex flex-col gap-4 mt-3">
+              {/* Stepper line */}
+              <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-[var(--color-border-tertiary)]" />
+
+              {STAGE_SEQUENCE.map((item, idx) => {
+                const isCompleted = idx < currentIdx
+                const isActive = item.stage === currentStage
+
+                return (
+                  <div key={item.stage} className="relative flex items-start gap-3">
+                    {/* Circle icon/bullet */}
+                    <div className="absolute -left-[22px] mt-1 z-10">
+                      {isCompleted ? (
+                        <div className="w-[11px] h-[11px] rounded-full bg-success-500 ring-4 ring-success-50" />
+                      ) : isActive ? (
+                        <div className="w-[11px] h-[11px] rounded-full bg-primary-600 ring-4 ring-primary-100 animate-pulse" />
+                      ) : (
+                        <div className="w-[11px] h-[11px] rounded-full bg-[var(--color-bg-secondary)] border border-[var(--color-border-tertiary)]" />
+                      )}
+                    </div>
+
+                    <span className={cn(
+                      "text-body-xs font-semibold leading-none",
+                      isActive ? "text-primary-600 font-bold" : isCompleted ? "text-[var(--color-text-secondary)]" : "text-[var(--color-text-tertiary)]"
+                    )}>
+                      {item.label}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Failed state overlay
+  if (userVideo.processing_status === 'failed') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[var(--color-bg-tertiary)] px-4">
+        <div className="w-full max-w-md bg-[var(--color-bg-primary)] rounded-2xl border border-[var(--color-border-secondary)] p-6 shadow-xl text-center">
+          <div className="w-12 h-12 rounded-full bg-danger-50 flex items-center justify-center mx-auto mb-4">
+            <span className="text-xl">❌</span>
+          </div>
+          <h2 className="text-heading-md text-[var(--color-text-primary)] mb-1">Processing Failed</h2>
+          <p className="text-body-sm text-[var(--color-text-secondary)] mb-6">
+            We encountered an error while trying to process this video. Please make sure the link is correct or try another video.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => router.back()}
+              className="px-4 py-2 rounded-lg text-body-sm font-semibold border border-[var(--color-border-secondary)] bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+            >
+              Back to dashboard
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -1589,6 +1953,7 @@ export default function WorkspacePage() {
             youtubeId={userVideo.video.youtube_id}
             title={userVideo.video.title}
             onTimeUpdate={setCurrentTime}
+            onPlayingChange={setIsVideoPlaying}
           />
 
           {/* Cut Suggestions header + action buttons + timeline */}
@@ -1651,11 +2016,26 @@ export default function WorkspacePage() {
               </button>
             </div>
 
+            {/* Transcript Unavailable Banner */}
+            {!isLoading && userVideo && transcript.length === 0 && (
+              <div className="mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-body-sm flex gap-2.5 items-start">
+                <span className="text-base leading-none">⚠️</span>
+                <div className="flex-1">
+                  <p className="font-semibold text-[13px]">Transcript Unavailable</p>
+                  <p className="mt-0.5 text-caption leading-relaxed text-amber-700">
+                    YouTube subtitles were unavailable and audio processing could not generate a transcript. 
+                    Cuts are segmented by default pacing. You can manually adjust cuts on the timeline.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <CutTimeline
               cuts={cuts}
               duration={duration}
               currentTime={currentTime}
               transcript={transcript}
+              isPlaying={isVideoPlaying}
               onSeek={seekPlayer}
               onCutClick={(cut) => handleCut(cut.id)}
               onCutResize={handleEditSave}
@@ -1675,8 +2055,10 @@ export default function WorkspacePage() {
                 index={i}
                 isActive={cut.id === activeCutId}
                 totalDuration={duration}
+                userVideoId={userVideoId as string}
                 onCut={handleCut}
                 onEditSave={handleEditSave}
+                onMetaSave={handleMetaSave}
                 onSeek={seekPlayer}
               />
             ))}

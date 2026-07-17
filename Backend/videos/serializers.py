@@ -53,7 +53,7 @@ class VideoCutSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         )
         read_only_fields = (
-            'id', 'cut_order', 'duration_seconds', 'ai_rationale',
+            'id', 'cut_order', 'duration_seconds',
             'ai_suggested', 'download_url', 'download_status',
             'created_at', 'updated_at',
         )
@@ -76,11 +76,11 @@ class UserVideoSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'video', 'youtube_id',
             'storage_type', 'file_url',
-            'processing_status', 'saved_at', 'last_accessed_at',
+            'processing_status', 'processing_stage', 'saved_at', 'last_accessed_at',
         )
         read_only_fields = (
             'id', 'video', 'file_url',
-            'processing_status', 'saved_at', 'last_accessed_at',
+            'processing_status', 'processing_stage', 'saved_at', 'last_accessed_at',
         )
 
     def create(self, validated_data):
@@ -98,10 +98,8 @@ class UserVideoSerializer(serializers.ModelSerializer):
         )
 
         if created:
-            # Run the full AI setup pipeline in a background thread:
-            import threading
-            from .processing_pipeline import run_video_setup
-            threading.Thread(target=run_video_setup, args=(user_video,), daemon=True).start()
+            from .processing_pipeline import trigger_processing_if_needed
+            trigger_processing_if_needed(user_video)
 
         return user_video
 

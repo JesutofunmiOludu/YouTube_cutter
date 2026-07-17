@@ -81,6 +81,58 @@ class UsageService:
         }
 
     @staticmethod
+    def check_limit(user, action: str) -> None:
+        """
+        Check if the user is within their limit for *action*.
+        Raises PermissionDenied if the limit has already been reached.
+        """
+        if UsageService.is_premium(user):
+            return
+
+        limit = FREE_LIMITS.get(action)
+        if limit is None:
+            return
+
+        today = timezone.now().date()
+        from billing.models import UsageSummary
+        
+        summary = UsageSummary.objects.filter(user=user, summary_date=today).first()
+        if summary:
+            current = _get_count(summary, action)
+            if current >= limit:
+                raise PermissionDenied(
+                    f'Free-tier limit reached: {limit} {action.replace("_", " ")}(s) per day. '
+                    'Upgrade to Premium for unlimited access.'
+                )
+
+    @staticmethod
+    def increment_limit(user, action: str) -> None:
+        """
+        Atomically increments the usage counter for *action*.
+        Does not check limits (assumes check_limit was called first).
+        """
+        if UsageService.is_premium(user):
+            UsageService._log_action(user, action)
+            return
+
+        today = timezone.now().date()
+        with transaction.atomic():
+            from billing.models import UsageSummary, UsageLog
+            summary, _ = UsageSummary.objects.select_for_update().get_or_create(
+                user=user,
+                summary_date=today,
+            )
+            _increment_count(summary, action)
+            summary.save()
+
+            # Raw audit log
+            UsageLog.objects.create(
+                user=user,
+                action_type=action,
+                log_date=today,
+            )
+
+    @staticmethod
     def check_and_increment(user, action: str) -> None:
         """
         Check the user's usage against their plan limit for *action*.

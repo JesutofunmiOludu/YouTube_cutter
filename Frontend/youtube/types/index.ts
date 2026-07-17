@@ -144,6 +144,8 @@ export interface Video {
   created_at:       string
 }
 
+export type ProcessingStage = 'pending' | 'metadata' | 'transcript' | 'downloading' | 'transcribing' | 'saving' | 'completed' | 'failed'
+
 export interface UserVideo {
   id:                string
   user_id:           string
@@ -151,6 +153,7 @@ export interface UserVideo {
   storage_type:      StorageType
   file_url:          Nullable<string>
   processing_status: ProcessingStatus
+  processing_stage?: ProcessingStage
   saved_at:          string
   last_accessed_at:  Nullable<string>
 }

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # ── Model names ────────────────────────────────────────────
-CHAT_MODEL     = 'gemini-3.1-pro-preview'
+CHAT_MODEL     = 'gemini-2.5-flash'
 RESEARCH_AGENT = 'deep-research-preview-04-2026'
 
 
@@ -83,6 +83,24 @@ def generate_chat_reply(user_content: str, session: 'ChatSession') -> str:
         return resp.text
 
     except Exception as exc:  # noqa: BLE001
+        err_msg = str(exc).lower()
+        is_retryable = any(term in err_msg for term in ('503', 'unavailable', 'limit', 'demand', 'exhausted', 'busy', 'overloaded'))
+        if CHAT_MODEL != 'gemini-3.5-flash' and is_retryable:
+            logger.warning("Primary model %s failed for chat: %s. Falling back to gemini-3.5-flash...", CHAT_MODEL, exc)
+            try:
+                chat = client.chats.create(
+                    model='gemini-3.5-flash',
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        temperature=0.3,
+                    ),
+                    history=history,
+                )
+                resp = chat.send_message(user_content)
+                return resp.text
+            except Exception as fallback_exc:
+                logger.error('Gemini chat fallback to gemini-3.5-flash failed: %s', fallback_exc)
+        
         logger.error('Gemini chat error: %s', exc)
         return (
             "I'm having trouble connecting to the AI right now. "
@@ -115,12 +133,14 @@ def _build_video_context(session: 'ChatSession') -> str:
                 f'[{_fmt_seconds(int(seg.start_seconds))}] {seg.text}'
                 for seg in segments
             )
+            if not transcript_text.strip():
+                raise Transcription.DoesNotExist
             blocks.append(f'{header}\n### Transcript\n{transcript_text}')
         except Transcription.DoesNotExist:
             blocks.append(
                 f'{header}\n'
-                '(Transcript not yet available for this video — '
-                'answer based on the video title and channel only.)'
+                '(Transcript is not available for this video. Use your general web knowledge '
+                'about this video, its channel, and its subject matter to answer the user\'s queries.)'
             )
 
     return '\n\n---\n\n'.join(blocks) if blocks else 'No videos attached to this session.'

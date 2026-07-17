@@ -143,11 +143,23 @@ export default function RegisterPage() {
       else if (intentQ) router.push(`/search?q=${encodeURIComponent(intentQ)}`)
       else router.push('/dashboard')
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: Record<string, string[]> } }
-      const data   = apiErr?.response?.data ?? {}
-      if (data.email)    setError('email',    { message: data.email[0] })
-      if (data.password) setError('password', { message: data.password[0] })
-      if (data.non_field_errors) toast.error(data.non_field_errors[0] ?? 'Registration failed')
+      const apiErr = err as any
+      const errorPayload = apiErr?.response?.data?.error
+      if (errorPayload) {
+        if (errorPayload.details && Array.isArray(errorPayload.details)) {
+          errorPayload.details.forEach((detail: any) => {
+            if (detail.field === 'email') setError('email', { message: detail.message })
+            else if (detail.field === 'password') setError('password', { message: detail.message })
+            else if (detail.field === 'first_name') setError('first_name', { message: detail.message })
+            else if (detail.field === 'last_name') setError('last_name', { message: detail.message })
+            else toast.error(detail.message)
+          })
+        } else {
+          toast.error(errorPayload.message ?? 'Registration failed')
+        }
+      } else {
+        toast.error('Registration failed')
+      }
     }
   }
 

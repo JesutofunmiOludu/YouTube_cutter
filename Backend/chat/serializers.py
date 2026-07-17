@@ -70,7 +70,7 @@ class ResearchSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model  = ResearchSession
         fields = ('id', 'user_video', 'title', 'status', 'created_at', 'updated_at')
-        read_only_fields = ('id', 'status', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'user_video', 'status', 'created_at', 'updated_at')
 
 
 # ── ResearchSession (detail — includes report + sources) ───

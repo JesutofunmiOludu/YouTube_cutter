@@ -7,6 +7,7 @@ from .views import (
     TranscriptionView,
     VideoSearchView,
     SuggestCutsView,
+    SuggestCutLabelsView,
 )
 
 urlpatterns = [
@@ -23,6 +24,7 @@ urlpatterns = [
 
     # AI cut suggestions
     path('<uuid:video_pk>/suggest-cuts/',                SuggestCutsView.as_view(),           name='videocut-suggest'),
+    path('<uuid:video_pk>/cuts/<uuid:cut_pk>/suggest-labels/', SuggestCutLabelsView.as_view(), name='videocut-suggest-labels'),
 
     # Transcription
     path('<uuid:video_pk>/transcription/',               TranscriptionView.as_view(),         name='transcription-detail'),

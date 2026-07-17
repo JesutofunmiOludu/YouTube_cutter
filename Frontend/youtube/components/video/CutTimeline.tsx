@@ -60,6 +60,8 @@ export interface CutTimelineProps {
   duration:     number
   currentTime:  number
   transcript?:  TranscriptSegment[]
+  /** Whether the video is currently playing — used for pulse animation (#6) */
+  isPlaying?:   boolean
   onSeek?:      (seconds: number) => void
   onCutClick?:  (cut: VideoCut) => void
   /** Called when user drag-resizes a clip edge */
@@ -181,11 +183,15 @@ function ClipSegment({
 // Main component
 // ------------------------------------------------------------
 
+// Snap threshold in seconds: playhead snaps if within this distance of a boundary
+const SNAP_THRESHOLD_S = 0.5
+
 const CutTimeline: React.FC<CutTimelineProps> = ({
   cuts,
   duration,
   currentTime,
   transcript = [],
+  isPlaying = false,
   onSeek,
   onCutClick,
   onCutResize,
@@ -194,6 +200,8 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
   onHighlightedRangeChange,
   className,
 }) => {
+  // ── #7/#14: show time label above handle while scrubbing ─────
+  const [scrubTime, setScrubTime] = useState<number | null>(null)
   // ── Refs ────────────────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement>(null)  // the scrollable viewport
   const trackAreaRef = useRef<HTMLDivElement>(null)  // the actual track area (zoomed width)
@@ -317,13 +325,29 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
     })
   }, [])
 
+  // ── #9: Snap time to nearest clip boundary within threshold ──
+  const snapTime = useCallback((t: number): number => {
+    let best = t
+    let bestDist = SNAP_THRESHOLD_S
+    for (const cut of cuts) {
+      const dStart = Math.abs(t - cut.start_seconds)
+      const dEnd   = Math.abs(t - cut.end_seconds)
+      if (dStart < bestDist) { bestDist = dStart; best = cut.start_seconds }
+      if (dEnd   < bestDist) { bestDist = dEnd;   best = cut.end_seconds   }
+    }
+    return best
+  }, [cuts])
+
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (drag.mode === 'none') return
 
     const deltaSec = pxToSec(e.clientX - drag.startX)
 
     if (drag.mode === 'playhead') {
-      onSeek?.(xToTime(e.clientX))
+      const raw = xToTime(e.clientX)
+      const snapped = snapTime(raw)  // #9 snap-to-boundaries
+      setScrubTime(snapped)          // #7 keep tooltip time in sync
+      onSeek?.(snapped)
       return
     }
 
@@ -375,6 +399,7 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
           onSeek?.(cut.start_seconds)
         }
       }
+      setScrubTime(null)  // #7 hide scrub tooltip on release
       setDrag({ mode: 'none', cutId: null, startX: 0, origStart: 0, origEnd: 0 })
     }
   }, [drag, cuts, onCutClick, onSeek])
@@ -653,19 +678,48 @@ const CutTimeline: React.FC<CutTimelineProps> = ({
               style={{ left: `${playheadLeftPct()}%`, bottom: 0 }}
               aria-hidden="true"
             >
-              {/* Diamond handle at top */}
+              {/* #7/#14 — Floating time label above handle */}
+              <div
+                className="absolute -top-6 left-1/2 -translate-x-1/2 pointer-events-none"
+              >
+                <span
+                  className={cn(
+                    'text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded shadow-md',
+                    'bg-danger-600 text-white whitespace-nowrap',
+                    // #7: always visible while scrubbing; #14: always visible otherwise
+                    'opacity-100',
+                  )}
+                >
+                  {fmt(scrubTime ?? currentTime)}
+                </span>
+              </div>
+
+              {/* #6 — Triangle handle (pulses while playing) */}
               <div
                 className="pointer-events-auto cursor-col-resize -ml-2 mt-0"
                 onPointerDown={(e) => startDrag(e, 'playhead')}
               >
-                <svg width="16" height="12" viewBox="0 0 16 12" className="block">
+                <svg
+                  width="16"
+                  height="12"
+                  viewBox="0 0 16 12"
+                  className={cn(
+                    'block',
+                    isPlaying && drag.mode === 'none' && 'animate-pulse',
+                  )}
+                >
                   <polygon points="8,0 16,12 0,12" fill="rgb(220 38 38)" />
                 </svg>
               </div>
-              {/* Vertical line */}
+
+              {/* #13 — Vertical line: full-height across ALL tracks dynamically */}
               <div
                 className="absolute top-3 -translate-x-1/2 w-0.5 bg-danger-600"
-                style={{ height: TRACK_HEIGHT + (transcript.length > 0 ? TRACK_HEIGHT : 0) - 12 }}
+                style={{
+                  // RULER_HEIGHT is already excluded (top-3 ≈ 12px);
+                  // TRACK_HEIGHT per track row; always spans every row present
+                  height: TRACK_HEIGHT * (1 + (transcript.length > 0 ? 1 : 0)) - 12,
+                }}
               />
             </div>
 

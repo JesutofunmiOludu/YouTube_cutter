@@ -163,6 +163,8 @@ export default function SearchPage() {
   const { toast } = useToast()
   const [results, setResults] = useState<Video[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [errorState, setErrorState] = useState<'network' | 'limit' | 'generic' | null>(null)
   const hasResults = results.length > 0
 
   useEffect(() => {
@@ -177,11 +179,15 @@ export default function SearchPage() {
   useEffect(() => {
     if (!query) {
       setResults([])
+      setSearchError(null)
+      setErrorState(null)
       return
     }
 
     const performFetch = async () => {
       setIsLoading(true)
+      setSearchError(null)
+      setErrorState(null)
       try {
         const res = await apiClient.get('/videos/search/', {
           params: { q: query }
@@ -200,8 +206,26 @@ export default function SearchPage() {
           created_at: '',
         }))
         setResults(mapped)
-      } catch (err) {
-        toast.error('Search failed. Please try again.')
+      } catch (err: any) {
+        const errorPayload = err?.response?.data?.error
+        let msg = 'Search failed. Please try again.'
+        let type: 'network' | 'limit' | 'generic' = 'generic'
+
+        if (err.message?.toLowerCase().includes('network') || err.code === 'ERR_NETWORK') {
+          msg = 'Internet error: Please check your internet connection and try again.'
+          type = 'network'
+        } else if (errorPayload?.code === 'plan_limit_reached') {
+          msg = errorPayload.message ?? 'Free-tier limit reached: 5 searches per day. Upgrade to Premium for unlimited access.'
+          type = 'limit'
+        } else if (errorPayload?.code === 'upstream_error') {
+          msg = 'Connection error: The YouTube API service is currently unreachable or disconnected. Please try again.'
+        } else if (errorPayload?.message) {
+          msg = errorPayload.message
+        }
+        setSearchError(msg)
+        setErrorState(type)
+        toast.error(msg)
+        setResults([])
       } finally {
         setIsLoading(false)
       }
@@ -364,7 +388,7 @@ export default function SearchPage() {
       {isLoading && <VideoGridSkeleton count={6} />}
 
       {/* ── Results grid ── */}
-      {!isLoading && hasResults && (
+      {!isLoading && !searchError && hasResults && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {results.map((video) => (
             <VideoResultCard key={video.id} video={video} onProcess={handleProcess} />
@@ -372,8 +396,75 @@ export default function SearchPage() {
         </div>
       )}
 
+      {/* ── Error state ── */}
+      {!isLoading && searchError && (
+        <>
+          {errorState === 'limit' ? (
+            <EmptyState
+              icon={
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-warning-500">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0110 0v4" />
+                </svg>
+              }
+              title="Search Limit Reached"
+              description={searchError}
+              action={{
+                label: 'Upgrade to Premium',
+                onClick: () => router.push('/pricing')
+              }}
+              secondaryAction={{
+                label: 'Back to Dashboard',
+                onClick: () => router.push('/dashboard')
+              }}
+              minHeight="300px"
+            />
+          ) : errorState === 'network' ? (
+            <EmptyState
+              icon={
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-danger-500">
+                  <path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.5M5 12.5a10.94 10.94 0 015.83-2.84M8.53 16.03a6.11 6.11 0 017.2-.23M12 20h.01" />
+                </svg>
+              }
+              title="Internet Connection Error"
+              description={searchError}
+              action={{
+                label: 'Try again',
+                onClick: () => {
+                  const q = query
+                  setQuery('')
+                  setTimeout(() => setQuery(q), 50)
+                }
+              }}
+              minHeight="300px"
+            />
+          ) : (
+            <EmptyState
+              icon={
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-danger-500">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              }
+              title="Search Failed"
+              description={searchError}
+              action={{
+                label: 'Try again',
+                onClick: () => {
+                  const q = query
+                  setQuery('')
+                  setTimeout(() => setQuery(q), 50)
+                }
+              }}
+              minHeight="300px"
+            />
+          )}
+        </>
+      )}
+
       {/* ── Empty state ── */}
-      {!isLoading && query && !hasResults && (
+      {!isLoading && !searchError && query && !hasResults && (
         <EmptyState
           icon={EmptyIcons.search}
           title={`No results for "${query}"`}

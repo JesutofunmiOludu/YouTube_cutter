@@ -154,9 +154,9 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon':     '60/hour',    # unauthenticated requests
         'user':     '1000/hour',  # authenticated baseline
-        'search':   '30/hour',    # YouTube API search — protects quota
+        'search':   '500/hour',   # YouTube API search — raised from 200
         'chat':     '100/hour',   # per-user chat messages
-        'research': '10/hour',    # expensive Gemini Pro calls
+        'research': '20/hour',    # expensive Gemini research report creation
         'cuts':     '50/hour',    # AI cut suggestion requests
     },
 

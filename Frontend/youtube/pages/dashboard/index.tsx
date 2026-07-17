@@ -31,6 +31,7 @@ import {
   CheckCircle,
   Loader2,
   ExternalLink,
+  Trash2,
 } from 'lucide-react'
 import { cn }            from '@/utils/cn'
 import { useAuthStore }  from '@/store/auth.store'
@@ -273,7 +274,7 @@ const ChatsTab: React.FC<{
             <div className="flex-1 min-w-0">
               <p className="text-body-sm font-medium text-[var(--color-text-primary)] truncate">{chat.title ?? 'Untitled chat'}</p>
               <p className="text-caption text-[var(--color-text-tertiary)]">
-                {chat.messages.length} messages · <RelativeDate date={chat.updated_at} />
+                {chat.messages?.length ?? 0} messages · <RelativeDate date={chat.updated_at} />
               </p>
             </div>
             <ChevronRight className="w-3.5 h-3.5 text-[var(--color-text-tertiary)] shrink-0" aria-hidden="true" />
@@ -503,7 +504,8 @@ const FolderCard: React.FC<{
   project:    VideoProject
   isExpanded: boolean
   onToggle:   () => void
-}> = ({ project, isExpanded, onToggle }) => {
+  onDelete:   (id: string, e: React.MouseEvent) => void
+}> = ({ project, isExpanded, onToggle, onDelete }) => {
   const { userVideo, cuts, chats, research } = project
   const v      = userVideo.video
   const dot    = STATUS_DOT[userVideo.processing_status]
@@ -518,7 +520,7 @@ const FolderCard: React.FC<{
   return (
     <div
       className={cn(
-        'bg-[var(--color-bg-primary)] border rounded-xl overflow-hidden',
+        'bg-[var(--color-bg-primary)] border rounded-xl overflow-hidden group',
         'transition-colors duration-fast cursor-pointer',
         isExpanded
           ? 'border-primary-200 ring-2 ring-primary-100'
@@ -534,15 +536,28 @@ const FolderCard: React.FC<{
       {/* Thumbnail strip */}
       <div className="relative">
         <ThumbPlaceholder youtubeId={v.youtube_id} title={v.title} size="md" />
-        {/* Status dot */}
+        {/* Status dot (moved to top-left to make space for delete button) */}
         <div
           className={cn(
-            'absolute top-2 right-2 w-2.5 h-2.5 rounded-full border-2',
+            'absolute top-2 left-2 w-2.5 h-2.5 rounded-full border-2',
             dot.bg, dot.border,
           )}
           title={dot.title}
           aria-label={`Status: ${dot.title}`}
         />
+        {/* Delete button (permanently visible overlay, turns red on hover) */}
+        <button
+          type="button"
+          onClick={(e) => onDelete(userVideo.id, e)}
+          className={cn(
+            'absolute top-2 right-2 p-1.5 rounded-lg bg-black/40 hover:bg-danger-600 text-white',
+            'transition-colors duration-fast z-10',
+          )}
+          title="Delete project folder"
+          aria-label={`Delete ${v.title} project folder`}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
         {/* Duration overlay */}
         <span className="absolute bottom-1.5 right-1.5 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
           {formatDuration(v.duration_seconds)}
@@ -867,6 +882,29 @@ const DashboardPage: NextPageWithLayout = () => {
     }
   }
 
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent card expanding/toggling
+    const project = projects.find((p) => p.userVideo.id === id)
+    const title = project?.userVideo.video.title ?? 'this project'
+
+    if (!window.confirm(`Are you sure you want to delete "${title}"? This will delete all cuts, chats, and research reports associated with it.`)) {
+      return
+    }
+
+    try {
+      await apiClient.delete(`/videos/${id}/`)
+      setProjects((prev) => prev.filter((p) => p.userVideo.id !== id))
+      if (expandedId === id) {
+        setExpandedId(null)
+      }
+      toast.success('Project folder deleted successfully.')
+    } catch (err) {
+      console.error('Failed to delete project folder:', err)
+      toast.error('Failed to delete project folder.')
+    }
+  }
+
+
   return (
     <div className="flex flex-col gap-5 max-w-content mx-auto">
 
@@ -945,6 +983,7 @@ const DashboardPage: NextPageWithLayout = () => {
                   project={project}
                   isExpanded={expandedId === project.userVideo.id}
                   onToggle={() => handleToggle(project.userVideo.id)}
+                  onDelete={handleDelete}
                 />
               ))}
 

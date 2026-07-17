@@ -54,12 +54,17 @@ class UserVideoDetailView(generics.RetrieveUpdateDestroyAPIView):
             .prefetch_related('cuts', 'transcription__segments')
         )
 
-    # Update last_accessed_at on GET
+    # Update last_accessed_at on GET and heal stuck processes
     def retrieve(self, request, *args, **kwargs):
         from django.utils import timezone
+        from .processing_pipeline import trigger_processing_if_needed
         instance = self.get_object()
         instance.last_accessed_at = timezone.now()
         instance.save(update_fields=['last_accessed_at'])
+        
+        # Self-heal if the background thread died (e.g. server restart)
+        trigger_processing_if_needed(instance)
+        
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -196,6 +201,56 @@ class SuggestCutsView(APIView):
         )
 
 
+# ── POST /api/videos/<video_pk>/cuts/<cut_pk>/suggest-labels/ ──
+class SuggestCutLabelsView(APIView):
+    """
+    Ask the AI to generate a title and description for a specific cut segment,
+    based on the transcript excerpt within that cut's time range.
+
+    Always returns HTTP 200 — the 'source' field distinguishes between:
+      - 'ai':       Gemini generated the label from the transcript / metadata
+      - 'fallback': No API key or AI failure; positional label was used
+
+    Returns:
+        { "title": "...", "description": "...", "source": "ai"|"fallback" }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, video_pk, cut_pk):
+        # Ownership check
+        try:
+            user_video = UserVideo.objects.select_related('video').prefetch_related(
+                'transcription__segments'
+            ).get(pk=video_pk, user=request.user)
+        except UserVideo.DoesNotExist:
+            return Response(
+                {'error': {'code': 'not_found', 'message': 'Video not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Cut existence check
+        try:
+            cut = user_video.cuts.get(pk=cut_pk)
+        except VideoCut.DoesNotExist:
+            return Response(
+                {'error': {'code': 'not_found', 'message': 'Cut not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        total_duration = user_video.video.duration_seconds or None
+
+        from .ai_service import suggest_cut_labels
+        labels = suggest_cut_labels(
+            user_video,
+            cut.start_seconds,
+            cut.end_seconds,
+            total_duration=total_duration,
+        )
+
+        # Always 200 — the 'source' field tells the client if AI was used
+        return Response(labels, status=status.HTTP_200_OK)
+
+
 # ── GET /api/videos/search/?q=<query> ─────────────────────
 class VideoSearchView(APIView):
     """
@@ -218,7 +273,7 @@ class VideoSearchView(APIView):
 
         # ── Freemium enforcement ───────────────────────────
         try:
-            UsageService.check_and_increment(request.user, 'search')
+            UsageService.check_limit(request.user, 'search')
         except PermissionDenied as exc:
             return Response(
                 {'error': {'code': 'plan_limit_reached', 'message': str(exc)}},
@@ -229,25 +284,33 @@ class VideoSearchView(APIView):
         if not api_key:
             return Response({'results': [], 'warning': 'YouTube API key not configured.'})
 
-        try:
-            resp = requests.get(
-                'https://www.googleapis.com/youtube/v3/search',
-                params={
-                    'key':        api_key,
-                    'q':          query,
-                    'part':       'snippet',
-                    'type':       'video',
-                    'maxResults': max_res,
-                },
-                timeout=10,
-            )
-            resp.raise_for_status()
-            items = resp.json().get('items', [])
-        except requests.RequestException as e:
-            return Response(
-                {'error': {'code': 'upstream_error', 'message': str(e)}},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+        import time as _time
+        max_retries = 3
+        items = []
+        for attempt in range(max_retries):
+            try:
+                resp = requests.get(
+                    'https://www.googleapis.com/youtube/v3/search',
+                    params={
+                        'key':        api_key,
+                        'q':          query,
+                        'part':       'snippet',
+                        'type':       'video',
+                        'maxResults': max_res,
+                    },
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                items = resp.json().get('items', [])
+                break
+            except requests.RequestException as e:
+                if attempt < max_retries - 1:
+                    _time.sleep(1)
+                    continue
+                return Response(
+                    {'error': {'code': 'upstream_error', 'message': str(e)}},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
 
         results = [
             {
@@ -259,4 +322,11 @@ class VideoSearchView(APIView):
             }
             for item in items
         ]
+
+        if results:
+            try:
+                UsageService.increment_limit(request.user, 'search')
+            except Exception as exc:
+                logger.error('Failed to increment search limit: %s', exc)
+
         return Response({'results': results})
