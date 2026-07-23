@@ -1,20 +1,21 @@
-'use client'
-
 // ============================================================
 // VidMind AI — Sidebar
-// src/components/layout/Sidebar.tsx
+// components/layout/Sidebar.tsx
+//
+// No 'use client' — Pages Router project.
+// No useRouter() at module/render level — see hooks/useClientPathname.ts
 // ============================================================
 
-import Link                    from 'next/link'
-import { useRouter } from 'next/router'
+import Link                      from 'next/link'
 import {
   LayoutDashboard, PlaySquare, Search,
-  Globe, MessageSquare, Settings, LogOut,
+  Globe, MessageSquare, LogOut,
 } from 'lucide-react'
-import { cn }        from '@/utils/cn'
-import { Avatar }    from '@/components/ui/Avatar'
-import { Tooltip }   from '@components/ui/Tooltip'
-import type { User } from '@/types'
+import { cn }                    from '@/utils/cn'
+import { Avatar }                from '@/components/ui/Avatar'
+import { Tooltip }               from '@components/ui/Tooltip'
+import { useClientPathname }     from '@/hooks/useClientPathname'
+import type { User }             from '@/types'
 
 // ── Logo ─────────────────────────────────────────────────
 
@@ -52,8 +53,12 @@ function NavItem({
   icon:      React.FC<{ className?: string }>
   collapsed: boolean
 }) {
-  const { pathname } = useRouter()
-  // Active if exact match or starts with path (except /dashboard so we don't accidentally match others)
+  // useClientPathname reads window.location.pathname after mount.
+  // This avoids any dependency on RouterContext (next/router),
+  // which can be split into two copies by Webpack due to Windows
+  // path-casing differences between the shell CWD and the actual
+  // folder name on disk.
+  const pathname = useClientPathname()
   const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href + '/'))
 
   const linkEl = (
@@ -94,9 +99,6 @@ export interface SidebarProps {
 // ── Component ────────────────────────────────────────────
 
 export function Sidebar({ user, collapsed = false, onSignOut }: SidebarProps) {
-  const router    = useRouter()
-  // For the design mockup, we are hardcoding the user info to match the image exactly if no user is provided, 
-  // but using dynamic if available. The image shows Alex Rivers, Editor Pro.
   const fullName  = user ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() : 'Alex Rivers'
   const role      = user ? (user.subscription_tier === 'premium' ? 'Premium' : 'Free plan') : 'Editor Pro'
   const avatarUrl = user?.avatar_url || 'https://i.pravatar.cc/150?u=alex'

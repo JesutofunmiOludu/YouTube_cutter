@@ -276,6 +276,31 @@ export interface ResearchSession {
 
 
 // ------------------------------------------------------------
+// SEARCH TYPES  (Perplexity-style web search)
+// ------------------------------------------------------------
+
+export interface SearchSource {
+  id:      string
+  title:   string
+  url:     string
+  excerpt: Nullable<string>
+  rank:    number
+}
+
+export interface SearchResult {
+  id:                  string
+  query:               string
+  answer:              Nullable<string>
+  follow_up_questions: string[]
+  sources:             SearchSource[]
+  user_video:          Nullable<UserVideo>
+  status:              'pending' | 'completed' | 'failed'
+  created_at:          string
+  updated_at:          string
+}
+
+
+// ------------------------------------------------------------
 // USAGE TYPES
 // ------------------------------------------------------------
 

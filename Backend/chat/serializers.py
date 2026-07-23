@@ -2,8 +2,10 @@ from rest_framework import serializers
 from .models import (
     ChatSession, ChatSessionVideo, ChatMessage,
     ResearchSession, ResearchSource,
+    VideoSearchSession, VideoSearchSource,
 )
 from videos.serializers import UserVideoSerializer
+
 
 
 # ── ChatMessage ────────────────────────────────────────────
@@ -80,3 +82,31 @@ class ResearchSessionDetailSerializer(ResearchSessionSerializer):
 
     class Meta(ResearchSessionSerializer.Meta):
         fields = ResearchSessionSerializer.Meta.fields + ('report_content', 'completed_at', 'sources')
+
+
+# ── VideoSearchSource ──────────────────────────────────────
+class VideoSearchSourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = VideoSearchSource
+        fields = ('id', 'title', 'url', 'excerpt', 'rank')
+        read_only_fields = fields
+
+
+# ── VideoSearchSession (list) ──────────────────────────────
+class VideoSearchSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = VideoSearchSession
+        fields = ('id', 'query', 'status', 'created_at', 'updated_at')
+        read_only_fields = fields
+
+
+# ── VideoSearchSession (detail — includes answer + sources + follow-ups) ──
+class VideoSearchSessionDetailSerializer(VideoSearchSessionSerializer):
+    sources              = VideoSearchSourceSerializer(many=True, read_only=True)
+    user_video           = UserVideoSerializer(read_only=True)
+
+    class Meta(VideoSearchSessionSerializer.Meta):
+        fields = VideoSearchSessionSerializer.Meta.fields + (
+            'user_video', 'answer', 'follow_up_questions', 'sources',
+        )
+

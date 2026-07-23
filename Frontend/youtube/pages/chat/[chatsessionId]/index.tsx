@@ -177,17 +177,33 @@ export default function ChatPage() {
   const handleAddVideo = useCallback(async (video: UserVideo) => {
     if (!sessionId) return
     try {
-      await apiClient.post(`/chat/sessions/${sessionId}/videos/`, {
-        user_video_id: video.id,
+      // 1. Create or get the UserVideo record on the backend to get a real UUID
+      const videoRes = await apiClient.post('/videos/', {
+        youtube_id: video.video.youtube_id,
+        storage_type: 'reference'
       })
+      
+      const realUserVideoId = videoRes.data.id
+
+      // 2. Add the real UUID to the chat session
+      await apiClient.post(`/chat/sessions/${sessionId}/videos/`, {
+        user_video_id: realUserVideoId,
+      })
+
       const detailRes = await apiClient.get(`/chat/sessions/${sessionId}/`)
       setActiveSession(detailRes.data)
       setMessages(detailRes.data.messages || [])
       setShowAddVideo(false)
       fetchSessions()
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to add video', err)
-      toast.error('Failed to add video to chat.')
+      const errorPayload = err?.response?.data?.error
+      if (errorPayload?.message) {
+        toast.error(errorPayload.message)
+      } else {
+        toast.error('Failed to add video to chat.')
+      }
+      throw err
     }
   }, [sessionId, fetchSessions])
 

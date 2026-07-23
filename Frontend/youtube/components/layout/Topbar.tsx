@@ -1,17 +1,17 @@
-'use client'
-
 // ============================================================
 // VidMind AI — Topbar
-// src/components/layout/Topbar.tsx
+// components/layout/Topbar.tsx
+//
+// NOTE: No 'use client' — Pages Router project.
 // ============================================================
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter }                    from 'next/router'
 import Link                             from 'next/link'
 import { Search, Bell, ChevronDown, Settings, CreditCard, LogOut, User } from 'lucide-react'
-import { cn }        from '@/utils/cn'
-import { Avatar }    from '@components/ui/Avatar'
-import type { User as UserType } from '@/types'
+import { cn }                           from '@/utils/cn'
+import { Avatar }                       from '@components/ui/Avatar'
+import { clientNavigate }               from '@/hooks/useClientPathname'
+import type { User as UserType }        from '@/types'
 
 function isYouTubeUrl(val: string) {
   return /youtube\.com\/watch|youtu\.be\//i.test(val)
@@ -20,7 +20,6 @@ function isYouTubeUrl(val: string) {
 // ── Search bar ───────────────────────────────────────────
 
 function TopbarSearch() {
-  const router      = useRouter()
   const [val, setVal] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -28,9 +27,9 @@ function TopbarSearch() {
     const trimmed = val.trim()
     if (!trimmed) return
     if (isYouTubeUrl(trimmed)) {
-      router.push(`/workspace/new?url=${encodeURIComponent(trimmed)}`)
+      clientNavigate(`/workspace/new?url=${encodeURIComponent(trimmed)}`)
     } else {
-      router.push(`/search?q=${encodeURIComponent(trimmed)}`)
+      clientNavigate(`/search?q=${encodeURIComponent(trimmed)}`)
     }
   }
 
@@ -69,7 +68,6 @@ function TopbarSearch() {
 function UserMenu({ user, onSignOut }: { user?: UserType | null; onSignOut?: () => void }) {
   const [open, setOpen] = useState(false)
   const menuRef         = useRef<HTMLDivElement>(null)
-  const router          = useRouter()
   const fullName        = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim()
   const isPremium       = user?.subscription_tier === 'premium'
 
@@ -121,7 +119,7 @@ function UserMenu({ user, onSignOut }: { user?: UserType | null; onSignOut?: () 
               <button
                 key={item.label}
                 role="menuitem"
-                onClick={() => { router.push(item.href); setOpen(false) }}
+                onClick={() => { clientNavigate(item.href); setOpen(false) }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-body-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
               >
                 <item.icon className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -133,7 +131,7 @@ function UserMenu({ user, onSignOut }: { user?: UserType | null; onSignOut?: () 
             <div className="border-t border-[var(--color-border-tertiary)] py-1">
               <button
                 role="menuitem"
-                onClick={() => { onSignOut(); router.push('/login'); setOpen(false) }}
+                onClick={() => { onSignOut(); clientNavigate('/login'); setOpen(false) }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-body-sm text-danger-800 hover:bg-danger-50 transition-colors"
               >
                 <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />

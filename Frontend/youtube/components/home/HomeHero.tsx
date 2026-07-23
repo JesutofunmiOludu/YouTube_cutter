@@ -1,17 +1,14 @@
-'use client'
-
 // src/components/home/HomeHero.tsx
-import { useState }  from 'react'
-import { useRouter } from 'next/router'
-import { Search }    from 'lucide-react'
-import { cn }        from '@/utils/cn'
+import { useState }       from 'react'
+import { Search }         from 'lucide-react'
+import { cn }             from '@/utils/cn'
+import { clientNavigate } from '@/hooks/useClientPathname'
 
 function isYouTubeUrl(val: string) {
   return /youtube\.com\/watch|youtu\.be\//i.test(val)
 }
 
 export function HomeHero() {
-  const router          = useRouter()
   const [urlVal,    setUrlVal]    = useState('')
   const [searchVal, setSearchVal] = useState('')
 
@@ -19,14 +16,14 @@ export function HomeHero() {
     e.preventDefault()
     const trimmed = urlVal.trim()
     if (!trimmed || !isYouTubeUrl(trimmed)) return
-    router.push(`/register?url=${encodeURIComponent(trimmed)}&intent=process`)
+    clientNavigate(`/register?url=${encodeURIComponent(trimmed)}&intent=process`)
   }
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = searchVal.trim()
     if (!trimmed) return
-    router.push(`/register?q=${encodeURIComponent(trimmed)}&intent=search`)
+    clientNavigate(`/register?q=${encodeURIComponent(trimmed)}&intent=search`)
   }
 
   return (

@@ -13,7 +13,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react'
 import { AppShell } from '@/components/layout/AppShell'
-import { useRouter }                 from 'next/router'
+import { clientNavigate }            from '@/hooks/useClientPathname'
 import {
   Scissors,
   MessageSquare,
@@ -378,8 +378,7 @@ const FolderDetailPanel: React.FC<{
   isPremium: boolean
   onClose:   () => void
 }> = ({ project, isPremium, onClose }) => {
-  const router            = useRouter()
-  const navigate          = (to: string) => router.push(to)
+  const navigate          = (to: string) => clientNavigate(to)
   const [tab, setTab]     = useState<DetailTab>('cuts')
   const { userVideo, cuts, chats, research } = project
 
@@ -669,8 +668,7 @@ const StatCard: React.FC<{
 // ============================================================
 
 const QuickSearch: React.FC = () => {
-  const router = useRouter()
-  const navigate = (to: string) => router.push(to)
+  const navigate = (to: string) => clientNavigate(to)
   const [val, setVal] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -714,8 +712,7 @@ const QuickSearch: React.FC = () => {
 // ============================================================
 
 const UpgradeBanner: React.FC = () => {
-  const router = useRouter()
-  const navigate = (to: string) => router.push(to)
+  const navigate = (to: string) => clientNavigate(to)
   return (
     <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-premium-200 bg-premium-50">
       <Crown className="w-5 h-5 text-premium-600 shrink-0" aria-hidden="true" />
@@ -740,8 +737,7 @@ const UpgradeBanner: React.FC = () => {
 // ============================================================
 
 const OnboardingState: React.FC = () => {
-  const router = useRouter()
-  const navigate = (to: string) => router.push(to)
+  const navigate = (to: string) => clientNavigate(to)
   return (
     <div className="flex flex-col items-center justify-center min-h-[40vh] px-4 text-center gap-5">
       <div>
@@ -766,8 +762,7 @@ const OnboardingState: React.FC = () => {
 // ============================================================
 
 const DashboardPage: NextPageWithLayout = () => {
-  const router           = useRouter()
-  const navigate         = (to: string) => router.push(to)
+  const navigate         = (to: string) => clientNavigate(to)
   const { user }         = useAuthStore()
   const isPremium        = user?.subscription_tier === 'premium'
   const firstName        = user?.first_name ?? 'there'

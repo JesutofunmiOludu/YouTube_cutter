@@ -226,3 +226,75 @@ class VideoRecommendation(models.Model):
 
     def __str__(self):
         return f"Rec: {self.recommended_title[:50]}"
+
+
+# ──────────────────────────────────────────────
+# VideoSearchSession (Perplexity-style search)
+# ──────────────────────────────────────────────
+class VideoSearchSession(models.Model):
+    """
+    A single web-search query run by a user, optionally anchored to a
+    specific user_video for context. Stores the AI-generated answer,
+    cited sources, and follow-up questions so users can revisit results.
+    """
+
+    class Status(models.TextChoices):
+        PENDING   = "pending",   "Pending"
+        COMPLETED = "completed", "Completed"
+        FAILED    = "failed",    "Failed"
+
+    id         = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user       = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="search_sessions",
+    )
+    user_video = models.ForeignKey(
+        "videos.UserVideo",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="search_sessions",
+        help_text="The video whose context was used for this search (optional)",
+    )
+    query                = models.TextField(help_text="The user's search query")
+    answer               = models.TextField(blank=True, null=True, help_text="AI-generated markdown answer")
+    follow_up_questions  = models.JSONField(default=list, blank=True, help_text="List of follow-up question strings")
+    status               = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    created_at           = models.DateTimeField(auto_now_add=True)
+    updated_at           = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "video_search_session"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Search: {self.query[:60]}"
+
+
+# ──────────────────────────────────────────────
+# VideoSearchSource (cited web pages)
+# ──────────────────────────────────────────────
+class VideoSearchSource(models.Model):
+    """
+    Individual web pages cited in a VideoSearchSession answer.
+    Separated to eliminate multi-valued facts in VideoSearchSession.
+    """
+
+    id             = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    search_session = models.ForeignKey(
+        VideoSearchSession,
+        on_delete=models.CASCADE,
+        related_name="sources",
+    )
+    title   = models.CharField(max_length=500)
+    url     = models.URLField(max_length=1000)
+    excerpt = models.TextField(blank=True, null=True, help_text="Relevant excerpt or citation context")
+    rank    = models.IntegerField(help_text="1-based citation order matching [N] in the answer")
+
+    class Meta:
+        db_table = "video_search_source"
+        ordering = ["rank"]
+
+    def __str__(self):
+        return f"[{self.rank}] {self.title[:50]}"

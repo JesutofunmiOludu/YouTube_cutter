@@ -21,7 +21,7 @@ export function extractYouTubeId(url: string): string | null {
 }
 
 export interface AddVideoModalProps {
-  onAdd: (video: UserVideo) => void
+  onAdd: (video: UserVideo) => Promise<void>
   onClose: () => void
 }
 
@@ -30,7 +30,7 @@ export default function AddVideoModal({ onAdd, onClose }: AddVideoModalProps) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const ytId = extractYouTubeId(url.trim())
     if (!ytId) {
       setError('Please enter a valid YouTube URL (e.g. https://youtube.com/watch?v=…)')
@@ -38,33 +38,37 @@ export default function AddVideoModal({ onAdd, onClose }: AddVideoModalProps) {
     }
     setError(null)
     setLoading(true)
-    // Simulate a short fetch delay, then create a mock UserVideo
-    setTimeout(() => {
-      const newVideo: UserVideo = {
-        id: `uv_${ytId}`,
-        user_id: 'u1',
-        storage_type: 'reference',
-        file_url: null,
-        processing_status: 'completed',
-        saved_at: new Date().toISOString(),
-        last_accessed_at: new Date().toISOString(),
-        video: {
-          id: `v_${ytId}`,
-          youtube_id: ytId,
-          title: `YouTube Video (${ytId})`,
-          description: null,
-          thumbnail_url: `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`,
-          duration_seconds: 0,
-          channel_id: 'unknown',
-          channel_name: 'YouTube',
-          category: null,
-          published_at: null,
-          created_at: new Date().toISOString(),
-        },
-      }
+
+    const newVideo: UserVideo = {
+      id: `uv_${ytId}`,
+      user_id: 'u1',
+      storage_type: 'reference',
+      file_url: null,
+      processing_status: 'completed',
+      saved_at: new Date().toISOString(),
+      last_accessed_at: new Date().toISOString(),
+      video: {
+        id: `v_${ytId}`,
+        youtube_id: ytId,
+        title: `YouTube Video (${ytId})`,
+        description: null,
+        thumbnail_url: `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`,
+        duration_seconds: 0,
+        channel_id: 'unknown',
+        channel_name: 'YouTube',
+        category: null,
+        published_at: null,
+        created_at: new Date().toISOString(),
+      },
+    }
+
+    try {
+      await onAdd(newVideo)
+    } catch (err: any) {
+      const errorPayload = err?.response?.data?.error
+      setError(errorPayload?.message ?? 'Failed to add video to chat.')
       setLoading(false)
-      onAdd(newVideo)
-    }, 900)
+    }
   }
 
   return (

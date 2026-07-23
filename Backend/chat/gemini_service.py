@@ -248,6 +248,11 @@ def start_deep_research_interaction(session: 'ResearchSession') -> str | None:
 def poll_and_save_research(session: 'ResearchSession') -> tuple[str, list[dict]]:
     """
     Polls the active Google Deep Research interaction and parses results when complete.
+
+    The SDK's Interaction object (google.genai._gaos.types.interactions.interaction.Interaction)
+    exposes the final text via:
+      - interaction.output_text  (str | None)  — primary attribute
+      - interaction.steps        (list)         — step-by-step breakdown; fallback
     """
     client = _get_client()
     if client is None or not session.research_interaction_id:
@@ -255,20 +260,42 @@ def poll_and_save_research(session: 'ResearchSession') -> tuple[str, list[dict]]
 
     try:
         interaction = client.interactions.get(session.research_interaction_id)
-        
-        if interaction.status == "completed":
-            raw = interaction.outputs[-1].text
+
+        status = getattr(interaction, 'status', None)
+
+        if status == 'completed':
+            # Primary: use output_text attribute
+            raw = getattr(interaction, 'output_text', None) or ''
+
+            # Fallback: scan steps for modelOutputStep text
+            if not raw:
+                for step in (getattr(interaction, 'steps', None) or []):
+                    step_type = getattr(step, 'type', '') or ''
+                    if 'modeloutput' in step_type.lower() or 'output' in step_type.lower():
+                        raw = getattr(step, 'output_text', '') or getattr(step, 'text', '') or ''
+                        if raw:
+                            break
+
+            if not raw:
+                logger.warning('Deep Research completed but no text found in interaction %s', session.research_interaction_id)
+                return 'Research completed but no content was returned.', []
+
             report, sources = _parse_research_response(raw)
             return report, sources
-        elif interaction.status == "failed":
-            raise Exception(f"Deep Research failed: {interaction.error}")
+
+        elif status == 'failed':
+            error_detail = getattr(interaction, 'error', 'Unknown error')
+            raise Exception(f"Deep Research failed: {error_detail}")
+
         else:
-            # Still running
-            return "", []
+            # Still running (status: 'running', 'pending', etc.)
+            return '', []
 
     except Exception as exc:
         logger.error('Deep Research polling failed: %s', exc)
         return f"Research generation failed: {exc}", []
+
+
 
 
 def _get_transcript_text(user_video) -> str:

@@ -42,6 +42,14 @@ import {
   FileText,
   X,
   Loader2,
+  Lock,
+  Search,
+  Zap,
+  BookOpen,
+  Send,
+  ChevronDown,
+  ArrowRight,
+  Mic,
 } from 'lucide-react'
 import { cn }              from '@/utils/cn'
 import { Spinner }         from '@/components/ui/Spinner'
@@ -49,6 +57,7 @@ import { useToast }        from '@/components/ui/Toast'
 import CutTimeline         from '@/components/video/CutTimeline'
 import ChatWindow          from '@/components/chat/ChatWindow'
 import ResearchReport      from '@/components/research/ResearchReport'
+import { SearchResultCard } from '@/components/research/SearchResultCard'
 import { apiClient }       from '@/utils/apiClient'
 import type {
   UserVideo,
@@ -58,6 +67,7 @@ import type {
   ChatSession,
   ChatMessage,
   ResearchSession,
+  SearchResult,
 } from '@/types'
 
 // ── YouTube API types ─────────────────────────────────────
@@ -609,14 +619,14 @@ function AddVideoModal({
   onAdd,
   onClose,
 }: {
-  onAdd:  (video: UserVideo) => void
+  onAdd:  (video: UserVideo) => Promise<void>
   onClose: () => void
 }) {
   const [url,     setUrl]     = useState('')
   const [error,   setError]   = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const ytId = extractYouTubeId(url.trim())
     if (!ytId) {
       setError('Please enter a valid YouTube URL (e.g. https://youtube.com/watch?v=…)')
@@ -624,33 +634,37 @@ function AddVideoModal({
     }
     setError(null)
     setLoading(true)
-    // Simulate a short fetch delay, then create a mock UserVideo
-    setTimeout(() => {
-      const newVideo: UserVideo = {
-        id:                `uv_${ytId}`,
-        user_id:           'u1',
-        storage_type:      'reference',
-        file_url:          null,
-        processing_status: 'completed',
-        saved_at:          new Date().toISOString(),
-        last_accessed_at:  new Date().toISOString(),
-        video: {
-          id:            `v_${ytId}`,
-          youtube_id:    ytId,
-          title:         `YouTube Video (${ytId})`,
-          description:   null,
-          thumbnail_url: `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`,
-          duration_seconds: 0,
-          channel_id:    'unknown',
-          channel_name:  'YouTube',
-          category:      null,
-          published_at:  null,
-          created_at:    new Date().toISOString(),
-        },
-      }
+
+    const newVideo: UserVideo = {
+      id:                `uv_${ytId}`,
+      user_id:           'u1',
+      storage_type:      'reference',
+      file_url:          null,
+      processing_status: 'completed',
+      saved_at:          new Date().toISOString(),
+      last_accessed_at:  new Date().toISOString(),
+      video: {
+        id:            `v_${ytId}`,
+        youtube_id:    ytId,
+        title:         `YouTube Video (${ytId})`,
+        description:   null,
+        thumbnail_url: `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`,
+        duration_seconds: 0,
+        channel_id:    'unknown',
+        channel_name:  'YouTube',
+        category:      null,
+        published_at:  null,
+        created_at:    new Date().toISOString(),
+      },
+    }
+
+    try {
+      await onAdd(newVideo)
+    } catch (err: any) {
+      const errorPayload = err?.response?.data?.error
+      setError(errorPayload?.message ?? 'Failed to add video to chat.')
       setLoading(false)
-      onAdd(newVideo)
-    }, 900)
+    }
   }
 
   return (
@@ -803,6 +817,305 @@ As of 2024, React Hooks are the de-facto standard for all new React code. Virtua
   updated_at:    new Date().toISOString(),
 }
 
+type SearchMode = 'search' | 'deep_research' | 'learn'
+
+const SEARCH_MODES: { id: SearchMode; label: string; icon: React.ReactNode; description: string }[] = [
+  { id: 'search',        label: 'Search',            icon: <Search   className="w-3.5 h-3.5" />, description: 'Quick web search with sources' },
+  { id: 'deep_research', label: 'Deep Research',     icon: <Zap      className="w-3.5 h-3.5" />, description: 'In-depth AI research report (Premium)' },
+  { id: 'learn',         label: 'Learn Step by Step',icon: <BookOpen className="w-3.5 h-3.5" />, description: 'Structured learning guide (coming soon)' },
+]
+
+// ── ResearchPanel ──────────────────────────────────────────────
+// The full Research tab content: key points, result area, search bar.
+function ResearchPanel({
+  userVideo,
+  cuts,
+  transcript,
+  researchSession,
+  researchLoading,
+  onStartResearch,
+  searchResult,
+  searchLoading,
+  onSearch,
+  onAddVideo,
+}: {
+  userVideo:        UserVideo | null
+  cuts:             any[]
+  transcript:       TranscriptSegment[]
+  researchSession:  ResearchSession | null
+  researchLoading:  boolean
+  onStartResearch:  () => void
+  searchResult:     SearchResult | null
+  searchLoading:    boolean
+  onSearch:         (query: string, mode: SearchMode) => void
+  onAddVideo:       () => void
+}) {
+  const { toast }                           = useToast()
+  const [query,      setQuery]              = useState('')
+  const [mode,       setMode]               = useState<SearchMode>('search')
+  const [modeOpen,   setModeOpen]           = useState(false)
+  const inputRef                            = useRef<HTMLInputElement>(null)
+  const modeDropRef                         = useRef<HTMLDivElement>(null)
+
+  // ── Key points from cut titles ─────────────────────────────────────
+  const keyPoints: string[] = useMemo(() => {
+    const fromCuts = cuts
+      .map((c: any) => c.title)
+      .filter(Boolean)
+      .slice(0, 8)
+    if (fromCuts.length > 0) return fromCuts
+    // Fallback: first few transcript snippets as short phrases
+    return transcript.slice(0, 5).map((s) => s.text.slice(0, 60).trim() + '…')
+  }, [cuts, transcript])
+
+  // Close mode dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (modeDropRef.current && !modeDropRef.current.contains(e.target as Node)) {
+        setModeOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleSubmit = () => {
+    const q = query.trim()
+    if (!q) return
+    if (mode === 'learn') {
+      toast.info('Learn Step by Step is coming soon 🚀')
+      return
+    }
+    onSearch(q, mode)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit()
+    }
+  }
+
+  const handleChipClick = (point: string) => {
+    setQuery(point)
+    inputRef.current?.focus()
+    // Auto-submit in search mode only
+    if (mode === 'search' || mode === 'deep_research') {
+      onSearch(point, mode)
+    }
+  }
+
+  const handleFollowUp = (question: string) => {
+    setQuery(question)
+    onSearch(question, mode)
+  }
+
+  const currentMode = SEARCH_MODES.find((m) => m.id === mode)!
+
+  const hasResult = searchResult || researchSession || searchLoading || researchLoading
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+
+      {/* ── Key points strip ──────────────────────────── */}
+      {keyPoints.length > 0 && (
+        <div className="shrink-0 px-3 pt-3 pb-2 border-b border-[var(--color-border-tertiary)]">
+          <p className="text-[9px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider mb-2">
+            Key points from this video
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {keyPoints.map((point, i) => (
+              <button
+                key={i}
+                onClick={() => handleChipClick(point)}
+                className={cn(
+                  'flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] transition-all duration-150',
+                  'bg-[var(--color-bg-secondary)] border-[var(--color-border-tertiary)]',
+                  'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                  'hover:border-primary-400/60 hover:bg-primary-50/10 whitespace-nowrap',
+                )}
+              >
+                <ArrowRight className="w-2.5 h-2.5 text-primary-400 flex-shrink-0" />
+                <span className="max-w-[160px] truncate">{point}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Results area (scrollable) ─────────────────── */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {/* Loading spinner */}
+        {(searchLoading || researchLoading) && (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <div className="relative">
+              <div className="w-8 h-8 rounded-full border-2 border-primary-600/30 border-t-primary-600 animate-spin" />
+            </div>
+            <p className="text-[12px] text-[var(--color-text-secondary)]">
+              {mode === 'deep_research' || researchLoading ? 'Generating deep research report…' : 'Searching the web…'}
+            </p>
+          </div>
+        )}
+
+        {/* Search result (Perplexity-style) */}
+        {!searchLoading && searchResult && !researchSession && (
+          <div className="p-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <Search className="w-3.5 h-3.5 text-primary-400 flex-shrink-0" />
+              <p className="text-[11px] font-semibold text-[var(--color-text-secondary)] truncate">
+                {searchResult.query}
+              </p>
+            </div>
+            <SearchResultCard
+              result={searchResult}
+              onFollowUp={handleFollowUp}
+            />
+          </div>
+        )}
+
+        {/* Deep research report */}
+        {!researchLoading && researchSession && (
+          <ResearchReport
+            session={researchSession}
+            isLoading={false}
+            onExport={() => window.print()}
+            className="flex-1 min-h-0"
+          />
+        )}
+
+        {/* Empty state */}
+        {!hasResult && (
+          <div className="flex flex-col items-center justify-center py-10 px-4 text-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary-600/10 flex items-center justify-center">
+              <Search className="w-5 h-5 text-primary-400" />
+            </div>
+            <div>
+              <p className="text-[13px] font-semibold text-[var(--color-text-primary)] mb-1">
+                Search anything
+              </p>
+              <p className="text-[11px] text-[var(--color-text-secondary)] max-w-[180px] leading-relaxed">
+                Type a question or click a key point above to get Perplexity-style results.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Search bar (pinned bottom) ────────────────── */}
+      <div className="shrink-0 p-3 border-t border-[var(--color-border-tertiary)] space-y-2">
+        {/* + Add Video button */}
+        <button
+          onClick={onAddVideo}
+          className={cn(
+            'w-full flex items-center justify-center gap-2 h-8 rounded-lg text-[11px] font-semibold',
+            'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]',
+            'border border-dashed border-[var(--color-border-secondary)]',
+            'hover:border-primary-400/60 hover:text-primary-400 hover:bg-primary-50/10 transition-colors',
+          )}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Add Video for Context
+        </button>
+
+        {/* Input row */}
+        <div className={cn(
+          'flex items-end gap-2 rounded-xl border p-2',
+          'bg-[var(--color-bg-secondary)] border-[var(--color-border-secondary)]',
+          'focus-within:border-primary-400/60 transition-colors',
+        )}>
+          {/* Text input */}
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={`Ask anything about this video…`}
+            disabled={searchLoading || researchLoading}
+            className={cn(
+              'flex-1 bg-transparent text-[12px] text-[var(--color-text-primary)]',
+              'placeholder:text-[var(--color-text-tertiary)] outline-none resize-none leading-relaxed',
+              'disabled:opacity-50',
+            )}
+          />
+        </div>
+
+        {/* Controls row */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Mode selector */}
+          <div className="relative" ref={modeDropRef}>
+            <button
+              onClick={() => setModeOpen(p => !p)}
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium',
+                'bg-[var(--color-bg-secondary)] border-[var(--color-border-tertiary)]',
+                'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                'hover:border-primary-400/60 transition-all',
+              )}
+            >
+              {currentMode.icon}
+              <span className="hidden sm:inline">{currentMode.label}</span>
+              <ChevronDown className={cn('w-3 h-3 transition-transform', modeOpen && 'rotate-180')} />
+            </button>
+
+            {modeOpen && (
+              <div className={cn(
+                'absolute bottom-full left-0 mb-2 w-56 rounded-xl border shadow-xl z-50 overflow-hidden',
+                'bg-[var(--color-bg-primary)] border-[var(--color-border-secondary)]',
+              )}>
+                {SEARCH_MODES.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => { setMode(m.id); setModeOpen(false) }}
+                    className={cn(
+                      'w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors',
+                      mode === m.id
+                        ? 'bg-primary-600/10 text-primary-400'
+                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)]',
+                    )}
+                  >
+                    <span className="mt-0.5 flex-shrink-0">{m.icon}</span>
+                    <span>
+                      <span className="block text-[11px] font-semibold">{m.label}</span>
+                      <span className="block text-[10px] opacity-70 mt-0.5">{m.description}</span>
+                    </span>
+                    {mode === m.id && <Check className="w-3 h-3 ml-auto mt-0.5 flex-shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Mic + Send */}
+          <div className="flex items-center gap-1.5">
+            <button
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+              title="Voice input (coming soon)"
+              onClick={() => toast.info('Voice input coming soon 🎙️')}
+            >
+              <Mic className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!query.trim() || searchLoading || researchLoading}
+              className={cn(
+                'w-7 h-7 rounded-lg flex items-center justify-center transition-all',
+                query.trim() && !searchLoading && !researchLoading
+                  ? 'bg-primary-600 text-white hover:bg-primary-700'
+                  : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] opacity-50 cursor-not-allowed',
+              )}
+            >
+              {searchLoading || researchLoading
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <Send className="w-3.5 h-3.5" />
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function LeftPanel({
   activeTab,
   onTabChange,
@@ -818,6 +1131,10 @@ function LeftPanel({
   researchSession,
   researchLoading,
   onStartResearch,
+  userVideo,
+  searchResult,
+  searchLoading,
+  onSearch,
 }: {
   activeTab:   LeftTab
   onTabChange: (t: LeftTab) => void
@@ -828,17 +1145,22 @@ function LeftPanel({
   chatLoading: boolean
   chatTyping: boolean
   onSendMessage: (content: string) => void
-  onAddVideo: (video: UserVideo) => void
+  onAddVideo: (video: UserVideo) => Promise<void>
   onRemoveVideo: (videoId: string) => void
   researchSession: ResearchSession | null
   researchLoading: boolean
   onStartResearch: () => void
+  userVideo: UserVideo | null
+  searchResult: SearchResult | null
+  searchLoading: boolean
+  onSearch: (query: string, mode: SearchMode) => void
 }) {
   // ── Add Video modal state ────────────────────────────────
+  const { toast } = useToast()
   const [showAddVideo, setShowAddVideo] = useState(false)
 
-  const handleAddVideo = useCallback((video: UserVideo) => {
-    onAddVideo(video)
+  const handleAddVideo = useCallback(async (video: UserVideo) => {
+    await onAddVideo(video)
     setShowAddVideo(false)
     onTabChange('chat')
   }, [onAddVideo, onTabChange])
@@ -1028,63 +1350,48 @@ function LeftPanel({
             </div>
           )}
 
-          {/* Research ── fully embedded ResearchReport */}
+          {/* Research ── redesigned panel with key points + search bar */}
           {activeTab === 'research' && (
-            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-              {!researchSession && !researchLoading && (
-                <div className="flex flex-col items-center justify-center flex-1 gap-4 py-12 px-4 text-center">
-                  <div className="w-14 h-14 rounded-full bg-primary-50 flex items-center justify-center">
-                    <Globe className="w-7 h-7 text-primary-600" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <p className="text-heading-sm text-[var(--color-text-primary)] mb-1">Deep Research</p>
-                    <p className="text-body-sm text-[var(--color-text-secondary)] max-w-[200px]">
-                      AI searches the web and returns a fully-cited report based on this video.
-                    </p>
-                  </div>
-                  <button
-                    onClick={onStartResearch}
-                    className="px-4 py-2 rounded-lg text-body-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors flex items-center gap-2"
-                  >
-                    <Globe className="w-4 h-4" aria-hidden="true" />
-                    Start Research
-                  </button>
-                </div>
-              )}
-              {(researchLoading || researchSession) && (
-                <>
-                  {transcript.length === 0 && (
-                    <div className="mx-4 my-2 p-2 rounded bg-[var(--color-bg-secondary)] border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] text-[11px] font-medium flex items-center gap-1.5 shrink-0">
-                      <Globe className="w-3.5 h-3.5 text-[var(--color-text-tertiary)]" />
-                      <span>Report generated from the video's subject matter (no transcript available).</span>
-                    </div>
-                  )}
-                  <ResearchReport
-                    session={researchSession}
-                    isLoading={researchLoading}
-                    onExport={() => window.print()}
-                    className="flex-1 min-h-0 overflow-y-auto"
-                  />
-                </>
-              )}
-            </div>
+            <ResearchPanel
+              userVideo={userVideo}
+              cuts={(userVideo as any)?.cuts ?? []}
+              transcript={transcript}
+              researchSession={researchSession}
+              researchLoading={researchLoading}
+              onStartResearch={onStartResearch}
+              searchResult={searchResult}
+              searchLoading={searchLoading}
+              onSearch={onSearch}
+              onAddVideo={() => setShowAddVideo(true)}
+            />
           )}
         </div>
 
         {/* Add Video footer */}
         <div className="shrink-0 p-3 border-t border-[var(--color-border-tertiary)]">
           <button
-            onClick={() => setShowAddVideo(true)}
+            onClick={() => {
+              if (chatSession?.videos && chatSession.videos.length >= 1) {
+                toast.error('Multi-video chat sessions require a Premium subscription. Please upgrade to Premium.')
+                return
+              }
+              setShowAddVideo(true)
+            }}
+            title={chatSession?.videos && chatSession.videos.length >= 1 ? 'Multi-video chat requires a Premium subscription' : undefined}
             className={cn(
               'w-full flex items-center justify-center gap-2 h-10 rounded-xl',
               'text-body-sm font-semibold',
-              'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)]',
-              'border-2 border-dashed border-[var(--color-border-secondary)]',
-              'hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50/30',
+              chatSession?.videos && chatSession.videos.length >= 1
+                ? 'opacity-60 bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] border-2 border-dashed border-[var(--color-border-secondary)] cursor-pointer'
+                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] border-2 border-dashed border-[var(--color-border-secondary)] hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50/30',
               'transition-colors',
             )}
           >
-            <Plus className="w-4 h-4" aria-hidden="true" />
+            {chatSession?.videos && chatSession.videos.length >= 1 ? (
+              <Lock className="w-4 h-4 text-[var(--color-text-tertiary)]" aria-hidden="true" />
+            ) : (
+              <Plus className="w-4 h-4" aria-hidden="true" />
+            )}
             Add Video to Chat
           </button>
         </div>
@@ -1419,6 +1726,9 @@ export default function WorkspacePage() {
   const [researchSession, setResearchSession] = useState<ResearchSession | null>(null)
   const [researchLoading, setResearchLoading] = useState(false)
 
+  const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
+  const [searchLoading, setSearchLoading] = useState(false)
+
   const [currentTime, setCurrentTime] = useState(0)
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
   const [leftTab,     setLeftTab]     = useState<LeftTab>('transcripts')
@@ -1619,8 +1929,14 @@ export default function WorkspacePage() {
         user_approved: false,
       })
       setCuts((prev) => [...prev, res.data])
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to split cut', err)
+      const errMsg = err.response?.data?.error?.message || err.response?.data?.detail || 'Failed to split cut.'
+      if (err.response?.status === 403) {
+        toast.warning(errMsg)
+      } else {
+        toast.error(errMsg)
+      }
     }
   }
 
@@ -1637,8 +1953,14 @@ export default function WorkspacePage() {
         user_approved: true,
       })
       setCuts((prev) => [...prev, res.data])
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to add cut range', err)
+      const errMsg = err.response?.data?.error?.message || err.response?.data?.detail || 'Failed to add cut range.'
+      if (err.response?.status === 403) {
+        toast.warning(errMsg)
+      } else {
+        toast.error(errMsg)
+      }
     }
   }
 
@@ -1680,13 +2002,30 @@ export default function WorkspacePage() {
   const handleAddVideo = useCallback(async (video: UserVideo) => {
     if (!chatSession) return
     try {
-      await apiClient.post(`/chat/sessions/${chatSession.id}/videos/`, {
-        user_video_id: video.id,
+      // 1. Create or get the UserVideo record on the backend to get a real UUID
+      const videoRes = await apiClient.post('/videos/', {
+        youtube_id: video.video.youtube_id,
+        storage_type: 'reference'
       })
+      
+      const realUserVideoId = videoRes.data.id
+
+      // 2. Add the real UUID to the chat session
+      await apiClient.post(`/chat/sessions/${chatSession.id}/videos/`, {
+        user_video_id: realUserVideoId,
+      })
+
       const res = await apiClient.get(`/chat/sessions/${chatSession.id}/`)
       setChatSession(res.data)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to add video to chat', err)
+      const errorPayload = err?.response?.data?.error
+      if (errorPayload?.message) {
+        toast.error(errorPayload.message)
+      } else {
+        toast.error('Failed to add video to chat.')
+      }
+      throw err
     }
   }, [chatSession])
 
@@ -1721,6 +2060,35 @@ export default function WorkspacePage() {
       setResearchLoading(false)
     }
   }, [userVideoId, toast])
+
+  // Search action
+  const handleSearch = useCallback(async (query: string, mode: SearchMode) => {
+    if (!userVideoId) return
+    if (mode === 'deep_research') {
+      // Use existing deep research flow
+      await handleStartResearch()
+      return
+    }
+    setSearchLoading(true)
+    setSearchResult(null)
+    try {
+      const res = await apiClient.post('/search/', {
+        query,
+        user_video_id: userVideoId,
+      })
+      setSearchResult(res.data)
+    } catch (err: any) {
+      console.error('Search failed', err)
+      const errMsg = err.response?.data?.error?.message || err.response?.data?.detail || 'Search failed.'
+      if (err.response?.status === 403) {
+        toast.warning(errMsg)
+      } else {
+        toast.error(errMsg)
+      }
+    } finally {
+      setSearchLoading(false)
+    }
+  }, [userVideoId, toast, handleStartResearch])
 
   const activeCutId = cuts.find(
     (c) => currentTime >= c.start_seconds && currentTime < c.end_seconds
@@ -1928,6 +2296,10 @@ export default function WorkspacePage() {
             researchSession={researchSession}
             researchLoading={researchLoading}
             onStartResearch={handleStartResearch}
+            userVideo={userVideo}
+            searchResult={searchResult}
+            searchLoading={searchLoading}
+            onSearch={handleSearch}
           />
         </div>
 

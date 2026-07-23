@@ -1,25 +1,26 @@
-'use client'
-
 // ============================================================
 // VidMind AI — MobileNav
-// src/components/layout/MobileNav.tsx
+// components/layout/MobileNav.tsx
+//
+// No 'use client' — Pages Router project.
+// No useRouter() at render level — see hooks/useClientPathname.ts
 // ============================================================
 
-import Link                from 'next/link'
-import { useRouter } from 'next/router'
+import Link                    from 'next/link'
 import { LayoutDashboard, Library, MessageSquare, Globe, User } from 'lucide-react'
-import { cn } from '@/utils/cn'
+import { cn }                  from '@/utils/cn'
+import { useClientPathname }   from '@/hooks/useClientPathname'
 
 const NAV_ITEMS = [
   { label: 'Home',     href: '/dashboard', icon: LayoutDashboard },
   { label: 'Library',  href: '/library',   icon: Library         },
-  { label: 'Chat',     href: '/chat',       icon: MessageSquare   },
-  { label: 'Research', href: '/research',   icon: Globe           },
+  { label: 'Chat',     href: '/chat',      icon: MessageSquare   },
+  { label: 'Research', href: '/research',  icon: Globe           },
   { label: 'Profile',  href: '/settings',  icon: User            },
 ]
 
 export function MobileNav() {
-  const { pathname } = useRouter()
+  const pathname = useClientPathname()
 
   return (
     <nav

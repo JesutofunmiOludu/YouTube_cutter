@@ -13,11 +13,12 @@ import React, {
   useState,
   useCallback,
 } from 'react'
-import { Send, Plus, X, Video }  from 'lucide-react'
+import { Send, Plus, X, Video, Lock }  from 'lucide-react'
 import { cn }                    from '@/utils/cn'
 import { MessageBubble, TypingIndicator } from './MessageBubble'
 import { IconButton }            from '@components/ui/Button'
 import { EmptyState, EmptyIcons } from '@components/ui'
+import { useToast }              from '@/components/ui/Toast'
 import type { ChatSession, ChatMessage, User, UserVideo } from '@/types'
 
 // ------------------------------------------------------------
@@ -79,6 +80,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   onSeek,
   className,
 }) => {
+  const { toast } = useToast()
   const [input,      setInput]      = useState('')
   const messagesRef                 = useRef<HTMLDivElement>(null)
   const inputRef                    = useRef<HTMLTextAreaElement>(null)
@@ -109,6 +111,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const videos    = session?.videos   ?? []
   const canSend   = input.trim().length > 0 && !isLoading
 
+  const handleAddVideoClick = () => {
+    if (videos.length >= 1) {
+      toast.error('Multi-video chat sessions require a Premium subscription. Please upgrade to Premium.')
+      return
+    }
+    onAddVideo?.()
+  }
+
   return (
     <div className={cn('flex flex-col h-full', className)}>
 
@@ -138,18 +148,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         {/* Add video button */}
         {onAddVideo && (
           <button
-            onClick={onAddVideo}
+            onClick={handleAddVideoClick}
+            title={videos.length >= 1 ? 'Multi-video chat requires a Premium subscription' : undefined}
             className={cn(
               'shrink-0 flex items-center gap-1.5 px-2.5 py-1.5',
               'text-caption font-medium',
               'border border-[var(--color-border-secondary)]',
-              'rounded-md text-[var(--color-text-secondary)]',
-              'hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)]',
+              'rounded-md',
+              videos.length >= 1
+                ? 'opacity-60 bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)] cursor-pointer'
+                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)]',
               'transition-colors duration-fast',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200',
             )}
           >
-            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+            {videos.length >= 1 ? (
+              <Lock className="w-3.5 h-3.5 text-[var(--color-text-tertiary)]" aria-hidden="true" />
+            ) : (
+              <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+            )}
             Add video
           </button>
         )}

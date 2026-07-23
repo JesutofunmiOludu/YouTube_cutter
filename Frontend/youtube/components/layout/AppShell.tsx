@@ -1,13 +1,11 @@
-'use client'
-
 // ============================================================
 // VidMind AI — AppShell
-// src/components/layout/AppShell.tsx
+// components/layout/AppShell.tsx
 //
-// Client component that composes Sidebar + Topbar + content.
-// Used by app/(app)/layout.tsx.
-// Must be 'use client' because it reads from the auth store
-// and manages sidebar collapsed state.
+// NOTE: No 'use client' — Pages Router project.
+// 'use client' is an App Router concept; having it here causes
+// Next.js 16 Webpack to compile this outside the Pages Router
+// module graph, breaking RouterContext for all child hooks.
 // ============================================================
 
 import { useState, useEffect }  from 'react'
