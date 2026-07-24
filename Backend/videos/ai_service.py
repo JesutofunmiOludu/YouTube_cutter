@@ -631,6 +631,7 @@ def _parse_cuts(raw: str, user_video: 'UserVideo') -> list[dict]:
                 'end_seconds':   end,
                 'title':         title,
                 'rationale':     rationale,
+                'is_fallback':   False,
             })
         except (KeyError, ValueError, TypeError):
             continue
@@ -674,6 +675,7 @@ def _stub_cuts(user_video: 'UserVideo') -> list[dict]:
             'end_seconds':   min((i + 1) * step, total),
             'title':         _segment_name(i, segment_count),
             'rationale':     _segment_rationale(i, segment_count),
+            'is_fallback':   True,
         }
         for i in range(segment_count)
     ]

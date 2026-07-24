@@ -140,6 +140,7 @@ class VideoCut(models.Model):
     title = models.CharField(max_length=255, blank=True, null=True, help_text="AI-generated or user-set title")
     ai_rationale = models.TextField(blank=True, null=True, help_text="AI's explanation for this cut point")
     ai_suggested = models.BooleanField(default=True, help_text="Was this cut AI-suggested?")
+    is_fallback = models.BooleanField(default=False, help_text="True if this cut was generated as a generic fallback stub")
     user_approved = models.BooleanField(default=False, help_text="Has user approved this cut?")
     download_url = models.URLField(max_length=500, blank=True, null=True)
     download_status = models.CharField(

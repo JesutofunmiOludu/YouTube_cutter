@@ -40,6 +40,7 @@ def trigger_processing_if_needed(user_video: 'UserVideo') -> None:
     from videos.models import UserVideo as UV
 
     if user_video.processing_status not in (UV.ProcessingStatus.PENDING, UV.ProcessingStatus.PROCESSING):
+        refresh_cuts_from_transcript_if_needed(user_video)
         return
 
     with ACTIVE_LOCK:
@@ -182,14 +183,15 @@ def run_video_setup(user_video: 'UserVideo') -> None:
                     title=cut.get('title', f'Segment {order}'),
                     ai_rationale=cut.get('rationale', ''),
                     ai_suggested=True,
+                    is_fallback=cut.get('is_fallback', False),
                     user_approved=False,
                 )
             )
         VideoCut.objects.bulk_create(cuts_to_create)
 
         logger.info(
-            'Created %d cut(s) for UserVideo %s.',
-            len(cuts_to_create), user_video.id,
+            'Created %d cut(s) for UserVideo %s (is_fallback=%s).',
+            len(cuts_to_create), user_video.id, cuts_to_create[0].is_fallback if cuts_to_create else False,
         )
 
         # ── 5. Mark complete ─────────────────────────────────
@@ -201,3 +203,93 @@ def run_video_setup(user_video: 'UserVideo') -> None:
             user_video.id, exc, exc_info=True,
         )
         _update(UV.ProcessingStatus.FAILED, UV.ProcessingStage.FAILED)
+
+
+import re
+
+STUB_TITLES = {'introduction', 'conclusion', 'early section', 'core content', 'wrap-up'}
+STUB_PATTERNS = [re.compile(r'^part\s+\d+$', re.I), re.compile(r'^segment\s+\d+$', re.I)]
+
+
+def _is_stub_cut(cut) -> bool:
+    if cut.is_fallback:
+        return True
+    t = (cut.title or '').strip().lower()
+    if t in STUB_TITLES or any(p.match(t) for p in STUB_PATTERNS):
+        return True
+    r = (cut.ai_rationale or '').lower()
+    if 'opening section of' in r or 'middle section' in r or 'closing section of' in r or 'introductory remarks' in r:
+        return True
+    return False
+
+
+def refresh_cuts_from_transcript_if_needed(user_video: 'UserVideo') -> bool:
+    """
+    Checks if a user_video has a valid completed transcription AND cuts that are still fallback stubs.
+    If so, re-runs ai_service.suggest_cuts using the newly available transcript,
+    and replaces unapproved fallback cuts while preserving any user-approved/edited cuts.
+    Returns True if cuts were refreshed.
+    """
+    from videos.models import VideoCut, Transcription
+
+    # Check if a completed transcription with segments exists
+    try:
+        transcription = Transcription.objects.prefetch_related('segments').get(
+            user_video=user_video,
+            status=Transcription.Status.COMPLETED,
+        )
+        if not transcription.segments.exists():
+            return False
+    except Transcription.DoesNotExist:
+        return False
+
+    # Check if the user_video has unapproved fallback cuts (by is_fallback flag or stub title patterns)
+    unapproved_cuts = list(VideoCut.objects.filter(user_video=user_video, user_approved=False))
+    fallback_cut_ids = [c.id for c in unapproved_cuts if _is_stub_cut(c)]
+
+    if not fallback_cut_ids:
+        return False
+
+    fallback_cuts = VideoCut.objects.filter(id__in=fallback_cut_ids)
+
+    logger.warning(
+        '[Cut Refresh] Refreshing fallback cuts for UserVideo %s using newly available transcript...',
+        user_video.id,
+    )
+
+    # 1. Delete unapproved fallback cuts
+    fallback_cuts.delete()
+
+    # 2. Re-generate AI cuts using the newly available transcript
+    from videos import ai_service
+    new_suggested_cuts = ai_service.suggest_cuts(user_video)
+
+    # 3. Determine starting cut_order based on existing user-approved cuts
+    existing_count = VideoCut.objects.filter(user_video=user_video).count()
+
+    cuts_to_create = []
+    for order, cut in enumerate(new_suggested_cuts, start=existing_count + 1):
+        cuts_to_create.append(
+            VideoCut(
+                user_video=user_video,
+                cut_order=order,
+                start_seconds=int(cut['start_seconds']),
+                end_seconds=int(cut['end_seconds']),
+                title=cut.get('title', f'Segment {order}'),
+                ai_rationale=cut.get('rationale', ''),
+                ai_suggested=True,
+                is_fallback=cut.get('is_fallback', False),
+                user_approved=False,
+            )
+        )
+
+    if cuts_to_create:
+        VideoCut.objects.bulk_create(cuts_to_create)
+        logger.warning(
+            '[Cut Refresh] Successfully refreshed %d cuts for UserVideo %s.',
+            len(cuts_to_create), user_video.id,
+        )
+        return True
+
+    return False
+

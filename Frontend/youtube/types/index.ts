@@ -174,6 +174,7 @@ export interface VideoCut {
   title:           Nullable<string>
   ai_rationale:    Nullable<string>
   ai_suggested:    boolean
+  is_fallback?:    boolean
   user_approved:   boolean
   download_url:    Nullable<string>
   download_status: DownloadStatus

@@ -317,11 +317,16 @@ function CutCard({
 
   return (
     <div
+      onClick={(e) => {
+        const target = e.target as HTMLElement
+        if (target.closest('button, input, textarea, a')) return
+        onSeek(cut.start_seconds)
+      }}
       className={cn(
-        'rounded-xl border p-4 transition-colors duration-fast',
+        'rounded-xl border p-4 transition-all duration-fast cursor-pointer group/card',
         isActive
-          ? 'border-primary-200 bg-primary-50/40'
-          : 'border-[var(--color-border-tertiary)] bg-[var(--color-bg-secondary)]',
+          ? 'border-primary-300 bg-primary-50/50 shadow-sm ring-1 ring-primary-200'
+          : 'border-[var(--color-border-tertiary)] bg-[var(--color-bg-secondary)] hover:border-primary-300 hover:bg-primary-50/20',
       )}
     >
       {/* ── Header row ── */}
@@ -425,24 +430,43 @@ function CutCard({
           ) : (
             // ── Read-only display ────────────────────────────────
             <>
-              {/* Title row with inline edit pencil */}
-              <div className="flex items-center gap-1.5 group/title">
-                <p className="text-heading-sm text-[var(--color-text-primary)] mb-0.5 truncate">
-                  {cut.title ?? `Segment ${index + 1}`}
-                </p>
+              {/* Title row with inline edit pencil + Play button */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0 group/title">
+                  <p className="text-heading-sm text-[var(--color-text-primary)] mb-0.5 truncate">
+                    {cut.title ?? `Segment ${index + 1}`}
+                  </p>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditMode('meta') }}
+                    title="Edit title & description"
+                    className="opacity-0 group-hover/title:opacity-100 transition-opacity p-0.5 rounded hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] hover:text-primary-600 shrink-0"
+                    aria-label="Edit title and description"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                </div>
+
+                {/* Explicit Play segment button */}
                 <button
-                  onClick={() => setEditMode('meta')}
-                  title="Edit title & description"
-                  className="opacity-0 group-hover/title:opacity-100 transition-opacity p-0.5 rounded hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] hover:text-primary-600 shrink-0"
-                  aria-label="Edit title and description"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSeek(cut.start_seconds)
+                  }}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-primary-50 text-primary-600 border border-primary-200 hover:bg-primary-600 hover:text-white hover:border-primary-600 transition-all shrink-0 shadow-2xs"
+                  title={`Play segment starting at ${formatTime(cut.start_seconds)}`}
                 >
-                  <Pencil className="w-3 h-3" />
+                  <Play className="w-3 h-3 fill-current" />
+                  <span>Play</span>
                 </button>
               </div>
 
               {/* Time range */}
               <button
-                onClick={() => onSeek(cut.start_seconds)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSeek(cut.start_seconds)
+                }}
                 className="text-body-sm text-[var(--color-text-secondary)] hover:text-primary-600 transition-colors focus-visible:outline-none focus-visible:underline tabular-nums"
                 aria-label={`Seek to ${formatTime(cut.start_seconds)}`}
               >
@@ -1864,6 +1888,9 @@ export default function WorkspacePage() {
     const ref = (window as unknown as Record<string, unknown>)['__playerRef__'] as React.MutableRefObject<YTPlayer | null> | undefined
     if (typeof ref?.current?.seekTo === 'function') {
       ref.current.seekTo(seconds, true)
+      if (typeof ref.current.playVideo === 'function') {
+        ref.current.playVideo()
+      }
     }
     setCurrentTime(seconds)
   }, [])

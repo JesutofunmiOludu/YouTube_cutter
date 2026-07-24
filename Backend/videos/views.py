@@ -64,7 +64,12 @@ class UserVideoDetailView(generics.RetrieveUpdateDestroyAPIView):
         
         # Self-heal if the background thread died (e.g. server restart)
         trigger_processing_if_needed(instance)
-        
+
+        # Auto-refresh fallback cuts if a transcript is now available
+        from .processing_pipeline import refresh_cuts_from_transcript_if_needed
+        if refresh_cuts_from_transcript_if_needed(instance):
+            instance = self.get_object()
+
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 

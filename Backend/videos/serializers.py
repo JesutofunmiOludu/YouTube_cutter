@@ -48,13 +48,13 @@ class VideoCutSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'cut_order', 'start_seconds', 'end_seconds',
             'duration_seconds', 'title', 'ai_rationale',
-            'ai_suggested', 'user_approved',
+            'ai_suggested', 'is_fallback', 'user_approved',
             'download_url', 'download_status',
             'created_at', 'updated_at',
         )
         read_only_fields = (
             'id', 'cut_order', 'duration_seconds',
-            'ai_suggested', 'download_url', 'download_status',
+            'ai_suggested', 'is_fallback', 'download_url', 'download_status',
             'created_at', 'updated_at',
         )
 
