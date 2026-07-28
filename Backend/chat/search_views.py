@@ -49,12 +49,12 @@ class VideoSearchListCreateView(APIView):
     throttle_classes   = [ScopedRateThrottle]
 
     def get(self, request):
-        qs = (
-            VideoSearchSession.objects
-            .filter(user=request.user)
-            .order_by('-created_at')
-        )
-        serializer = VideoSearchSessionSerializer(qs, many=True)
+        qs = VideoSearchSession.objects.filter(user=request.user)
+        user_video_id = request.query_params.get('user_video_id')
+        if user_video_id:
+            qs = qs.filter(user_video_id=user_video_id)
+        qs = qs.order_by('created_at')
+        serializer = VideoSearchSessionDetailSerializer(qs, many=True)
         return Response(serializer.data)
 
     def post(self, request):

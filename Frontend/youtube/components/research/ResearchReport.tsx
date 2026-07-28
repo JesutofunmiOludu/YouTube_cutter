@@ -161,7 +161,7 @@ const ResearchReport: React.FC<ResearchReportProps> = ({
         {/* Meta row */}
         <div className="flex items-center gap-3 flex-wrap mt-2">
           <Badge variant="info" size="sm">
-            {session.sources.length} source{session.sources.length !== 1 ? 's' : ''}
+            {(session.sources?.length ?? 0)} source{(session.sources?.length ?? 0) !== 1 ? 's' : ''}
           </Badge>
           <div className="flex items-center gap-1 text-caption text-[var(--color-text-tertiary)]">
             <Sparkles className="w-3 h-3" aria-hidden="true" />

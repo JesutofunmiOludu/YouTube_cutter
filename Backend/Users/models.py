@@ -111,6 +111,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
 
+    @property
+    def is_premium(self) -> bool:
+        from billing.services import UsageService
+        return UsageService.is_premium(self)
+
+    @property
+    def subscription_tier(self) -> str:
+        return 'premium' if self.is_premium else 'free'
+
 
 # ──────────────────────────────────────────────
 # Social Auth (OAuth providers)

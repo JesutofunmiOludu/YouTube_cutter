@@ -59,6 +59,41 @@ export default function Document() {
           name="twitter:description"
           content="Stop watching. Start understanding."
         />
+        {/* ── Suppress MetaMask / browser-extension noise ───────────────
+            MetaMask injects window.ethereum into every page and throws
+            "Failed to connect" promise rejections that pollute the
+            Next.js dev error overlay. This inline script runs before
+            React hydrates and silences those rejections globally.       */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(function () {
+  var _origAddEventListener = window.addEventListener.bind(window);
+  window.addEventListener = function (type, listener, options) {
+    if (type === 'unhandledrejection') {
+      var wrapped = function (event) {
+        var reason = event && (event.reason || {});
+        var msg = String(reason.stack || reason.message || reason || '');
+        if (
+          msg.includes('chrome-extension://') ||
+          msg.includes('inpage.js') ||
+          msg.includes('MetaMask') ||
+          msg.includes('Failed to connect to MetaMask')
+        ) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          return;
+        }
+        listener(event);
+      };
+      return _origAddEventListener(type, wrapped, options);
+    }
+    return _origAddEventListener(type, listener, options);
+  };
+})();
+            `,
+          }}
+        />
       </Head>
       <body className="antialiased">
         <Main />

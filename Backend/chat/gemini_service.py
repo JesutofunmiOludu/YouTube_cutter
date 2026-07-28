@@ -292,6 +292,15 @@ def poll_and_save_research(session: 'ResearchSession') -> tuple[str, list[dict]]
             return '', []
 
     except Exception as exc:
+        err_str = str(exc).lower()
+        is_transient = any(term in err_str for term in (
+            'getaddrinfo failed', 'name resolution', 'connection', 'timeout', '503', '504',
+            'temporarily unavailable', 'ssl', 'decryption', 'bad record mac', 'handshake', 'socket'
+        ))
+        if is_transient:
+            logger.warning('Deep Research polling encountered temporary network/SSL issue: %s. Will retry on next poll...', exc)
+            return '', []
+
         logger.error('Deep Research polling failed: %s', exc)
         return f"Research generation failed: {exc}", []
 

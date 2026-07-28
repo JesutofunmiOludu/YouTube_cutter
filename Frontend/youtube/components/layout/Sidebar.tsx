@@ -9,12 +9,13 @@
 import Link                      from 'next/link'
 import {
   LayoutDashboard, PlaySquare, Search,
-  Globe, MessageSquare, LogOut,
+  Globe, MessageSquare, LogOut, Crown, Zap,
 } from 'lucide-react'
 import { cn }                    from '@/utils/cn'
 import { Avatar }                from '@/components/ui/Avatar'
 import { Tooltip }               from '@components/ui/Tooltip'
 import { useClientPathname }     from '@/hooks/useClientPathname'
+import { useSubscription }       from '@/hooks/useSubscription'
 import type { User }             from '@/types'
 
 // ── Logo ─────────────────────────────────────────────────
@@ -100,8 +101,9 @@ export interface SidebarProps {
 
 export function Sidebar({ user, collapsed = false, onSignOut }: SidebarProps) {
   const fullName  = user ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() : 'Alex Rivers'
-  const role      = user ? (user.subscription_tier === 'premium' ? 'Premium' : 'Free plan') : 'Editor Pro'
   const avatarUrl = user?.avatar_url || 'https://i.pravatar.cc/150?u=alex'
+  const { isPremium } = useSubscription()
+  const role = isPremium ? 'Premium' : 'Free plan'
 
   return (
     <aside
@@ -132,6 +134,41 @@ export function Sidebar({ user, collapsed = false, onSignOut }: SidebarProps) {
         ))}
       </nav>
 
+      {/* Premium CTA — free users only */}
+      {!collapsed && !isPremium && (
+        <div className="px-3 pb-2">
+          <Link
+            href="/pricing"
+            className={cn(
+              'flex items-center gap-2 w-full px-3 py-2.5 rounded-lg',
+              'bg-gradient-to-r from-amber-50 to-orange-50',
+              'border border-amber-200 hover:border-amber-300',
+              'transition-colors duration-fast group/premium',
+            )}
+          >
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0">
+              <Crown className="w-3 h-3 text-white" aria-hidden="true" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold text-amber-800 leading-tight">Go Premium</p>
+              <p className="text-[10px] text-amber-600">Unlimited everything</p>
+            </div>
+            <Zap className="w-3.5 h-3.5 text-amber-500 group-hover/premium:text-amber-700 transition-colors shrink-0" aria-hidden="true" />
+          </Link>
+        </div>
+      )}
+      {collapsed && !isPremium && (
+        <Tooltip content="Go Premium" placement="right">
+          <Link
+            href="/pricing"
+            className="w-10 h-10 rounded-lg mx-auto flex items-center justify-center bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors mb-1"
+            aria-label="Go to pricing"
+          >
+            <Crown className="w-4 h-4 text-amber-500" aria-hidden="true" />
+          </Link>
+        </Tooltip>
+      )}
+
       {/* User footer */}
       <div className="shrink-0 p-4">
         {collapsed ? (
@@ -155,7 +192,10 @@ export function Sidebar({ user, collapsed = false, onSignOut }: SidebarProps) {
               <p className="text-body-sm font-medium text-[var(--color-text-primary)] truncate">
                 {fullName}
               </p>
-              <p className="text-caption text-[var(--color-text-tertiary)] truncate">
+              <p className="text-caption text-[var(--color-text-tertiary)] truncate flex items-center gap-1">
+                {isPremium && (
+                  <Crown className="w-2.5 h-2.5 text-amber-500 shrink-0" aria-hidden="true" />
+                )}
                 {role}
               </p>
             </div>

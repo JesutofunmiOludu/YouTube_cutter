@@ -130,43 +130,96 @@ def run_web_search(query: str, user_video: 'UserVideo | None' = None) -> dict:
             ),
         )
         raw = response.text or ''
-        return _parse_search_response(raw, query)
+
+        # Extract native grounding sources from Gemini response metadata if present
+        grounding_sources = []
+        try:
+            cand = response.candidates[0]
+            gm = getattr(cand, 'grounding_metadata', None)
+            if gm and hasattr(gm, 'grounding_chunks'):
+                for chunk in (gm.grounding_chunks or []):
+                    web = getattr(chunk, 'web', None)
+                    if web and getattr(web, 'uri', None):
+                        grounding_sources.append({
+                            'title': getattr(web, 'title', '') or 'Web Source',
+                            'url': getattr(web, 'uri', ''),
+                            'excerpt': getattr(web, 'title', ''),
+                        })
+        except Exception:
+            pass
+
+        return _parse_search_response(raw, query, grounding_sources=grounding_sources)
 
     except Exception as exc:
-        logger.error('Gemini web search failed: %s', exc)
-        return _stub_search(query, error=str(exc))
+        logger.error('Gemini web search failed: %s', exc, exc_info=True)
+        return _stub_search(query)
 
 
-def _parse_search_response(raw: str, query: str) -> dict:
-    """Extract the JSON payload from Gemini's response."""
+def _parse_search_response(raw: str, query: str, grounding_sources: list | None = None) -> dict:
+    """Extract the JSON payload from Gemini's response with multi-stage fallback."""
     # Strip markdown code fences if present
     cleaned = re.sub(r'^```(?:json)?\s*', '', raw.strip(), flags=re.MULTILINE)
     cleaned = re.sub(r'```\s*$', '', cleaned.strip(), flags=re.MULTILINE)
     cleaned = cleaned.strip()
 
+    sources_to_use = grounding_sources or []
+
+    # Stage 1: Standard JSON parse
     try:
-        data = json.loads(cleaned)
+        data = json.loads(cleaned, strict=False)
+        parsed_sources = data.get('sources', [])
         return {
             'answer':              data.get('answer', ''),
-            'sources':             data.get('sources', []),
+            'sources':             parsed_sources if parsed_sources else sources_to_use,
             'follow_up_questions': data.get('follow_up_questions', []),
         }
     except json.JSONDecodeError:
-        logger.warning('Could not parse Gemini search response as JSON; returning raw text.')
-        return {
-            'answer':              raw,
-            'sources':             [],
-            'follow_up_questions': [],
-        }
+        pass
+
+    # Stage 2: Regex field recovery if answer or arrays were returned loosely
+    answer_match = re.search(r'"answer"\s*:\s*"(.*?)"\s*,\s*"(?:sources|follow_up_questions)"', cleaned, re.DOTALL)
+    answer = answer_match.group(1).replace(r'\"', '"').replace(r'\n', '\n') if answer_match else raw
+
+    sources = sources_to_use
+    sources_match = re.search(r'"sources"\s*:\s*(\[.*?\])\s*,\s*"follow_up_questions"', cleaned, re.DOTALL)
+    if sources_match:
+        try:
+            parsed = json.loads(sources_match.group(1), strict=False)
+            if parsed:
+                sources = parsed
+        except Exception:
+            pass
+
+    follow_ups = []
+    fu_match = re.search(r'"follow_up_questions"\s*:\s*(\[.*?\])', cleaned, re.DOTALL)
+    if fu_match:
+        try:
+            follow_ups = json.loads(fu_match.group(1), strict=False)
+        except Exception:
+            pass
+
+    if not follow_ups:
+        follow_ups = [
+            f'What are key details regarding {query}?',
+            f'How does {query} impact related topics?',
+            f'What are common misconceptions about {query}?',
+            f'What are recent developments in {query}?',
+        ]
+
+    logger.info('Parsed Gemini search response using fallback recovery.')
+    return {
+        'answer':              answer,
+        'sources':             sources,
+        'follow_up_questions': follow_ups,
+    }
 
 
-def _stub_search(query: str, error: str = '') -> dict:
-    """Fallback when no API key is configured."""
+def _stub_search(query: str) -> dict:
+    """Clean fallback response when search service is temporarily unavailable."""
     return {
         'answer': (
             f'**Search result for:** "{query}"\n\n'
-            '_AI search is not yet configured. Add `GEMINI_AI_API` to `.env` to enable real results._'
-            + (f'\n\n_Error: {error}_' if error else '')
+            'AI search service is currently experiencing high traffic or temporary limit. Please try your search again in a few moments.'
         ),
         'sources': [],
         'follow_up_questions': [

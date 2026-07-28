@@ -344,7 +344,7 @@ const ResearchTab: React.FC<{
               <div className="flex-1 min-w-0">
                 <p className="text-body-sm font-medium text-[var(--color-text-primary)] truncate">{r.title ?? 'Research report'}</p>
                 <p className="text-caption text-[var(--color-text-tertiary)]">
-                  {r.sources.length} sources
+                  {r.sources?.length ?? 0} sources
                   {r.completed_at && (
                     <>
                       {' · '}

@@ -16,6 +16,8 @@ import { VideoGridSkeleton } from '@/components/ui/SkeletonCard'
 import { AppShell }        from '@/components/layout/AppShell'
 import { apiClient }       from '@/utils/apiClient'
 import { useToast }        from '@/components/ui/Toast'
+import { useSubscription } from '@/hooks/useSubscription'
+import Link                from 'next/link'
 import type { Video }      from '@/types'
 
 // ── Types ─────────────────────────────────────────────────
@@ -161,6 +163,11 @@ export default function SearchPage() {
   const [isPending, startTransition]  = useTransition()
 
   const { toast } = useToast()
+  const { isPremium } = useSubscription()
+  // Track how many searches the free user has done this session.
+  // The backend enforces the hard 5/day limit; this is purely for the UX banner.
+  const [searchesUsed, setSearchesUsed] = useState(0)
+  const FREE_SEARCH_LIMIT = 5
   const [results, setResults] = useState<Video[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
@@ -206,6 +213,8 @@ export default function SearchPage() {
           created_at: '',
         }))
         setResults(mapped)
+        // Increment free-tier search counter on success
+        if (!isPremium) setSearchesUsed((n) => Math.min(n + 1, FREE_SEARCH_LIMIT))
       } catch (err: any) {
         const errorPayload = err?.response?.data?.error
         let msg = 'Search failed. Please try again.'
@@ -362,6 +371,48 @@ export default function SearchPage() {
               onClick={() => setFilters((f) => ({ ...f, category: cat }))}
             />
           ))}
+        </div>
+      )}
+
+      {/* ── Free-tier search usage banner ── */}
+      {!isPremium && searchesUsed > 0 && (
+        <div className={cn(
+          'flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-body-sm',
+          searchesUsed >= FREE_SEARCH_LIMIT
+            ? 'bg-amber-50 border border-amber-200 text-amber-800'
+            : 'bg-[var(--color-bg-secondary)] border border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)]',
+        )}>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-0.5">
+              {Array.from({ length: FREE_SEARCH_LIMIT }).map((_, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    'w-2 h-2 rounded-full transition-colors',
+                    i < searchesUsed
+                      ? searchesUsed >= FREE_SEARCH_LIMIT ? 'bg-amber-500' : 'bg-primary-500'
+                      : 'bg-[var(--color-border-secondary)]',
+                  )}
+                />
+              ))}
+            </div>
+            <span className="text-caption">
+              {searchesUsed >= FREE_SEARCH_LIMIT
+                ? 'Daily search limit reached (5 of 5)'
+                : `${searchesUsed} of ${FREE_SEARCH_LIMIT} free searches used today`}
+            </span>
+          </div>
+          <Link
+            href="/pricing"
+            className={cn(
+              'text-caption font-semibold whitespace-nowrap transition-colors',
+              searchesUsed >= FREE_SEARCH_LIMIT
+                ? 'text-amber-700 hover:text-amber-900'
+                : 'text-primary-600 hover:text-primary-700',
+            )}
+          >
+            Upgrade for unlimited →
+          </Link>
         </div>
       )}
 

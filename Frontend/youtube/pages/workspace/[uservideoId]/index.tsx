@@ -47,6 +47,7 @@ import {
   Zap,
   BookOpen,
   Send,
+  Square,
   ChevronDown,
   ArrowRight,
   Mic,
@@ -59,6 +60,9 @@ import ChatWindow          from '@/components/chat/ChatWindow'
 import ResearchReport      from '@/components/research/ResearchReport'
 import { SearchResultCard } from '@/components/research/SearchResultCard'
 import { apiClient }       from '@/utils/apiClient'
+import { useSubscription }  from '@/hooks/useSubscription'
+import { UpgradeModal }     from '@/components/ui/UpgradeModal'
+import type { GatedFeature } from '@/hooks/useSubscription'
 import type {
   UserVideo,
   VideoCut,
@@ -549,6 +553,9 @@ function CutClipsPanel({
   onDownloadAll: () => void
   onSeek:        (s: number) => void
 }) {
+  const { canUse } = useSubscription()
+  const canBatchDownload = canUse('batch_download')
+  const [showUpgrade, setShowUpgrade] = useState(false)
   const approved = cuts.filter((c) => c.user_approved)
 
   return (
@@ -600,23 +607,47 @@ function CutClipsPanel({
 
       {/* Download All footer */}
       <div className="px-4 py-4 border-t border-[var(--color-border-tertiary)] shrink-0">
-        <button
-          onClick={onDownloadAll}
-          disabled={approved.length === 0}
-          className={cn(
-            'w-full flex items-center justify-center gap-2 h-11 rounded-xl text-body-sm font-medium transition-colors',
-            'border border-[var(--color-border-secondary)] bg-[var(--color-bg-secondary)]',
-            'text-[var(--color-text-primary)]',
-            approved.length > 0
-              ? 'hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-border-primary)]'
-              : 'opacity-40 cursor-not-allowed',
-          )}
-        >
-          Download All
-          <div className="w-6 h-6 rounded-full border border-current flex items-center justify-center">
-            <Download className="w-3 h-3" aria-hidden="true" />
-          </div>
-        </button>
+        {/* Upgrade modal */}
+        <UpgradeModal
+          open={showUpgrade}
+          onClose={() => setShowUpgrade(false)}
+          feature="batch_download"
+        />
+
+        {canBatchDownload ? (
+          <button
+            onClick={onDownloadAll}
+            disabled={approved.length === 0}
+            className={cn(
+              'w-full flex items-center justify-center gap-2 h-11 rounded-xl text-body-sm font-medium transition-colors',
+              'border border-[var(--color-border-secondary)] bg-[var(--color-bg-secondary)]',
+              'text-[var(--color-text-primary)]',
+              approved.length > 0
+                ? 'hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-border-primary)]'
+                : 'opacity-40 cursor-not-allowed',
+            )}
+          >
+            Download All
+            <div className="w-6 h-6 rounded-full border border-current flex items-center justify-center">
+              <Download className="w-3 h-3" aria-hidden="true" />
+            </div>
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowUpgrade(true)}
+            className={cn(
+              'w-full flex items-center justify-center gap-2 h-11 rounded-xl text-body-sm font-medium transition-colors',
+              'border border-amber-200 bg-amber-50 text-amber-700',
+              'hover:bg-amber-100 hover:border-amber-300',
+            )}
+          >
+            <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+            Download All
+            <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 ml-1">
+              Premium
+            </span>
+          </button>
+        )}
       </div>
     </div>
   )
@@ -858,9 +889,10 @@ function ResearchPanel({
   researchSession,
   researchLoading,
   onStartResearch,
-  searchResult,
+  searchHistory,
   searchLoading,
   onSearch,
+  onCancelSearch,
   onAddVideo,
 }: {
   userVideo:        UserVideo | null
@@ -869,15 +901,21 @@ function ResearchPanel({
   researchSession:  ResearchSession | null
   researchLoading:  boolean
   onStartResearch:  () => void
-  searchResult:     SearchResult | null
+  searchHistory:    SearchResult[]
   searchLoading:    boolean
   onSearch:         (query: string, mode: SearchMode) => void
+  onCancelSearch?:  () => void
   onAddVideo:       () => void
 }) {
   const { toast }                           = useToast()
+  const { isPremium }                       = useSubscription()
   const [query,      setQuery]              = useState('')
   const [mode,       setMode]               = useState<SearchMode>('search')
   const [modeOpen,   setModeOpen]           = useState(false)
+  // research exhaustion gate: free users get 1/month, tracked by whether
+  // a researchSession already exists for this video.
+  const researchExhausted = !isPremium && !!researchSession
+  const [upgradeFeature, setUpgradeFeature] = useState<GatedFeature | null>(null)
   const inputRef                            = useRef<HTMLInputElement>(null)
   const modeDropRef                         = useRef<HTMLDivElement>(null)
 
@@ -910,6 +948,11 @@ function ResearchPanel({
       toast.info('Learn Step by Step is coming soon 🚀')
       return
     }
+    // Gate: free users only get 1 deep research per month
+    if (mode === 'deep_research' && researchExhausted) {
+      setUpgradeFeature('deep_research')
+      return
+    }
     onSearch(q, mode)
   }
 
@@ -935,10 +978,26 @@ function ResearchPanel({
   }
 
   const currentMode = SEARCH_MODES.find((m) => m.id === mode)!
+  const resultsEndRef = useRef<HTMLDivElement>(null)
 
-  const hasResult = searchResult || researchSession || searchLoading || researchLoading
+  const hasItems = searchHistory.length > 0 || !!researchSession
+  const isBusy  = searchLoading || researchLoading
+
+  // Auto-scroll to bottom when searchHistory or loading changes
+  useEffect(() => {
+    if (hasItems || isBusy) {
+      resultsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [searchHistory.length, researchSession?.id, isBusy, hasItems])
 
   return (
+    <>
+    {/* Upgrade modal for exhausted deep research */}
+    <UpgradeModal
+      open={!!upgradeFeature}
+      onClose={() => setUpgradeFeature(null)}
+      feature={upgradeFeature ?? 'deep_research'}
+    />
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
 
       {/* ── Key points strip ──────────────────────────── */}
@@ -967,48 +1026,48 @@ function ResearchPanel({
         </div>
       )}
 
-      {/* ── Results area (scrollable) ─────────────────── */}
+      {/* ── Results area (scrollable feed stream) ─────── */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {/* Loading spinner */}
-        {(searchLoading || researchLoading) && (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <div className="relative">
-              <div className="w-8 h-8 rounded-full border-2 border-primary-600/30 border-t-primary-600 animate-spin" />
-            </div>
-            <p className="text-[12px] text-[var(--color-text-secondary)]">
-              {mode === 'deep_research' || researchLoading ? 'Generating deep research report…' : 'Searching the web…'}
-            </p>
-          </div>
-        )}
-
-        {/* Search result (Perplexity-style) */}
-        {!searchLoading && searchResult && !researchSession && (
-          <div className="p-3 space-y-3">
-            <div className="flex items-center gap-2">
-              <Search className="w-3.5 h-3.5 text-primary-400 flex-shrink-0" />
-              <p className="text-[11px] font-semibold text-[var(--color-text-secondary)] truncate">
-                {searchResult.query}
-              </p>
-            </div>
-            <SearchResultCard
-              result={searchResult}
-              onFollowUp={handleFollowUp}
+        {/* Deep research report — shown when session exists or is loading */}
+        {(researchSession || researchLoading) && (
+          <div className="p-3 border-b border-[var(--color-border-tertiary)]">
+            <ResearchReport
+              session={researchSession}
+              isLoading={researchLoading && !researchSession?.report_content}
+              onExport={() => window.print()}
+              className="flex-1 min-h-0"
             />
           </div>
         )}
 
-        {/* Deep research report */}
-        {!researchLoading && researchSession && (
-          <ResearchReport
-            session={researchSession}
-            isLoading={false}
-            onExport={() => window.print()}
-            className="flex-1 min-h-0"
-          />
+        {/* Search results stream (Perplexity-style list) */}
+        {searchHistory.map((res, idx) => (
+          <div key={res.id || idx} className="p-3 space-y-3 border-b border-[var(--color-border-tertiary)] last:border-0">
+            <div className="flex items-center gap-2">
+              <Search className="w-3.5 h-3.5 text-primary-400 flex-shrink-0" />
+              <p className="text-[11px] font-semibold text-[var(--color-text-secondary)] truncate">
+                {res.query}
+              </p>
+            </div>
+            <SearchResultCard
+              result={res}
+              onFollowUp={handleFollowUp}
+            />
+          </div>
+        ))}
+
+        {/* Loading indicator (appended at bottom of feed) */}
+        {(searchLoading || researchLoading) && (
+          <div className="m-3 p-3.5 flex items-center gap-3 bg-[var(--color-bg-secondary)] rounded-xl border border-[var(--color-border-tertiary)] shadow-xs animate-pulse">
+            <Loader2 className="w-4 h-4 text-primary-500 animate-spin flex-shrink-0" />
+            <p className="text-[12px] font-medium text-[var(--color-text-secondary)]">
+              {researchLoading || mode === 'deep_research' ? 'Generating deep research report…' : 'Searching the web…'}
+            </p>
+          </div>
         )}
 
         {/* Empty state */}
-        {!hasResult && (
+        {!hasItems && !isBusy && (
           <div className="flex flex-col items-center justify-center py-10 px-4 text-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary-600/10 flex items-center justify-center">
               <Search className="w-5 h-5 text-primary-400" />
@@ -1023,6 +1082,7 @@ function ResearchPanel({
             </div>
           </div>
         )}
+        <div ref={resultsEndRef} />
       </div>
 
       {/* ── Search bar (pinned bottom) ────────────────── */}
@@ -1086,7 +1146,10 @@ function ResearchPanel({
                 'absolute bottom-full left-0 mb-2 w-56 rounded-xl border shadow-xl z-50 overflow-hidden',
                 'bg-[var(--color-bg-primary)] border-[var(--color-border-secondary)]',
               )}>
-                {SEARCH_MODES.map((m) => (
+                {SEARCH_MODES.map((m) => {
+                  const isDeepResearch = m.id === 'deep_research'
+                  const isExhausted = isDeepResearch && researchExhausted
+                  return (
                   <button
                     key={m.id}
                     onClick={() => { setMode(m.id); setModeOpen(false) }}
@@ -1098,13 +1161,25 @@ function ResearchPanel({
                     )}
                   >
                     <span className="mt-0.5 flex-shrink-0">{m.icon}</span>
-                    <span>
+                    <span className="flex-1">
                       <span className="block text-[11px] font-semibold">{m.label}</span>
                       <span className="block text-[10px] opacity-70 mt-0.5">{m.description}</span>
+                      {/* Usage chip for deep research */}
+                      {isDeepResearch && !isPremium && (
+                        <span className={cn(
+                          'inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide',
+                          isExhausted
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-emerald-100 text-emerald-700',
+                        )}>
+                          {isExhausted ? '1 of 1 used this month' : '1 free / month'}
+                        </span>
+                      )}
                     </span>
                     {mode === m.id && <Check className="w-3 h-3 ml-auto mt-0.5 flex-shrink-0" />}
                   </button>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -1118,25 +1193,35 @@ function ResearchPanel({
             >
               <Mic className="w-3.5 h-3.5" />
             </button>
-            <button
-              onClick={handleSubmit}
-              disabled={!query.trim() || searchLoading || researchLoading}
-              className={cn(
-                'w-7 h-7 rounded-lg flex items-center justify-center transition-all',
-                query.trim() && !searchLoading && !researchLoading
-                  ? 'bg-primary-600 text-white hover:bg-primary-700'
-                  : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] opacity-50 cursor-not-allowed',
-              )}
-            >
-              {searchLoading || researchLoading
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <Send className="w-3.5 h-3.5" />
-              }
-            </button>
+            {/* Send / Stop button */}
+            {searchLoading || researchLoading ? (
+              <button
+                onClick={onCancelSearch}
+                title="Stop search"
+                className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500 hover:bg-red-600 text-white transition-all shadow-sm cursor-pointer"
+              >
+                <Square className="w-3 h-3 fill-current" />
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={!query.trim()}
+                title="Send"
+                className={cn(
+                  'w-7 h-7 rounded-lg flex items-center justify-center transition-all',
+                  query.trim()
+                    ? 'bg-primary-600 text-white hover:bg-primary-700 cursor-pointer'
+                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] opacity-50 cursor-not-allowed',
+                )}
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
     </div>
+    </>
   )
 }
 
@@ -1156,9 +1241,10 @@ function LeftPanel({
   researchLoading,
   onStartResearch,
   userVideo,
-  searchResult,
+  searchHistory,
   searchLoading,
   onSearch,
+  onCancelSearch,
 }: {
   activeTab:   LeftTab
   onTabChange: (t: LeftTab) => void
@@ -1175,13 +1261,16 @@ function LeftPanel({
   researchLoading: boolean
   onStartResearch: () => void
   userVideo: UserVideo | null
-  searchResult: SearchResult | null
+  searchHistory: SearchResult[]
   searchLoading: boolean
   onSearch: (query: string, mode: SearchMode) => void
+  onCancelSearch?: () => void
 }) {
   // ── Add Video modal state ────────────────────────────────
   const { toast } = useToast()
-  const [showAddVideo, setShowAddVideo] = useState(false)
+  const { canUse } = useSubscription()
+  const [showAddVideo,    setShowAddVideo]    = useState(false)
+  const [showMultiUpgrade, setShowMultiUpgrade] = useState(false)
 
   const handleAddVideo = useCallback(async (video: UserVideo) => {
     await onAddVideo(video)
@@ -1383,9 +1472,10 @@ function LeftPanel({
               researchSession={researchSession}
               researchLoading={researchLoading}
               onStartResearch={onStartResearch}
-              searchResult={searchResult}
+              searchHistory={searchHistory}
               searchLoading={searchLoading}
               onSearch={onSearch}
+              onCancelSearch={onCancelSearch}
               onAddVideo={() => setShowAddVideo(true)}
             />
           )}
@@ -1393,31 +1483,44 @@ function LeftPanel({
 
         {/* Add Video footer */}
         <div className="shrink-0 p-3 border-t border-[var(--color-border-tertiary)]">
-          <button
-            onClick={() => {
-              if (chatSession?.videos && chatSession.videos.length >= 1) {
-                toast.error('Multi-video chat sessions require a Premium subscription. Please upgrade to Premium.')
-                return
-              }
-              setShowAddVideo(true)
-            }}
-            title={chatSession?.videos && chatSession.videos.length >= 1 ? 'Multi-video chat requires a Premium subscription' : undefined}
-            className={cn(
-              'w-full flex items-center justify-center gap-2 h-10 rounded-xl',
-              'text-body-sm font-semibold',
-              chatSession?.videos && chatSession.videos.length >= 1
-                ? 'opacity-60 bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] border-2 border-dashed border-[var(--color-border-secondary)] cursor-pointer'
-                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] border-2 border-dashed border-[var(--color-border-secondary)] hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50/30',
-              'transition-colors',
-            )}
-          >
-            {chatSession?.videos && chatSession.videos.length >= 1 ? (
-              <Lock className="w-4 h-4 text-[var(--color-text-tertiary)]" aria-hidden="true" />
-            ) : (
+          {/* Multi-video upgrade modal */}
+          <UpgradeModal
+            open={showMultiUpgrade}
+            onClose={() => setShowMultiUpgrade(false)}
+            feature="multi_video_chat"
+          />
+
+          {chatSession?.videos && chatSession.videos.length >= 1 && !canUse('multi_video_chat') ? (
+            // Free user, already has 1 video → show upgrade button
+            <button
+              onClick={() => setShowMultiUpgrade(true)}
+              className={cn(
+                'w-full flex items-center justify-center gap-2 h-10 rounded-xl',
+                'text-body-sm font-semibold transition-colors',
+                'border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-300',
+              )}
+            >
+              <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+              Add Video to Chat
+              <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800">
+                Premium
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowAddVideo(true)}
+              className={cn(
+                'w-full flex items-center justify-center gap-2 h-10 rounded-xl',
+                'text-body-sm font-semibold transition-colors',
+                'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)]',
+                'border-2 border-dashed border-[var(--color-border-secondary)]',
+                'hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50/30',
+              )}
+            >
               <Plus className="w-4 h-4" aria-hidden="true" />
-            )}
-            Add Video to Chat
-          </button>
+              Add Video to Chat
+            </button>
+          )}
         </div>
       </div>
     </>
@@ -1750,7 +1853,7 @@ export default function WorkspacePage() {
   const [researchSession, setResearchSession] = useState<ResearchSession | null>(null)
   const [researchLoading, setResearchLoading] = useState(false)
 
-  const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
+  const [searchHistory, setSearchHistory] = useState<SearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
 
   const [currentTime, setCurrentTime] = useState(0)
@@ -1828,6 +1931,17 @@ export default function WorkspacePage() {
           const researchDetailRes = await apiClient.get(`/research/${existingResearch.id}/`)
           if (!active) return
           setResearchSession(researchDetailRes.data)
+        }
+
+        // 4. Load search history for this video
+        try {
+          const searchRes = await apiClient.get(`/search/?user_video_id=${userVideoId}`)
+          const searchList = searchRes.data.results || searchRes.data || []
+          if (active) {
+            setSearchHistory(searchList)
+          }
+        } catch (searchErr) {
+          console.error('Failed to load search history', searchErr)
         }
       } catch (err) {
         console.error('Failed to load workspace data', err)
@@ -2067,15 +2181,66 @@ export default function WorkspacePage() {
     }
   }, [chatSession])
 
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  const handleCancelSearch = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setSearchLoading(false)
+    setResearchLoading(false)
+    toast.info('Search stopped.')
+  }, [toast])
+
   // Research actions
   const handleStartResearch = useCallback(async () => {
     if (!userVideoId) return
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     setResearchLoading(true)
     try {
-      const createRes = await apiClient.post('/research/', { user_video_id: userVideoId })
-      const detailRes = await apiClient.get(`/research/${createRes.data.id}/`)
-      setResearchSession(detailRes.data)
+      // 1. Create the research session (backend immediately returns 201 with status: 'processing')
+      const createRes = await apiClient.post('/research/', { user_video_id: userVideoId }, { signal: controller.signal })
+      const sessionId = createRes.data.id
+
+      // Show the in-progress state right away
+      setResearchSession(createRes.data)
+
+      // 2. Poll until completed or failed (backend runs Gemini in a background thread)
+      const POLL_INTERVAL_MS = 4000
+      const MAX_POLLS = 75  // ~5 minutes
+      let polls = 0
+
+      while (polls < MAX_POLLS) {
+        if (controller.signal.aborted) return
+        await new Promise((res) => setTimeout(res, POLL_INTERVAL_MS))
+        if (controller.signal.aborted) return
+
+        const detailRes = await apiClient.get(`/research/${sessionId}/`, { signal: controller.signal })
+        const session = detailRes.data
+        setResearchSession(session)
+
+        if (session.status === 'completed' || session.status === 'failed') {
+          if (session.status === 'failed') {
+            toast.error('Deep research failed. Please try again.')
+          }
+          break
+        }
+        polls++
+      }
+
+      if (polls >= MAX_POLLS) {
+        toast.warning('Research is taking longer than expected. Check back later.')
+      }
     } catch (err: any) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+        return
+      }
       console.error('Failed to generate research report', err)
       const errMsg = err.response?.data?.error?.message || err.response?.data?.detail || 'Failed to generate research report.'
       if (err.response?.status === 403) {
@@ -2085,6 +2250,7 @@ export default function WorkspacePage() {
       }
     } finally {
       setResearchLoading(false)
+      abortControllerRef.current = null
     }
   }, [userVideoId, toast])
 
@@ -2096,15 +2262,26 @@ export default function WorkspacePage() {
       await handleStartResearch()
       return
     }
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     setSearchLoading(true)
-    setSearchResult(null)
     try {
       const res = await apiClient.post('/search/', {
         query,
         user_video_id: userVideoId,
+      }, {
+        signal: controller.signal,
       })
-      setSearchResult(res.data)
+      setSearchHistory((prev) => [...prev, res.data])
     } catch (err: any) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+        return
+      }
       console.error('Search failed', err)
       const errMsg = err.response?.data?.error?.message || err.response?.data?.detail || 'Search failed.'
       if (err.response?.status === 403) {
@@ -2114,6 +2291,7 @@ export default function WorkspacePage() {
       }
     } finally {
       setSearchLoading(false)
+      abortControllerRef.current = null
     }
   }, [userVideoId, toast, handleStartResearch])
 
@@ -2324,9 +2502,10 @@ export default function WorkspacePage() {
             researchLoading={researchLoading}
             onStartResearch={handleStartResearch}
             userVideo={userVideo}
-            searchResult={searchResult}
+            searchHistory={searchHistory}
             searchLoading={searchLoading}
             onSearch={handleSearch}
+            onCancelSearch={handleCancelSearch}
           />
         </div>
 
