@@ -1,3 +1,5 @@
+import logging
+
 from django.core.exceptions import PermissionDenied
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -17,6 +19,8 @@ from .serializers import (
 )
 from . import gemini_service
 from billing.services import UsageService
+
+logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -309,18 +313,17 @@ def _run_research(session: ResearchSession) -> None:
     while not completed and attempts < max_attempts:
         try:
             report_md, raw_sources = gemini_service.poll_and_save_research(session)
-            
-            if report_md and raw_sources:
-                # Polling returned completed report and sources
+
+            if report_md and not report_md.startswith("Research generation failed"):
+                # Polling returned completed report (with or without sources)
                 session.report_content = report_md
                 session.status         = ResearchSession.Status.COMPLETED
                 session.completed_at   = timezone.now()
                 session.save(update_fields=['report_content', 'status', 'completed_at'])
 
                 # Persist each source
-                # Clear any previous sources first (idempotent re-run)
                 ResearchSource.objects.filter(research_session=session).delete()
-                for source_data in raw_sources:
+                for source_data in (raw_sources or []):
                     ResearchSource.objects.create(
                         research_session=session,
                         source_type=source_data.get('source_type', 'website'),
@@ -335,8 +338,8 @@ def _run_research(session: ResearchSession) -> None:
                 session.status = ResearchSession.Status.FAILED
                 session.save(update_fields=['status'])
                 completed = True
-            elif report_md == "" and not raw_sources:
-                # Still running, wait and check again
+            else:
+                # Still running (report_md is empty), wait and check again
                 time.sleep(10)
                 attempts += 1
         except Exception as exc:

@@ -894,6 +894,7 @@ function ResearchPanel({
   onSearch,
   onCancelSearch,
   onAddVideo,
+  monthlyResearchCount,
 }: {
   userVideo:        UserVideo | null
   cuts:             any[]
@@ -906,15 +907,19 @@ function ResearchPanel({
   onSearch:         (query: string, mode: SearchMode) => void
   onCancelSearch?:  () => void
   onAddVideo:       () => void
+  /** Monthly deep-research usage count for this user (0 if unknown). */
+  monthlyResearchCount: number
 }) {
   const { toast }                           = useToast()
   const { isPremium }                       = useSubscription()
   const [query,      setQuery]              = useState('')
   const [mode,       setMode]               = useState<SearchMode>('search')
   const [modeOpen,   setModeOpen]           = useState(false)
-  // research exhaustion gate: free users get 1/month, tracked by whether
-  // a researchSession already exists for this video.
-  const researchExhausted = !isPremium && !!researchSession
+  // research exhaustion gate: free users get 1/month across ALL workspaces.
+  // We use the monthly total from the API, not just whether this video
+  // already has a session (which was the old per-workspace bug).
+  const FREE_RESEARCH_LIMIT = 1
+  const researchExhausted = !isPremium && monthlyResearchCount >= FREE_RESEARCH_LIMIT
   const [upgradeFeature, setUpgradeFeature] = useState<GatedFeature | null>(null)
   const inputRef                            = useRef<HTMLInputElement>(null)
   const modeDropRef                         = useRef<HTMLDivElement>(null)
@@ -1245,6 +1250,7 @@ function LeftPanel({
   searchLoading,
   onSearch,
   onCancelSearch,
+  monthlyResearchCount,
 }: {
   activeTab:   LeftTab
   onTabChange: (t: LeftTab) => void
@@ -1265,6 +1271,8 @@ function LeftPanel({
   searchLoading: boolean
   onSearch: (query: string, mode: SearchMode) => void
   onCancelSearch?: () => void
+  /** Monthly deep-research usage count for this user. */
+  monthlyResearchCount: number
 }) {
   // ── Add Video modal state ────────────────────────────────
   const { toast } = useToast()
@@ -1477,6 +1485,7 @@ function LeftPanel({
               onSearch={onSearch}
               onCancelSearch={onCancelSearch}
               onAddVideo={() => setShowAddVideo(true)}
+              monthlyResearchCount={monthlyResearchCount}
             />
           )}
         </div>
@@ -1852,6 +1861,9 @@ export default function WorkspacePage() {
 
   const [researchSession, setResearchSession] = useState<ResearchSession | null>(null)
   const [researchLoading, setResearchLoading] = useState(false)
+  // Monthly deep-research count — sourced from /api/billing/usage/monthly/
+  // so it reflects usage across ALL workspaces, not just the current one.
+  const [monthlyResearchCount, setMonthlyResearchCount] = useState(0)
 
   const [searchHistory, setSearchHistory] = useState<SearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -1920,7 +1932,7 @@ export default function WorkspacePage() {
         if (!active) return
         setChatSession(chatDetailRes.data)
 
-        // 3. Load research session if it exists
+        // 3. Load research session if it exists for this video
         const researchListRes = await apiClient.get('/research/')
         const researchList = researchListRes.data.results || researchListRes.data || []
         const existingResearch = researchList.find((r: any) =>
@@ -1931,6 +1943,19 @@ export default function WorkspacePage() {
           const researchDetailRes = await apiClient.get(`/research/${existingResearch.id}/`)
           if (!active) return
           setResearchSession(researchDetailRes.data)
+        }
+
+        // 3b. Load the monthly usage summary for the deep-research gate.
+        // This is the source of truth: it reflects all research sessions
+        // the user has created this month, across every workspace.
+        try {
+          const monthlyRes = await apiClient.get('/billing/usage/monthly/')
+          if (active) {
+            setMonthlyResearchCount(monthlyRes.data?.research ?? 0)
+          }
+        } catch (usageErr) {
+          // Non-fatal — gate defaults to 0 (permissive) if the call fails
+          console.error('Failed to load monthly usage', usageErr)
         }
 
         // 4. Load search history for this video
@@ -2208,12 +2233,13 @@ export default function WorkspacePage() {
       const createRes = await apiClient.post('/research/', { user_video_id: userVideoId }, { signal: controller.signal })
       const sessionId = createRes.data.id
 
-      // Show the in-progress state right away
+      // Show the in-progress state right away and bump the monthly count
       setResearchSession(createRes.data)
+      setMonthlyResearchCount((prev) => prev + 1)
 
       // 2. Poll until completed or failed (backend runs Gemini in a background thread)
       const POLL_INTERVAL_MS = 4000
-      const MAX_POLLS = 75  // ~5 minutes
+      const MAX_POLLS = 120  // ~8 minutes
       let polls = 0
 
       while (polls < MAX_POLLS) {
@@ -2506,6 +2532,7 @@ export default function WorkspacePage() {
             searchLoading={searchLoading}
             onSearch={handleSearch}
             onCancelSearch={handleCancelSearch}
+            monthlyResearchCount={monthlyResearchCount}
           />
         </div>
 

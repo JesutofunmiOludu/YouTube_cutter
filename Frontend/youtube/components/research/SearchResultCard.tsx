@@ -10,6 +10,7 @@
 import React, { useState } from 'react'
 import { ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn }                from '@/utils/cn'
+import { FormattedText }      from '@/components/ui'
 import type { SearchResult, SearchSource } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -233,7 +234,7 @@ export function SearchResultCard({ result, onFollowUp, className }: SearchResult
           'rounded-xl border p-4',
           'bg-[var(--color-bg-secondary)] border-[var(--color-border-tertiary)]',
         )}>
-          {renderMarkdown(result.answer)}
+          <FormattedText content={result.answer} />
         </div>
       )}
 

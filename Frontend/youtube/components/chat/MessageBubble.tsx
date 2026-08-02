@@ -1,5 +1,6 @@
 import React from 'react';
 import { Avatar } from '@/components/ui/Avatar';
+import { FormattedText } from '@/components/ui';
 import type { ChatMessage, User } from '@/types';
 
 export interface MessageBubbleProps {
@@ -34,9 +35,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 : 'bg-[var(--color-bg-secondary)] border border-[color:var(--color-border-secondary)] text-[color:var(--color-text-primary)] rounded-2xl rounded-tl-sm shadow-sm'
             }`}
           >
-            <div className="text-body-sm leading-relaxed whitespace-pre-wrap">
-              {message.content}
-            </div>
+            <FormattedText content={message.content} className={isUser ? 'text-white [&_*]:text-white' : ''} />
           </div>
           <span className="text-caption text-[color:var(--color-text-tertiary)] mt-1 mx-1 font-mono">
            {new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

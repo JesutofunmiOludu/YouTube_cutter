@@ -35,3 +35,6 @@ export {
   Skeleton, VideoCardSkeleton, StatCardSkeleton,
   ListItemSkeleton, VideoGridSkeleton,
 }                                                               from './SkeletonCard'
+
+export { FormattedText, renderInlineMarkdown }                  from './FormattedText'
+export type { FormattedTextProps }                              from './FormattedText'

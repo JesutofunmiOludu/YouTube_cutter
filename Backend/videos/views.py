@@ -278,7 +278,7 @@ class VideoSearchView(APIView):
 
         # ── Freemium enforcement ───────────────────────────
         try:
-            UsageService.check_limit(request.user, 'search')
+            UsageService.check_and_increment(request.user, 'search')
         except PermissionDenied as exc:
             return Response(
                 {'error': {'code': 'plan_limit_reached', 'message': str(exc)}},
@@ -327,11 +327,5 @@ class VideoSearchView(APIView):
             }
             for item in items
         ]
-
-        if results:
-            try:
-                UsageService.increment_limit(request.user, 'search')
-            except Exception as exc:
-                logger.error('Failed to increment search limit: %s', exc)
 
         return Response({'results': results})

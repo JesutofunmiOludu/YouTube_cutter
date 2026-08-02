@@ -83,6 +83,14 @@ class UserVideoSerializer(serializers.ModelSerializer):
             'processing_status', 'processing_stage', 'saved_at', 'last_accessed_at',
         )
 
+    def validate_storage_type(self, value):
+        if value == UserVideo.StorageType.SERVER:
+            from billing.services import UsageService
+            request = self.context.get('request')
+            if request and hasattr(request, 'user') and not UsageService.is_premium(request.user):
+                raise serializers.ValidationError('Server file storage requires a Premium subscription.')
+        return value
+
     def create(self, validated_data):
         youtube_id   = validated_data.pop('youtube_id')
         user         = self.context['request'].user

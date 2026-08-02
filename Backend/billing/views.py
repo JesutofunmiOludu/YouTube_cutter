@@ -9,6 +9,7 @@ from .serializers import (
     SubscriptionSerializer,
     UsageSummarySerializer,
 )
+from .services import UsageService
 
 
 # ── GET /api/billing/plans/ ────────────────────────────────
@@ -55,3 +56,26 @@ class UsageView(generics.RetrieveAPIView):
             summary_date=timezone.now().date(),
         )
         return summary
+
+
+# ── GET /api/billing/usage/monthly/ ────────────────────────
+class MonthlyUsageView(APIView):
+    """
+    Return the current calendar-month's aggregated usage counts.
+    Monthly-gated actions (research, cut, transcription) are summed
+    across ALL days in the month; daily actions reflect today only.
+
+    Response shape:
+    {
+        "search":        5,   # today
+        "cut":           1,   # this month
+        "transcription": 2,   # this month
+        "research":      1,   # this month  ← key field for deep-research gate
+        "chat_message":  12   # today
+    }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        counts = UsageService.get_monthly_usage(request.user)
+        return Response(counts)
