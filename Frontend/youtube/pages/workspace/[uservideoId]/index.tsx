@@ -1005,32 +1005,6 @@ function ResearchPanel({
     />
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
 
-      {/* ── Key points strip ──────────────────────────── */}
-      {keyPoints.length > 0 && (
-        <div className="shrink-0 px-3 pt-3 pb-2 border-b border-[var(--color-border-tertiary)]">
-          <p className="text-[9px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider mb-2">
-            Key points from this video
-          </p>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {keyPoints.map((point, i) => (
-              <button
-                key={i}
-                onClick={() => handleChipClick(point)}
-                className={cn(
-                  'flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] transition-all duration-150',
-                  'bg-[var(--color-bg-secondary)] border-[var(--color-border-tertiary)]',
-                  'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
-                  'hover:border-primary-400/60 hover:bg-primary-50/10 whitespace-nowrap',
-                )}
-              >
-                <ArrowRight className="w-2.5 h-2.5 text-primary-400 flex-shrink-0" />
-                <span className="max-w-[160px] truncate">{point}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* ── Results area (scrollable feed stream) ─────── */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         {/* Deep research report — shown when session exists or is loading */}
@@ -1073,18 +1047,43 @@ function ResearchPanel({
 
         {/* Empty state */}
         {!hasItems && !isBusy && (
-          <div className="flex flex-col items-center justify-center py-10 px-4 text-center gap-3">
+          <div className="flex flex-col items-center justify-center py-8 px-4 text-center gap-3 min-h-full">
             <div className="w-10 h-10 rounded-xl bg-primary-600/10 flex items-center justify-center">
               <Search className="w-5 h-5 text-primary-400" />
             </div>
-            <div>
+            <div className="max-w-xs">
               <p className="text-[13px] font-semibold text-[var(--color-text-primary)] mb-1">
                 Search anything
               </p>
-              <p className="text-[11px] text-[var(--color-text-secondary)] max-w-[180px] leading-relaxed">
-                Type a question or click a key point above to get Perplexity-style results.
+              <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
+                Type a question or click a key point below to get Perplexity-style results.
               </p>
             </div>
+
+            {keyPoints.length > 0 && (
+              <div className="w-full max-w-md mt-2">
+                <p className="text-[9px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider mb-2">
+                  Key points from this video
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {keyPoints.map((point, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleChipClick(point)}
+                      className={cn(
+                        'flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] text-left transition-all duration-150',
+                        'bg-[var(--color-bg-secondary)] border-[var(--color-border-tertiary)]',
+                        'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                        'hover:border-primary-400/60 hover:bg-primary-50/20 shadow-2xs',
+                      )}
+                    >
+                      <ArrowRight className="w-2.5 h-2.5 text-primary-400 flex-shrink-0" />
+                      <span className="truncate max-w-[200px]">{point}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
         <div ref={resultsEndRef} />
