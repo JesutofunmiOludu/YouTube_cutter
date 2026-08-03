@@ -8,7 +8,7 @@
 //   [Follow-up questions]  — clickable pill buttons
 
 import React, { useState } from 'react'
-import { ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import { ExternalLink, ChevronDown, ChevronUp, BookOpen } from 'lucide-react'
 import { cn }                from '@/utils/cn'
 import { FormattedText }      from '@/components/ui'
 import type { SearchResult, SearchSource } from '@/types'
@@ -233,16 +233,23 @@ export function SearchResultCard({ result, onFollowUp, className }: SearchResult
         <div className={cn(
           'rounded-xl border p-4',
           'bg-[var(--color-bg-secondary)] border-[var(--color-border-tertiary)]',
+          result.mode === 'learn' && 'border-indigo-500/30 bg-indigo-500/5',
         )}>
+          {result.mode === 'learn' && (
+            <div className="flex items-center gap-1.5 mb-3 text-[10px] font-bold text-indigo-400 uppercase tracking-wider bg-indigo-500/10 w-fit px-2.5 py-1 rounded-lg border border-indigo-500/20">
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Step-by-Step Learning Guide</span>
+            </div>
+          )}
           <FormattedText content={result.answer} />
         </div>
       )}
 
-      {/* ── Follow-up questions ─────────────────────── */}
+      {/* ── Follow-up questions / Learning steps ─────── */}
       {result.follow_up_questions.length > 0 && (
         <div className="space-y-2">
           <span className="text-[10px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wide">
-            Explore further
+            {result.mode === 'learn' ? 'Check Understanding & Next Steps' : 'Explore further'}
           </span>
           <div className="flex flex-col gap-1.5">
             {result.follow_up_questions.map((q, i) => (
@@ -257,7 +264,9 @@ export function SearchResultCard({ result, onFollowUp, className }: SearchResult
                   'flex items-start gap-2',
                 )}
               >
-                <span className="text-primary-400 font-bold mt-0.5 text-[10px] flex-shrink-0">↗</span>
+                <span className="text-primary-400 font-bold mt-0.5 text-[10px] flex-shrink-0">
+                  {result.mode === 'learn' ? '✍️' : '↗'}
+                </span>
                 <span className="leading-snug">{q}</span>
               </button>
             ))}

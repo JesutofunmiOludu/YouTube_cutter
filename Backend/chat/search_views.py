@@ -77,9 +77,11 @@ class VideoSearchListCreateView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # ── Resolve optional video context ────────────────
+        # ── Resolve optional video context & mode ─────────
         user_video = None
         user_video_id = request.data.get('user_video_id')
+        mode = (request.data.get('mode') or 'search').strip()
+
         if user_video_id:
             try:
                 user_video = UserVideo.objects.get(pk=user_video_id, user=request.user)
@@ -91,12 +93,13 @@ class VideoSearchListCreateView(APIView):
             user       = request.user,
             user_video = user_video,
             query      = query,
+            mode       = mode,
             status     = VideoSearchSession.Status.PENDING,
         )
 
         # ── Call Gemini ───────────────────────────────────
         try:
-            result = search_service.run_web_search(query, user_video)
+            result = search_service.run_web_search(query, user_video, mode=mode)
 
             # Persist sources
             for i, src in enumerate(result.get('sources', []), start=1):

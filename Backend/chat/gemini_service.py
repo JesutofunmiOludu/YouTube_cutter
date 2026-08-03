@@ -189,6 +189,20 @@ def start_deep_research_interaction(session: 'ResearchSession') -> str | None:
     video = session.user_video.video
     transcript_text = _get_transcript_text(session.user_video)
 
+    # If the user gave a specific research query/topic, focus the report on it.
+    user_topic = (session.title or '').strip()
+    if user_topic:
+        focus_block = textwrap.dedent(f"""
+        **Research Focus (from user)**
+        The user is specifically interested in: "{user_topic}"
+        Prioritise this topic throughout the report while still grounding your answer
+        in the video transcript and related web sources.
+        """).strip()
+    else:
+        focus_block = (
+            "Produce a comprehensive overview of the video's main topics and themes."
+        )
+
     prompt = textwrap.dedent(f"""
         You are an expert research assistant. A user has been watching a YouTube video and
         wants a comprehensive research report on its topic.
@@ -203,14 +217,19 @@ def start_deep_research_interaction(session: 'ResearchSession') -> str | None:
 
         ---
 
+        {focus_block}
+
         Please produce a thorough, well-structured research report in Markdown format.
 
         The report MUST include:
-        1. **Executive Summary** — 2–3 sentence overview
-        2. **Key Topics Covered** — bullet list of the main subjects in the video
+        1. **Executive Summary** — 2–3 sentence overview that directly addresses the
+           research focus above
+        2. **Key Topics Covered** — bullet list of the main subjects relevant to the
+           research focus
         3. **Deep Dive** — expanded explanation of each key topic with additional context
+           from the web and the transcript
         4. **Related Resources** — 5–8 real, credible URLs (articles, papers, tools) that
-           expand on the video's content. For EACH resource include:
+           expand on the research focus. For EACH resource include:
            - Title
            - URL
            - Type (article / paper / website / video)

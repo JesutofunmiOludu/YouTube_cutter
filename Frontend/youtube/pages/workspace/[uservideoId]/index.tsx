@@ -949,10 +949,6 @@ function ResearchPanel({
   const handleSubmit = () => {
     const q = query.trim()
     if (!q) return
-    if (mode === 'learn') {
-      toast.info('Learn Step by Step is coming soon 🚀')
-      return
-    }
     // Gate: free users only get 1 deep research per month
     if (mode === 'deep_research' && researchExhausted) {
       setUpgradeFeature('deep_research')
@@ -971,10 +967,8 @@ function ResearchPanel({
   const handleChipClick = (point: string) => {
     setQuery(point)
     inputRef.current?.focus()
-    // Auto-submit in search mode only
-    if (mode === 'search' || mode === 'deep_research') {
-      onSearch(point, mode)
-    }
+    // Auto-submit in search, deep_research, or learn modes
+    onSearch(point, mode)
   }
 
   const handleFollowUp = (question: string) => {
@@ -1040,7 +1034,13 @@ function ResearchPanel({
           <div className="m-3 p-3.5 flex items-center gap-3 bg-[var(--color-bg-secondary)] rounded-xl border border-[var(--color-border-tertiary)] shadow-xs animate-pulse">
             <Loader2 className="w-4 h-4 text-primary-500 animate-spin flex-shrink-0" />
             <p className="text-[12px] font-medium text-[var(--color-text-secondary)]">
-              {researchLoading || mode === 'deep_research' ? 'Generating deep research report…' : 'Searching the web…'}
+              {researchLoading
+                ? query.trim()
+                  ? `Researching "${query.slice(0, 50)}${query.length > 50 ? '…' : ''}"…`
+                  : 'Generating deep research report…'
+                : mode === 'learn'
+                ? 'Building step-by-step guide…'
+                : 'Searching the web…'}
             </p>
           </div>
         )}
@@ -1117,7 +1117,13 @@ function ResearchPanel({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={`Ask anything about this video…`}
+            placeholder={
+              mode === 'deep_research'
+                ? 'Enter a research topic or question…'
+                : mode === 'learn'
+                ? 'What would you like to learn step by step?'
+                : 'Ask anything about this video…'
+            }
             disabled={searchLoading || researchLoading}
             className={cn(
               'flex-1 bg-transparent text-[12px] text-[var(--color-text-primary)]',
@@ -1126,6 +1132,20 @@ function ResearchPanel({
             )}
           />
         </div>
+
+        {/* Mode-aware context hint */}
+        {mode === 'deep_research' && (
+          <p className="text-[10px] text-[var(--color-text-tertiary)] leading-relaxed px-0.5">
+            <span className="font-semibold text-primary-500">Deep Research:</span>{' '}
+            Your question will focus the AI report. Leave blank for a full video overview.
+          </p>
+        )}
+        {mode === 'learn' && (
+          <p className="text-[10px] text-[var(--color-text-tertiary)] leading-relaxed px-0.5">
+            <span className="font-semibold text-emerald-500">Learn Step-by-Step:</span>{' '}
+            Get a structured learning guide based on your question and the video content.
+          </p>
+        )}
 
         {/* Controls row */}
         <div className="flex items-center justify-between gap-2">
@@ -2218,7 +2238,9 @@ export default function WorkspacePage() {
   }, [toast])
 
   // Research actions
-  const handleStartResearch = useCallback(async () => {
+  // `query` — the user's typed topic/question; stored as `title` on the session
+  // and injected into the Gemini prompt so the report is focused on their intent.
+  const handleStartResearch = useCallback(async (query?: string) => {
     if (!userVideoId) return
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -2228,8 +2250,11 @@ export default function WorkspacePage() {
 
     setResearchLoading(true)
     try {
-      // 1. Create the research session (backend immediately returns 201 with status: 'processing')
-      const createRes = await apiClient.post('/research/', { user_video_id: userVideoId }, { signal: controller.signal })
+      // 1. Create the research session (backend immediately returns 201 with status: 'processing').
+      //    Include the user's query as `title` so the Gemini prompt can target it.
+      const body: Record<string, string> = { user_video_id: userVideoId }
+      if (query?.trim()) body.title = query.trim()
+      const createRes = await apiClient.post('/research/', body, { signal: controller.signal })
       const sessionId = createRes.data.id
 
       // Show the in-progress state right away and bump the monthly count
@@ -2283,8 +2308,8 @@ export default function WorkspacePage() {
   const handleSearch = useCallback(async (query: string, mode: SearchMode) => {
     if (!userVideoId) return
     if (mode === 'deep_research') {
-      // Use existing deep research flow
-      await handleStartResearch()
+      // Pass the user's query into deep research so Gemini focuses on it
+      await handleStartResearch(query)
       return
     }
 
@@ -2299,6 +2324,7 @@ export default function WorkspacePage() {
       const res = await apiClient.post('/search/', {
         query,
         user_video_id: userVideoId,
+        mode,   // ← send mode so the backend can switch between 'search' and 'learn' prompts
       }, {
         signal: controller.signal,
       })

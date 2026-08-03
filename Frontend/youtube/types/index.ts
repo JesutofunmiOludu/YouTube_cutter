@@ -291,6 +291,7 @@ export interface SearchSource {
 export interface SearchResult {
   id:                  string
   query:               string
+  mode?:               'search' | 'learn'
   answer:              Nullable<string>
   follow_up_questions: string[]
   sources:             SearchSource[]

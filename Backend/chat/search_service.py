@@ -52,10 +52,10 @@ def _get_transcript_snippet(user_video: 'UserVideo', max_chars: int = 2000) -> s
         return ''
 
 
-def run_web_search(query: str, user_video: 'UserVideo | None' = None) -> dict:
+def run_web_search(query: str, user_video: 'UserVideo | None' = None, mode: str = 'search') -> dict:
     """
-    Run a Gemini-grounded web search for *query*, optionally anchored
-    to the context of *user_video*.
+    Run a Gemini-grounded web search or step-by-step learning guide for *query*,
+    optionally anchored to the context of *user_video*.
 
     Returns:
     {
@@ -81,44 +81,79 @@ def run_web_search(query: str, user_video: 'UserVideo | None' = None) -> dict:
             Transcript snippet:
             {snippet or '(Not available)'}
 
-            Use this video context to make the search answer more relevant
-            when applicable, but always search the web for current information.
+            Use this video context to make the answer more relevant when applicable.
         """).strip()
 
-    prompt = textwrap.dedent(f"""
-        {context_block}
+    if mode == 'learn':
+        prompt = textwrap.dedent(f"""
+            {context_block}
 
-        ---
+            ---
 
-        User search query: "{query}"
+            User learning objective / topic: "{query}"
 
-        Search the web for accurate, up-to-date information about this query.
+            Create an interactive, structured STEP-BY-STEP LEARNING GUIDE for this topic grounded in web search and video context.
 
-        Respond in the following JSON format ONLY — no extra text before or after:
+            Respond in the following JSON format ONLY — no extra text before or after:
 
-        {{
-          "answer": "<Comprehensive markdown answer. Number every factual claim with inline citations like [1], [2]. Use headers, bullet points, and **bold** for clarity. Aim for 150–400 words.>",
-          "sources": [
             {{
-              "title": "<Page title>",
-              "url": "<Full URL>",
-              "excerpt": "<1–2 sentence relevant excerpt or why it was cited>"
+              "answer": "<Structured markdown learning guide. Structure into clear sequential sections with headers like: ### 🎓 Step 1: Core Concept & Overview\\n\\n### ⚙️ Step 2: Key Mechanics & Implementation\\n\\n### 💡 Step 3: Best Practices & Common Pitfalls\\n\\n### 🚀 Step 4: Practical Exercise / Key Takeaways. Use bold text, bullet points, code or formulas if relevant, and inline citations like [1], [2]. Aim for 250–500 words.>",
+              "sources": [
+                {{
+                  "title": "<Page title>",
+                  "url": "<Full URL>",
+                  "excerpt": "<1–2 sentence summary or why it was cited>"
+                }}
+              ],
+              "follow_up_questions": [
+                "<Practice question or check for understanding 1>",
+                "<Next learning step 2>",
+                "<Real-world application question 3>",
+                "<Deep-dive topic 4>"
+              ]
             }}
-          ],
-          "follow_up_questions": [
-            "<Follow-up question 1>",
-            "<Follow-up question 2>",
-            "<Follow-up question 3>",
-            "<Follow-up question 4>"
-          ]
-        }}
 
-        Requirements:
-        - Include 3–6 real, working sources in "sources"
-        - Provide exactly 4 follow-up questions that naturally continue the research
-        - Follow-up questions should be specific, not generic
-        - Citations in the answer must match the index (1-based) of the source in the "sources" array
-    """).strip()
+            Requirements:
+            - Format as an engaging, educational step-by-step tutorial (Step 1, Step 2, Step 3, etc.)
+            - Include 3–6 real, working sources in "sources"
+            - Include exactly 4 follow-up learning prompts/questions
+            - Citations in the answer must match the index (1-based) of the source in the "sources" array
+        """).strip()
+    else:
+        prompt = textwrap.dedent(f"""
+            {context_block}
+
+            ---
+
+            User search query: "{query}"
+
+            Search the web for accurate, up-to-date information about this query.
+
+            Respond in the following JSON format ONLY — no extra text before or after:
+
+            {{
+              "answer": "<Comprehensive markdown answer. Number every factual claim with inline citations like [1], [2]. Use headers, bullet points, and **bold** for clarity. Aim for 150–400 words.>",
+              "sources": [
+                {{
+                  "title": "<Page title>",
+                  "url": "<Full URL>",
+                  "excerpt": "<1–2 sentence relevant excerpt or why it was cited>"
+                }}
+              ],
+              "follow_up_questions": [
+                "<Follow-up question 1>",
+                "<Follow-up question 2>",
+                "<Follow-up question 3>",
+                "<Follow-up question 4>"
+              ]
+            }}
+
+            Requirements:
+            - Include 3–6 real, working sources in "sources"
+            - Provide exactly 4 follow-up questions that naturally continue the research
+            - Follow-up questions should be specific, not generic
+            - Citations in the answer must match the index (1-based) of the source in the "sources" array
+        """).strip()
 
     try:
         response = client.models.generate_content(

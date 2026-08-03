@@ -96,7 +96,7 @@ class VideoSearchSourceSerializer(serializers.ModelSerializer):
 class VideoSearchSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model  = VideoSearchSession
-        fields = ('id', 'query', 'status', 'created_at', 'updated_at')
+        fields = ('id', 'query', 'mode', 'status', 'created_at', 'updated_at')
         read_only_fields = fields
 
 

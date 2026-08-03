@@ -258,6 +258,7 @@ class VideoSearchSession(models.Model):
         help_text="The video whose context was used for this search (optional)",
     )
     query                = models.TextField(help_text="The user's search query")
+    mode                 = models.CharField(max_length=20, default="search", help_text="search or learn")
     answer               = models.TextField(blank=True, null=True, help_text="AI-generated markdown answer")
     follow_up_questions  = models.JSONField(default=list, blank=True, help_text="List of follow-up question strings")
     status               = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
