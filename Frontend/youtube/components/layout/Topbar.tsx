@@ -156,7 +156,7 @@ export function Topbar({ user, onSignOut }: TopbarProps) {
   return (
     <header className="flex items-center gap-3 h-[var(--topbar-height)] px-4 shrink-0 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-tertiary)] sticky top-0 z-sticky">
       <TopbarSearch />
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-1 shrink-0 ml-auto">
         <button
           aria-label="Notifications"
           className="w-9 h-9 rounded-lg flex items-center justify-center text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200"

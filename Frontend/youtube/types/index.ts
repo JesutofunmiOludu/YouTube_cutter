@@ -141,6 +141,7 @@ export interface Video {
   channel_name:     string
   category:         Nullable<string>
   published_at:     Nullable<string>
+  view_count?:      Nullable<number>
   created_at:       string
 }
 

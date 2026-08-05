@@ -96,28 +96,25 @@ class UsageService:
         now = timezone.now()
         today = now.date()
 
-        # Monthly aggregate (research, cut, transcription)
+        # Monthly aggregate (all tracked actions)
         monthly = UsageSummary.objects.filter(
             user=user,
             summary_date__year=now.year,
             summary_date__month=now.month,
         ).aggregate(
+            searches=Sum('searches_count'),
             cuts=Sum('cuts_count'),
             transcriptions=Sum('transcriptions_count'),
             research=Sum('research_count'),
+            chat_messages=Sum('chat_messages_count'),
         )
 
-        # Daily counts (search, chat_message) — just today's row
-        today_summary = UsageSummary.objects.filter(
-            user=user, summary_date=today
-        ).first()
-
         return {
-            'search':        getattr(today_summary, 'searches_count', 0) or 0,
+            'search':        monthly.get('searches') or 0,
             'cut':           monthly.get('cuts') or 0,
             'transcription': monthly.get('transcriptions') or 0,
             'research':      monthly.get('research') or 0,
-            'chat_message':  getattr(today_summary, 'chat_messages_count', 0) or 0,
+            'chat_message':  monthly.get('chat_messages') or 0,
         }
 
     @staticmethod

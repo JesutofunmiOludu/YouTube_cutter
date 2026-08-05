@@ -7,13 +7,13 @@
 // ============================================================
 
 import Link                    from 'next/link'
-import { LayoutDashboard, Library, MessageSquare, Globe, User } from 'lucide-react'
+import { LayoutDashboard, FolderOpen, MessageSquare, Globe, User } from 'lucide-react'
 import { cn }                  from '@/utils/cn'
 import { useClientPathname }   from '@/hooks/useClientPathname'
 
 const NAV_ITEMS = [
   { label: 'Home',     href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Library',  href: '/library',   icon: Library         },
+  { label: 'Projects', href: '/projects',  icon: FolderOpen      },
   { label: 'Chat',     href: '/chat',      icon: MessageSquare   },
   { label: 'Research', href: '/research',  icon: Globe           },
   { label: 'Profile',  href: '/settings',  icon: User            },

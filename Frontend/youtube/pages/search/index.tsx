@@ -57,13 +57,20 @@ function formatPublished(dateStr: string | null): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function formatViews(views: number | null | undefined): string {
+  if (!views) return ''
+  if (views >= 1_000_000) return `${(views / 1_000_000).toFixed(1)}M views`
+  if (views >= 1_000) return `${(views / 1_000).toFixed(1)}K views`
+  return `${views} views`
+}
+
 // ── Video result card ─────────────────────────────────────
 
 function VideoResultCard({ video, onProcess }: { video: Video; onProcess: (v: Video) => void }) {
   const [imgErr, setImgErr] = useState(false)
 
   return (
-    <div className="bg-[var(--color-bg-primary)] border border-[var(--color-border-tertiary)] rounded-xl overflow-hidden hover:border-[var(--color-border-secondary)] transition-colors duration-fast group">
+    <div className="bg-[var(--color-bg-primary)] border border-[var(--color-border-tertiary)] rounded-xl overflow-hidden hover:border-[var(--color-border-secondary)] transition-colors duration-fast group flex flex-col justify-between">
       {/* Thumbnail */}
       <div className="relative w-full aspect-video bg-[var(--color-bg-tertiary)] flex items-center justify-center overflow-hidden">
         {video.thumbnail_url && !imgErr ? (
@@ -97,7 +104,7 @@ function VideoResultCard({ video, onProcess }: { video: Video; onProcess: (v: Vi
       </div>
 
       {/* Info */}
-      <div className="p-3 flex flex-col gap-2">
+      <div className="p-3 flex flex-col gap-2 flex-1 justify-between">
         <div>
           <p className="text-caption text-[var(--color-text-tertiary)] mb-1 truncate">{video.channel_name}</p>
           <h3 className="text-body-sm font-medium text-[var(--color-text-primary)] line-clamp-2 leading-snug">
@@ -105,12 +112,19 @@ function VideoResultCard({ video, onProcess }: { video: Video; onProcess: (v: Vi
           </h3>
         </div>
 
-        {video.published_at && (
-          <p className="text-caption text-[var(--color-text-tertiary)] flex items-center gap-1">
-            <Clock className="w-3 h-3" aria-hidden="true" />
-            {formatPublished(video.published_at)}
-          </p>
-        )}
+        <div className="flex items-center justify-between text-caption text-[var(--color-text-tertiary)]">
+          {video.published_at ? (
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" aria-hidden="true" />
+              {formatPublished(video.published_at)}
+            </span>
+          ) : <span />}
+          {video.view_count ? (
+            <span className="font-medium text-[var(--color-text-secondary)]">
+              {formatViews(video.view_count)}
+            </span>
+          ) : null}
+        </div>
 
         <Button
           variant="primary"
@@ -191,13 +205,23 @@ export default function SearchPage() {
       return
     }
 
+    const sortMap: Record<SortFilter, string> = {
+      relevance: 'relevance',
+      date: 'date',
+      views: 'viewCount',
+    }
+
     const performFetch = async () => {
       setIsLoading(true)
       setSearchError(null)
       setErrorState(null)
       try {
         const res = await apiClient.get('/videos/search/', {
-          params: { q: query }
+          params: {
+            q: query,
+            order: sortMap[filters.sort] || 'relevance',
+            duration: filters.duration,
+          }
         })
         const mapped = (res.data.results || []).map((v: any, index: number) => ({
           id: `v-${v.youtube_id}-${index}`,
@@ -205,14 +229,26 @@ export default function SearchPage() {
           title: v.title,
           description: null,
           thumbnail_url: v.thumbnail_url,
-          duration_seconds: 0, // YouTube search list API doesn't return duration unless we request contentDetails.
+          duration_seconds: v.duration_seconds || 0,
           channel_id: '',
           channel_name: v.channel_name,
           category: 'Tutorial',
           published_at: v.published_at,
+          view_count: v.view_count,
           created_at: '',
         }))
-        setResults(mapped)
+
+        // Category filter (client-side matching)
+        const filtered = mapped.filter((v: Video) => {
+          if (filters.category !== 'All') {
+            const cat = filters.category.toLowerCase()
+            const title = v.title.toLowerCase()
+            return title.includes(cat) || v.category?.toLowerCase() === cat
+          }
+          return true
+        })
+
+        setResults(filtered)
         // Increment free-tier search counter on success
         if (!isPremium) setSearchesUsed((n) => Math.min(n + 1, FREE_SEARCH_LIMIT))
       } catch (err: any) {
@@ -241,7 +277,7 @@ export default function SearchPage() {
     }
 
     performFetch()
-  }, [query])
+  }, [query, filters.sort, filters.duration, filters.category])
 
   const handleSearch = useCallback((e: React.FormEvent) => {
     e.preventDefault()

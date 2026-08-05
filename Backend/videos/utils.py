@@ -57,13 +57,15 @@ def _fetch_youtube_metadata(youtube_id: str, api_key: str) -> dict:
     snippet  = item['snippet']
     details  = item['contentDetails']
 
+    import html
+
     return {
-        'title':            snippet.get('title', ''),
-        'description':      snippet.get('description', ''),
+        'title':            html.unescape(snippet.get('title', '')),
+        'description':      html.unescape(snippet.get('description', '')),
         'thumbnail_url':    _best_thumbnail(snippet.get('thumbnails', {})),
         'duration_seconds': _parse_iso_duration(details.get('duration', 'PT0S')),
         'channel_id':       snippet.get('channelId', ''),
-        'channel_name':     snippet.get('channelTitle', ''),
+        'channel_name':     html.unescape(snippet.get('channelTitle', '')),
         'category':         snippet.get('categoryId'),
         'published_at':     parse_date(snippet.get('publishedAt', '')[:10]) if snippet.get('publishedAt') else None,
     }

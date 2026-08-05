@@ -256,11 +256,25 @@ class SuggestCutLabelsView(APIView):
         return Response(labels, status=status.HTTP_200_OK)
 
 
+import re
+
+def parse_iso8601_duration(duration_str):
+    if not duration_str:
+        return 0
+    match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration_str)
+    if not match:
+        return 0
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+    return hours * 3600 + minutes * 60 + seconds
+
+
 # ── GET /api/videos/search/?q=<query> ─────────────────────
 class VideoSearchView(APIView):
     """
     Search YouTube for videos.
-    Returns a list of results with title, channel, thumbnail, and duration.
+    Returns a list of results with title, channel, thumbnail, duration, and view count.
     Falls back to an empty list when no API key is configured.
 
     Throttled to 'search' scope (30/hour) to protect the YouTube API quota.
@@ -270,8 +284,20 @@ class VideoSearchView(APIView):
     throttle_classes   = [ScopedRateThrottle]
 
     def get(self, request):
-        query   = request.query_params.get('q', '').strip()
-        max_res = min(int(request.query_params.get('limit', 10)), 50)
+        query    = request.query_params.get('q', '').strip()
+        max_res  = min(int(request.query_params.get('limit', 10)), 50)
+        order    = request.query_params.get('order', 'relevance').strip()
+        duration = request.query_params.get('duration', 'any').strip()
+
+        allowed_orders = {
+            'relevance': 'relevance',
+            'views': 'viewCount',
+            'viewCount': 'viewCount',
+            'date': 'date',
+            'rating': 'rating',
+            'title': 'title',
+        }
+        yt_order = allowed_orders.get(order, 'relevance')
 
         if not query:
             return Response({'results': []})
@@ -289,6 +315,17 @@ class VideoSearchView(APIView):
         if not api_key:
             return Response({'results': [], 'warning': 'YouTube API key not configured.'})
 
+        search_params = {
+            'key':        api_key,
+            'q':          query,
+            'part':       'snippet',
+            'type':       'video',
+            'order':      yt_order,
+            'maxResults': max_res,
+        }
+        if duration in ('short', 'medium', 'long'):
+            search_params['videoDuration'] = duration
+
         import time as _time
         max_retries = 3
         items = []
@@ -296,13 +333,7 @@ class VideoSearchView(APIView):
             try:
                 resp = requests.get(
                     'https://www.googleapis.com/youtube/v3/search',
-                    params={
-                        'key':        api_key,
-                        'q':          query,
-                        'part':       'snippet',
-                        'type':       'video',
-                        'maxResults': max_res,
-                    },
+                    params=search_params,
                     timeout=10,
                 )
                 resp.raise_for_status()
@@ -317,15 +348,50 @@ class VideoSearchView(APIView):
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
 
+        video_ids = [
+            item['id']['videoId'] for item in items
+            if item.get('id', {}).get('videoId')
+        ]
+        stats_map = {}
+        if video_ids:
+            try:
+                stats_resp = requests.get(
+                    'https://www.googleapis.com/youtube/v3/videos',
+                    params={
+                        'key':  api_key,
+                        'id':   ','.join(video_ids),
+                        'part': 'statistics,contentDetails',
+                    },
+                    timeout=10,
+                )
+                if stats_resp.status_code == 200:
+                    for v_item in stats_resp.json().get('items', []):
+                        v_id = v_item.get('id')
+                        st = v_item.get('statistics', {})
+                        cd = v_item.get('contentDetails', {})
+                        raw_cnt = st.get('viewCount')
+                        dur_iso = cd.get('duration', '')
+                        stats_map[v_id] = {
+                            'view_count': int(raw_cnt) if raw_cnt is not None else None,
+                            'duration_seconds': parse_iso8601_duration(dur_iso),
+                        }
+            except Exception:
+                pass
+
+        import html
+
         results = [
             {
-                'youtube_id':    item['id']['videoId'],
-                'title':         item['snippet']['title'],
-                'channel_name':  item['snippet']['channelTitle'],
-                'thumbnail_url': item['snippet']['thumbnails'].get('high', {}).get('url'),
-                'published_at':  item['snippet'].get('publishedAt', '')[:10],
+                'youtube_id':       item['id']['videoId'],
+                'title':            html.unescape(item['snippet']['title']),
+                'channel_name':     html.unescape(item['snippet']['channelTitle']),
+                'thumbnail_url':    item['snippet']['thumbnails'].get('high', {}).get('url'),
+                'published_at':     item['snippet'].get('publishedAt', '')[:10],
+                'duration_seconds': stats_map.get(item['id']['videoId'], {}).get('duration_seconds', 0),
+                'view_count':       stats_map.get(item['id']['videoId'], {}).get('view_count'),
             }
             for item in items
+            if item.get('id', {}).get('videoId')
         ]
 
         return Response({'results': results})

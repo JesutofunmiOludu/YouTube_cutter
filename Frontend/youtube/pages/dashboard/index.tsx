@@ -1,14 +1,9 @@
 // ============================================================
-// VidMind AI — Dashboard Page (Redesigned)
+// VidMind AI — Dashboard Page
 // src/pages/dashboard/index.tsx
 //
-// Video Project Folder System:
-//  - Each video is a "project folder"
-//  - Folder card shows cut count, chat count, research count
-//  - Clicking a folder opens an inline detail panel with tabs:
-//      Cuts | Chats | Research | Transcript
-//  - Stats row with free-tier usage meters
-//  - Quick search bar at the top
+// Overview page: greeting, quick search, stats, recent activity.
+// Full project grid lives at /projects.
 // ============================================================
 
 import React, { useState, useMemo, useEffect } from 'react'
@@ -18,20 +13,17 @@ import {
   Scissors,
   MessageSquare,
   Globe,
-  FileText,
   Play,
-  Download,
   Plus,
   Search,
   ChevronRight,
-  ChevronDown,
   Crown,
   ArrowRight,
   Clock,
   CheckCircle,
+  Download,
   Loader2,
   ExternalLink,
-  Trash2,
 } from 'lucide-react'
 import { cn }            from '@/utils/cn'
 import { useAuthStore }  from '@/store/auth.store'
@@ -49,7 +41,7 @@ import type {
 } from '@/types'
 
 // ============================================================
-// MOCK DATA — replace with React Query hooks
+// TYPES
 // ============================================================
 
 interface VideoProject {
@@ -57,103 +49,6 @@ interface VideoProject {
   cuts:         VideoCut[]
   chats:        ChatSession[]
   research:     ResearchSession[]
-}
-
-const MOCK_PROJECTS: VideoProject[] = [
-  {
-    userVideo: {
-      id: 'uv1', user_id: 'u1',
-      storage_type: 'reference',
-      file_url: null,
-      processing_status: 'completed',
-      saved_at: new Date(Date.now() - 86_400_000).toISOString(),
-      last_accessed_at: new Date(Date.now() - 3_600_000).toISOString(),
-      video: {
-        id: 'v1', youtube_id: 'dQw4w9WgXcQ',
-        title: 'Full React JS Course for Beginners',
-        description: null,
-        thumbnail_url: `https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg`,
-        duration_seconds: 13330,
-        channel_id: 'c1', channel_name: 'Fireship',
-        category: 'Tutorial', published_at: null,
-        created_at: new Date().toISOString(),
-      },
-    },
-    cuts: [
-      { id: 'c1', user_video_id: 'uv1', cut_order: 1, start_seconds: 0,     end_seconds: 980,  title: 'Introduction & what are hooks?',    ai_rationale: 'Topic shifts to useState', ai_suggested: true, user_approved: true,  download_url: null, download_status: 'pending', created_at: '', updated_at: '', duration_seconds: 980  },
-      { id: 'c2', user_video_id: 'uv1', cut_order: 2, start_seconds: 980,   end_seconds: 2325, title: 'useState — state management basics', ai_rationale: 'useState section ends',    ai_suggested: true, user_approved: true,  download_url: null, download_status: 'pending', created_at: '', updated_at: '', duration_seconds: 1345 },
-      { id: 'c3', user_video_id: 'uv1', cut_order: 3, start_seconds: 2325,  end_seconds: 3730, title: 'useEffect — side effects & cleanup', ai_rationale: 'Custom hooks begin',       ai_suggested: true, user_approved: false, download_url: null, download_status: 'pending', created_at: '', updated_at: '', duration_seconds: 1405 },
-      { id: 'c4', user_video_id: 'uv1', cut_order: 4, start_seconds: 3730,  end_seconds: 5280, title: 'Custom hooks — reusable logic',       ai_rationale: 'useContext introduced',   ai_suggested: true, user_approved: true,  download_url: null, download_status: 'ready',   created_at: '', updated_at: '', duration_seconds: 1550 },
-      { id: 'c5', user_video_id: 'uv1', cut_order: 5, start_seconds: 5280,  end_seconds: 6610, title: 'useContext — global state',           ai_rationale: 'useReducer introduced',   ai_suggested: true, user_approved: true,  download_url: null, download_status: 'pending', created_at: '', updated_at: '', duration_seconds: 1330 },
-    ],
-    chats: [
-      { id: 'ch1', user_id: 'u1', title: 'React hooks deep dive', is_multi_video: false, videos: [], messages: Array(14).fill(null), created_at: new Date(Date.now() - 3_600_000).toISOString(), updated_at: new Date(Date.now() - 3_600_000).toISOString(), last_message: null },
-      { id: 'ch2', user_id: 'u1', title: 'Hooks vs class components', is_multi_video: false, videos: [], messages: Array(6).fill(null), created_at: new Date(Date.now() - 86_400_000).toISOString(), updated_at: new Date(Date.now() - 86_400_000).toISOString(), last_message: null },
-    ],
-    research: [
-      { id: 'r1', user_id: 'u1', user_video: {} as any, title: 'React hooks & state management 2024', report_content: 'Full report content…', status: 'completed', sources: Array(12).fill(null), completed_at: new Date(Date.now() - 172_800_000).toISOString(), created_at: '', updated_at: '' },
-    ],
-  },
-  {
-    userVideo: {
-      id: 'uv2', user_id: 'u1',
-      storage_type: 'reference',
-      file_url: null,
-      processing_status: 'processing',
-      saved_at: new Date(Date.now() - 172_800_000).toISOString(),
-      last_accessed_at: new Date(Date.now() - 7_200_000).toISOString(),
-      video: {
-        id: 'v2', youtube_id: 'abc123',
-        title: 'Django REST Framework Deep Dive',
-        description: null, thumbnail_url: null,
-        duration_seconds: 4725,
-        channel_id: 'c2', channel_name: 'Traversy Media',
-        category: 'Tutorial', published_at: null,
-        created_at: new Date().toISOString(),
-      },
-    },
-    cuts: [
-      { id: 'c6', user_video_id: 'uv2', cut_order: 1, start_seconds: 0,    end_seconds: 720,  title: 'DRF setup & serializers',   ai_rationale: 'Views section begins',  ai_suggested: true, user_approved: false, download_url: null, download_status: 'pending', created_at: '', updated_at: '', duration_seconds: 720  },
-      { id: 'c7', user_video_id: 'uv2', cut_order: 2, start_seconds: 720,  end_seconds: 1980, title: 'ViewSets & routers',         ai_rationale: 'Auth section begins',   ai_suggested: true, user_approved: false, download_url: null, download_status: 'pending', created_at: '', updated_at: '', duration_seconds: 1260 },
-      { id: 'c8', user_video_id: 'uv2', cut_order: 3, start_seconds: 1980, end_seconds: 3120, title: 'Authentication & permissions', ai_rationale: 'Testing begins',       ai_suggested: true, user_approved: false, download_url: null, download_status: 'pending', created_at: '', updated_at: '', duration_seconds: 1140 },
-    ],
-    chats: [],
-    research: [],
-  },
-  {
-    userVideo: {
-      id: 'uv3', user_id: 'u1',
-      storage_type: 'reference',
-      file_url: null,
-      processing_status: 'completed',
-      saved_at: new Date(Date.now() - 259_200_000).toISOString(),
-      last_accessed_at: new Date(Date.now() - 86_400_000).toISOString(),
-      video: {
-        id: 'v3', youtube_id: 'xyz789',
-        title: 'PostgreSQL Tutorial for Beginners',
-        description: null, thumbnail_url: null,
-        duration_seconds: 3322,
-        channel_id: 'c3', channel_name: 'Academind',
-        category: 'Tutorial', published_at: null,
-        created_at: new Date().toISOString(),
-      },
-    },
-    cuts: [
-      { id: 'c9',  user_video_id: 'uv3', cut_order: 1, start_seconds: 0,    end_seconds: 600,  title: 'Introduction & installation', ai_rationale: null, ai_suggested: true, user_approved: true, download_url: null, download_status: 'pending', created_at: '', updated_at: '', duration_seconds: 600  },
-      { id: 'c10', user_video_id: 'uv3', cut_order: 2, start_seconds: 600,  end_seconds: 1440, title: 'Tables & data types',         ai_rationale: null, ai_suggested: true, user_approved: true, download_url: null, download_status: 'pending', created_at: '', updated_at: '', duration_seconds: 840  },
-      { id: 'c11', user_video_id: 'uv3', cut_order: 3, start_seconds: 1440, end_seconds: 2280, title: 'SQL queries & joins',          ai_rationale: null, ai_suggested: true, user_approved: true, download_url: null, download_status: 'ready',   created_at: '', updated_at: '', duration_seconds: 840  },
-    ],
-    chats: [
-      { id: 'ch3', user_id: 'u1', title: 'PostgreSQL indexing strategies', is_multi_video: false, videos: [], messages: Array(5).fill(null), created_at: new Date(Date.now() - 86_400_000).toISOString(), updated_at: new Date(Date.now() - 86_400_000).toISOString(), last_message: null },
-    ],
-    research: [],
-  },
-]
-
-const MOCK_USAGE = {
-  searches: { used: 3, limit: 5 },
-  cuts:     { used: 1, limit: 3 },
-  transcriptions: { used: 2, limit: 3 },
 }
 
 // ============================================================
@@ -173,18 +68,14 @@ const STATUS_DOT: Record<ProcessingStatus, { bg: string; border: string; title: 
 }
 
 // ============================================================
-// THUMBNAIL PLACEHOLDER
+// THUMBNAIL — small strip used in recent activity rows
 // ============================================================
 
-const ThumbPlaceholder: React.FC<{ youtubeId: string; title: string; size?: 'sm' | 'md' }> = ({
-  youtubeId, title, size = 'md',
-}) => {
+const ThumbStrip: React.FC<{ youtubeId: string; title: string }> = ({ youtubeId, title }) => {
   const [err, setErr] = useState(false)
   const src = `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`
-  const h   = size === 'sm' ? 'h-9' : 'h-12'
-
   return (
-    <div className={cn('w-full rounded-md overflow-hidden bg-[var(--color-bg-tertiary)] flex items-center justify-center', h)}>
+    <div className="w-14 h-10 rounded-md overflow-hidden bg-[var(--color-bg-tertiary)] flex items-center justify-center shrink-0">
       {!err ? (
         <img src={src} alt={title} className="w-full h-full object-cover" onError={() => setErr(true)} loading="lazy" />
       ) : (
@@ -195,7 +86,45 @@ const ThumbPlaceholder: React.FC<{ youtubeId: string; title: string; size?: 'sm'
 }
 
 // ============================================================
-// FOLDER DETAIL PANEL — tabs: Cuts | Chats | Research | Transcript
+// RECENT PROJECT ROW
+// ============================================================
+
+const RecentProjectRow: React.FC<{ project: VideoProject }> = ({ project }) => {
+  const navigate = (to: string) => clientNavigate(to)
+  const { userVideo, cuts, chats, research } = project
+  const v = userVideo.video
+  return (
+    <button
+      onClick={() => navigate(`/workspace/${userVideo.id}`)}
+      className={cn(
+        'flex items-center gap-3 px-3 py-2.5 rounded-xl w-full text-left group',
+        'hover:bg-[var(--color-bg-secondary)] transition-colors duration-fast',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200',
+      )}
+    >
+      <ThumbStrip youtubeId={v.youtube_id} title={v.title} />
+      <div className="flex-1 min-w-0">
+        <p className="text-body-sm font-medium text-[var(--color-text-primary)] truncate">{v.title}</p>
+        <p className="text-caption text-[var(--color-text-tertiary)] flex items-center gap-2 mt-0.5">
+          <span className="flex items-center gap-1"><Scissors className="w-3 h-3" />{cuts.length} cuts</span>
+          <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{chats.length} chats</span>
+          {research.length > 0 && <span className="flex items-center gap-1"><Globe className="w-3 h-3" />{research.length}</span>}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {userVideo.last_accessed_at && (
+          <span className="text-caption text-[var(--color-text-tertiary)] hidden sm:block">
+            <RelativeDate date={userVideo.last_accessed_at} />
+          </span>
+        )}
+        <ChevronRight className="w-4 h-4 text-[var(--color-text-tertiary)] group-hover:text-primary-600 transition-colors" />
+      </div>
+    </button>
+  )
+}
+
+// ============================================================
+// REMOVED: FOLDER DETAIL PANEL — now lives on /projects
 // ============================================================
 
 const CutsTab: React.FC<{
@@ -367,271 +296,9 @@ const ResearchTab: React.FC<{
   )
 }
 
-// ============================================================
-// FOLDER DETAIL PANEL
-// ============================================================
 
-type DetailTab = 'cuts' | 'chats' | 'research' | 'transcript'
 
-const FolderDetailPanel: React.FC<{
-  project:   VideoProject
-  isPremium: boolean
-  onClose:   () => void
-}> = ({ project, isPremium, onClose }) => {
-  const navigate          = (to: string) => clientNavigate(to)
-  const [tab, setTab]     = useState<DetailTab>('cuts')
-  const { userVideo, cuts, chats, research } = project
 
-  const TABS: { id: DetailTab; label: string; count?: number }[] = [
-    { id: 'cuts',       label: 'Cuts',       count: cuts.length     },
-    { id: 'chats',      label: 'Chats',      count: chats.length    },
-    { id: 'research',   label: 'Research',   count: research.length },
-    { id: 'transcript', label: 'Transcript'                          },
-  ]
-
-  return (
-    <div className={cn(
-      'bg-[var(--color-bg-primary)]',
-      'border border-[var(--color-border-secondary)]',
-      'rounded-xl overflow-hidden',
-      'animate-slide-up',
-    )}>
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--color-border-tertiary)]">
-        <button
-          onClick={onClose}
-          className="text-caption text-primary-600 hover:text-primary-800 transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:underline"
-          aria-label="Back to all projects"
-        >
-          ← Back
-        </button>
-        <div className="w-px h-4 bg-[var(--color-border-tertiary)]" />
-        <div className="flex-1 min-w-0">
-          <p className="text-body-sm font-medium text-[var(--color-text-primary)] truncate">
-            {userVideo.video.title}
-          </p>
-          <p className="text-caption text-[var(--color-text-tertiary)]">
-            {userVideo.video.channel_name} · {formatDuration(userVideo.video.duration_seconds)}
-          </p>
-        </div>
-        <StatusBadge status={userVideo.processing_status} size="sm" />
-        <Button
-          variant="primary"
-          size="sm"
-          rightIcon={<ExternalLink className="w-3.5 h-3.5" />}
-          onClick={() => navigate(`/workspace/${userVideo.id}`)}
-        >
-          Open workspace
-        </Button>
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex border-b border-[var(--color-border-tertiary)]" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              'flex items-center gap-1.5 px-4 py-2.5',
-              'text-body-sm font-medium',
-              'border-b-2 transition-colors duration-fast',
-              'focus-visible:outline-none',
-              tab === t.id
-                ? 'border-primary-600 text-primary-600'
-                : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
-            )}
-          >
-            {t.label}
-            {t.count !== undefined && t.count > 0 && (
-              <span className={cn(
-                'text-caption font-medium px-1.5 py-0.5 rounded-full',
-                tab === t.id ? 'bg-primary-50 text-primary-800' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)]',
-              )}>
-                {t.count}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      <div className="p-4">
-        {tab === 'cuts' && (
-          <CutsTab
-            cuts={cuts}
-            onOpen={() => navigate(`/workspace/${userVideo.id}`)}
-          />
-        )}
-        {tab === 'chats' && (
-          <ChatsTab
-            chats={chats}
-            userVideoId={userVideo.id}
-            onNewChat={() => navigate(`/chat?videoId=${userVideo.id}`)}
-            navigate={navigate}
-          />
-        )}
-        {tab === 'research' && (
-          <ResearchTab
-            research={research}
-            isPremium={isPremium}
-            onNewReport={() => navigate(`/research?videoId=${userVideo.id}`)}
-            navigate={navigate}
-          />
-        )}
-        {tab === 'transcript' && (
-          <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
-            <FileText className="w-8 h-8 text-[var(--color-text-tertiary)]" aria-hidden="true" />
-            <p className="text-heading-sm text-[var(--color-text-primary)]">View full transcript</p>
-            <p className="text-body-sm text-[var(--color-text-secondary)]">Open the workspace to view and search the transcript.</p>
-            <Button variant="secondary" size="sm" onClick={() => navigate(`/workspace/${userVideo.id}`)}>
-              Open workspace
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ============================================================
-// FOLDER CARD
-// ============================================================
-
-const FolderCard: React.FC<{
-  project:    VideoProject
-  isExpanded: boolean
-  onToggle:   () => void
-  onDelete:   (id: string, e: React.MouseEvent) => void
-}> = ({ project, isExpanded, onToggle, onDelete }) => {
-  const { userVideo, cuts, chats, research } = project
-  const v      = userVideo.video
-  const dot    = STATUS_DOT[userVideo.processing_status]
-
-  const approvedCuts = cuts.filter((c) => c.user_approved).length
-  const lastAccessed = userVideo.last_accessed_at ? (
-    <RelativeDate date={userVideo.last_accessed_at} />
-  ) : (
-    'Never'
-  )
-
-  return (
-    <div
-      className={cn(
-        'bg-[var(--color-bg-primary)] border rounded-xl overflow-hidden group',
-        'transition-colors duration-fast cursor-pointer',
-        isExpanded
-          ? 'border-primary-200 ring-2 ring-primary-100'
-          : 'border-[var(--color-border-tertiary)] hover:border-[var(--color-border-secondary)]',
-      )}
-      onClick={onToggle}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && onToggle()}
-      aria-expanded={isExpanded}
-      aria-label={`${v.title} project folder`}
-    >
-      {/* Thumbnail strip */}
-      <div className="relative">
-        <ThumbPlaceholder youtubeId={v.youtube_id} title={v.title} size="md" />
-        {/* Status dot (moved to top-left to make space for delete button) */}
-        <div
-          className={cn(
-            'absolute top-2 left-2 w-2.5 h-2.5 rounded-full border-2',
-            dot.bg, dot.border,
-          )}
-          title={dot.title}
-          aria-label={`Status: ${dot.title}`}
-        />
-        {/* Delete button (permanently visible overlay, turns red on hover) */}
-        <button
-          type="button"
-          onClick={(e) => onDelete(userVideo.id, e)}
-          className={cn(
-            'absolute top-2 right-2 p-1.5 rounded-lg bg-black/40 hover:bg-danger-600 text-white',
-            'transition-colors duration-fast z-10',
-          )}
-          title="Delete project folder"
-          aria-label={`Delete ${v.title} project folder`}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
-        {/* Duration overlay */}
-        <span className="absolute bottom-1.5 right-1.5 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
-          {formatDuration(v.duration_seconds)}
-        </span>
-      </div>
-
-      {/* Info */}
-      <div className="p-3">
-        <p className="text-body-sm font-medium text-[var(--color-text-primary)] line-clamp-2 leading-snug mb-1">
-          {v.title}
-        </p>
-        <p className="text-caption text-[var(--color-text-tertiary)] mb-2.5 truncate">
-          {v.channel_name}
-        </p>
-
-        {/* Pills */}
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {/* Cuts */}
-          <span className={cn(
-            'inline-flex items-center gap-1 px-2 py-0.5 rounded-full',
-            'text-caption font-medium',
-            cuts.length > 0
-              ? 'bg-primary-50 text-primary-800'
-              : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)] border border-[var(--color-border-tertiary)]',
-          )}>
-            <Scissors className="w-3 h-3" aria-hidden="true" />
-            {cuts.length > 0 ? `${cuts.length} cut${cuts.length !== 1 ? 's' : ''}` : 'No cuts'}
-          </span>
-
-          {/* Chats */}
-          <span className={cn(
-            'inline-flex items-center gap-1 px-2 py-0.5 rounded-full',
-            'text-caption font-medium',
-            chats.length > 0
-              ? 'bg-premium-50 text-premium-800'
-              : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)] border border-[var(--color-border-tertiary)]',
-          )}>
-            <MessageSquare className="w-3 h-3" aria-hidden="true" />
-            {chats.length > 0 ? `${chats.length} chat${chats.length !== 1 ? 's' : ''}` : 'No chats'}
-          </span>
-
-          {/* Research */}
-          <span className={cn(
-            'inline-flex items-center gap-1 px-2 py-0.5 rounded-full',
-            'text-caption font-medium',
-            research.length > 0
-              ? 'bg-success-50 text-success-800'
-              : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)] border border-[var(--color-border-tertiary)]',
-          )}>
-            <Globe className="w-3 h-3" aria-hidden="true" />
-            {research.length > 0 ? `${research.length} report${research.length !== 1 ? 's' : ''}` : 'No research'}
-          </span>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 text-caption text-[var(--color-text-tertiary)]">
-            <Clock className="w-3 h-3" aria-hidden="true" />
-            {lastAccessed}
-          </div>
-          <div className={cn(
-            'flex items-center gap-1 text-caption font-medium transition-colors duration-fast',
-            isExpanded ? 'text-primary-600' : 'text-[var(--color-text-secondary)]',
-          )}>
-            {isExpanded ? (
-              <><ChevronDown className="w-3.5 h-3.5" /> Close</>
-            ) : (
-              <><ChevronRight className="w-3.5 h-3.5" /> Open</>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ============================================================
 // STAT CARD
@@ -800,7 +467,7 @@ const DashboardPage: NextPageWithLayout = () => {
         const research: ResearchSession[] = researchRes.data.results || researchRes.data || []
 
         // 4. Fetch usage
-        const usageRes = await apiClient.get('/billing/usage/')
+        const usageRes = await apiClient.get('/billing/usage/monthly/')
         const usageData = usageRes.data
 
         // 5. Build VideoProject list by fetching details for each video (which returns cuts)
@@ -842,9 +509,9 @@ const DashboardPage: NextPageWithLayout = () => {
 
         if (usageData) {
           setUsage({
-            searches: { used: usageData.searches_count || 0, limit: isPremium ? 9999 : 5 },
-            cuts: { used: usageData.cuts_count || 0, limit: isPremium ? 9999 : 3 },
-            transcriptions: { used: usageData.transcriptions_count || 0, limit: isPremium ? 9999 : 3 },
+            searches: { used: usageData.search || 0, limit: isPremium ? 9999 : 5 },
+            cuts: { used: usageData.cut || 0, limit: isPremium ? 9999 : 3 },
+            transcriptions: { used: usageData.transcription || 0, limit: isPremium ? 9999 : 3 },
           })
         }
       } catch (err) {
@@ -857,47 +524,20 @@ const DashboardPage: NextPageWithLayout = () => {
     loadData()
   }, [isPremium])
 
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-
-  const expandedProject = useMemo(
-    () => projects.find((p) => p.userVideo.id === expandedId) ?? null,
-    [projects, expandedId]
-  )
-
   const totalCuts   = projects.reduce((n, p) => n + p.cuts.length, 0)
-  const totalChats  = projects.reduce((n, p) => n + p.chats.length, 0)
+  const totalResearch = projects.reduce((n, p) => n + p.research.length, 0)
 
-  const handleToggle = (id: string) => {
-    setExpandedId((prev) => (prev === id ? null : id))
-    // Scroll to top of content area on mobile
-    if (expandedId !== id) {
-      setTimeout(() => {
-        document.getElementById('project-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 50)
-    }
-  }
-
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent card expanding/toggling
-    const project = projects.find((p) => p.userVideo.id === id)
-    const title = project?.userVideo.video.title ?? 'this project'
-
-    if (!window.confirm(`Are you sure you want to delete "${title}"? This will delete all cuts, chats, and research reports associated with it.`)) {
-      return
-    }
-
-    try {
-      await apiClient.delete(`/videos/${id}/`)
-      setProjects((prev) => prev.filter((p) => p.userVideo.id !== id))
-      if (expandedId === id) {
-        setExpandedId(null)
-      }
-      toast.success('Project folder deleted successfully.')
-    } catch (err) {
-      console.error('Failed to delete project folder:', err)
-      toast.error('Failed to delete project folder.')
-    }
-  }
+  // 3 most recently accessed
+  const recentProjects = useMemo(
+    () => [...projects]
+      .sort((a, b) => {
+        const ta = a.userVideo.last_accessed_at ?? a.userVideo.saved_at
+        const tb = b.userVideo.last_accessed_at ?? b.userVideo.saved_at
+        return new Date(tb).getTime() - new Date(ta).getTime()
+      })
+      .slice(0, 4),
+    [projects]
+  )
 
 
   return (
@@ -924,18 +564,18 @@ const DashboardPage: NextPageWithLayout = () => {
         <>
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard label="Video projects" value={projects.length} sub="+1 this week" />
+            <StatCard label="Video projects" value={projects.length} sub={`${projects.length} saved`} />
             <StatCard
-              label="Searches today"
-              value={`${usage.searches.used}/${usage.searches.limit}`}
-              sub={isPremium ? 'Unlimited' : 'Free tier'}
+              label="Searches this month"
+              value={isPremium ? usage.searches.used : `${usage.searches.used}/${usage.searches.limit}`}
+              sub={isPremium ? 'This month' : 'Free tier'}
               subVariant={isPremium ? 'primary' : 'warning'}
               meter={isPremium ? undefined : usage.searches}
             />
             <StatCard label="Total cuts" value={totalCuts} sub={`Across ${projects.length} videos`} />
             <StatCard
               label="Deep research"
-              value={isPremium ? projects.reduce((n, p) => n + p.research.length, 0) : '—'}
+              value={isPremium ? totalResearch : '—'}
               sub={isPremium ? 'Reports generated' : 'Premium only'}
               subVariant={isPremium ? 'default' : 'premium'}
             />
@@ -944,65 +584,36 @@ const DashboardPage: NextPageWithLayout = () => {
           {/* Upgrade banner */}
           {!isPremium && <UpgradeBanner />}
 
-          {/* Expanded folder detail */}
-          {expandedProject && (
-            <div id="project-detail">
-              <FolderDetailPanel
-                project={expandedProject}
-                isPremium={isPremium}
-                onClose={() => setExpandedId(null)}
-              />
+          {/* Recent projects */}
+          {recentProjects.length > 0 && (
+            <div className="bg-[var(--color-bg-primary)] border border-[var(--color-border-tertiary)] rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-tertiary)]">
+                <h2 className="text-heading-sm text-[var(--color-text-primary)]">Recent projects</h2>
+                <button
+                  onClick={() => navigate('/projects')}
+                  className="text-caption text-primary-600 hover:text-primary-800 transition-colors flex items-center gap-1"
+                >
+                  View all <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="divide-y divide-[var(--color-border-tertiary)]">
+                {isLoading
+                  ? Array(3).fill(null).map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 animate-pulse">
+                        <div className="w-14 h-10 rounded-md bg-[var(--color-bg-tertiary)] shrink-0" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="h-3 rounded bg-[var(--color-bg-tertiary)] w-3/4" />
+                          <div className="h-2.5 rounded bg-[var(--color-bg-tertiary)] w-1/2" />
+                        </div>
+                      </div>
+                    ))
+                  : recentProjects.map((p) => (
+                      <RecentProjectRow key={p.userVideo.id} project={p} />
+                    ))
+                }
+              </div>
             </div>
           )}
-
-          {/* Projects grid */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-heading-md text-[var(--color-text-primary)]">
-                {expandedProject ? 'All projects' : 'Video projects'}
-              </h2>
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<Plus className="w-3.5 h-3.5" />}
-                onClick={() => navigate('/search')}
-              >
-                New project
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {projects.map((project) => (
-                <FolderCard
-                  key={project.userVideo.id}
-                  project={project}
-                  isExpanded={expandedId === project.userVideo.id}
-                  onToggle={() => handleToggle(project.userVideo.id)}
-                  onDelete={handleDelete}
-                />
-              ))}
-
-              {/* Add new project card */}
-              <button
-                onClick={() => navigate('/search')}
-                className={cn(
-                  'flex flex-col items-center justify-center gap-2',
-                  'border-2 border-dashed border-[var(--color-border-secondary)]',
-                  'rounded-xl p-8',
-                  'text-[var(--color-text-tertiary)]',
-                  'hover:border-primary-200 hover:text-primary-600 hover:bg-primary-50/30',
-                  'transition-colors duration-fast',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200',
-                  'min-h-[180px]',
-                )}
-                aria-label="Add new video project"
-              >
-                <Plus className="w-6 h-6" aria-hidden="true" />
-                <span className="text-body-sm font-medium">Add video project</span>
-                <span className="text-caption">Paste a link or search</span>
-              </button>
-            </div>
-          </div>
         </>
       )}
     </div>
