@@ -51,7 +51,10 @@ def _fetch_youtube_metadata(youtube_id: str, api_key: str) -> dict:
     items = resp.json().get('items', [])
 
     if not items:
-        raise ValueError(f'YouTube video not found: {youtube_id}')
+        # Video is private, deleted, or the ID doesn't exist
+        raise ValueError(
+            'This video could not be found. It may be private, deleted, or the link is incorrect.'
+        )
 
     item     = items[0]
     snippet  = item['snippet']

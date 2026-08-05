@@ -97,7 +97,14 @@ class UserVideoSerializer(serializers.ModelSerializer):
 
         # Get or create the shared Video record
         from .utils import fetch_or_create_video
-        video = fetch_or_create_video(youtube_id)
+        try:
+            video = fetch_or_create_video(youtube_id)
+        except ValueError as exc:
+            raise serializers.ValidationError({'youtube_id': str(exc)})
+        except Exception:
+            raise serializers.ValidationError({
+                'youtube_id': 'Could not fetch video information. Please check the link and try again.'
+            })
 
         user_video, created = UserVideo.objects.get_or_create(
             user=user,

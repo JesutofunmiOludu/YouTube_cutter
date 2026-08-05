@@ -5,7 +5,7 @@
 // Shows a "processing" screen while setting up the workspace,
 // then redirects to /workspace/[uservideoId] once ready.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter }           from 'next/router'
 import {
   Scissors,
@@ -15,6 +15,8 @@ import {
   Play,
   FileText,
   Zap,
+  Link,
+  ArrowRight,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { apiClient } from '@/utils/apiClient'
@@ -22,12 +24,56 @@ import { useToast } from '@/components/ui/Toast'
 
 // ── Helpers ───────────────────────────────────────────────
 
+/**
+ * Extracts the YouTube video ID from any common YouTube URL format:
+ *  - youtube.com/watch?v=ID
+ *  - youtu.be/ID
+ *  - youtube.com/shorts/ID
+ *  - youtube.com/embed/ID
+ *  - youtube.com/live/ID
+ *  - youtube.com/v/ID
+ *  - m.youtube.com/watch?v=ID
+ *  - youtube.com/attribution_link?...&v=ID
+ */
 function extractYouTubeId(url: string): string | null {
+  const trimmed = url.trim()
+
+  // Bare 11-character video ID (no URL wrapper)
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed
+
   try {
-    const u = new URL(url)
-    if (u.hostname.includes('youtu.be')) return u.pathname.slice(1)
-    return u.searchParams.get('v')
+    const u = new URL(trimmed)
+    const host = u.hostname.replace(/^(www\.|m\.)/, '')
+
+    if (host === 'youtu.be') {
+      // https://youtu.be/ID or https://youtu.be/ID?t=30
+      const id = u.pathname.slice(1).split('/')[0]
+      return id.length === 11 ? id : null
+    }
+
+    if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+      // /watch?v=ID
+      const v = u.searchParams.get('v')
+      if (v && v.length === 11) return v
+
+      // /shorts/ID, /embed/ID, /live/ID, /v/ID
+      const pathParts = u.pathname.split('/').filter(Boolean)
+      if (['shorts', 'embed', 'live', 'v', 'e'].includes(pathParts[0]) && pathParts[1]) {
+        const id = pathParts[1].split('?')[0]
+        return id.length === 11 ? id : null
+      }
+
+      // /attribution_link?a=...&u=%2Fwatch%3Fv%3DID
+      if (pathParts[0] === 'attribution_link') {
+        const inner = u.searchParams.get('u') || ''
+        const match = inner.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
+        return match ? match[1] : null
+      }
+    }
+
+    return null
   } catch {
+    // URL() constructor threw — not a valid URL
     return null
   }
 }
@@ -58,6 +104,103 @@ function StepIcon({ status }: { status: StepStatus }) {
   if (status === 'running') return <Loader2      className="w-5 h-5 text-primary-600 animate-spin" aria-hidden="true" />
   return (
     <div className="w-5 h-5 rounded-full border-2 border-[var(--color-border-secondary)] bg-[var(--color-bg-tertiary)]" aria-hidden="true" />
+  )
+}
+
+// ── Error screen with retry input ────────────────────────
+
+function ErrorScreen({ error }: { error: string }) {
+  const router         = useRouter()
+  const [retryUrl, setRetryUrl] = useState('')
+  const [urlError, setUrlError] = useState('')
+  const inputRef       = useRef<HTMLInputElement>(null)
+
+  const isUrlError = error.toLowerCase().includes('invalid youtube url') ||
+                     error.toLowerCase().includes('incorrect')
+
+  const handleRetry = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = retryUrl.trim()
+    if (!trimmed) { setUrlError('Please paste a YouTube link.'); return }
+    const ytId = extractYouTubeId(trimmed)
+    if (!ytId) {
+      setUrlError('That doesn\'t look like a valid YouTube link. Try youtube.com/watch?v=… or youtu.be/…')
+      return
+    }
+    setUrlError('')
+    router.push(`/workspace/new?url=${encodeURIComponent(trimmed)}`)
+  }
+
+  return (
+    <div className="min-h-screen bg-[var(--color-bg-tertiary)] flex items-center justify-center p-6">
+      <div className="max-w-md w-full flex flex-col items-center gap-6">
+
+        {/* Icon */}
+        <div className="w-16 h-16 rounded-2xl bg-danger-50 border border-danger-200 flex items-center justify-center">
+          <AlertCircle className="w-8 h-8 text-danger-600" aria-hidden="true" />
+        </div>
+
+        {/* Message */}
+        <div className="text-center">
+          <h1 className="text-heading-xl text-[var(--color-text-primary)] mb-2">
+            {isUrlError ? 'Invalid YouTube link' : 'Could not load video'}
+          </h1>
+          <p className="text-body-sm text-[var(--color-text-secondary)]">{error}</p>
+        </div>
+
+        {/* Retry input */}
+        <form onSubmit={handleRetry} className="w-full flex flex-col gap-3">
+          <label className="text-body-sm font-medium text-[var(--color-text-primary)]">
+            Paste a different YouTube link
+          </label>
+          <div className={cn(
+            'flex items-center gap-2 h-10 px-3 rounded-lg border',
+            'bg-[var(--color-bg-primary)] transition-colors duration-fast',
+            urlError
+              ? 'border-danger-400 ring-2 ring-danger-100'
+              : 'border-[var(--color-border-secondary)] focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-200',
+          )}>
+            <Link className="w-4 h-4 shrink-0 text-[var(--color-text-tertiary)]" aria-hidden="true" />
+            <input
+              ref={inputRef}
+              type="url"
+              value={retryUrl}
+              onChange={(e) => { setRetryUrl(e.target.value); setUrlError('') }}
+              placeholder="https://youtube.com/watch?v=…"
+              autoFocus
+              className="flex-1 bg-transparent border-none outline-none text-body-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
+              aria-label="YouTube URL to retry"
+            />
+          </div>
+          {urlError && (
+            <p className="text-caption text-danger-800 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3 shrink-0" aria-hidden="true" />
+              {urlError}
+            </p>
+          )}
+          <button
+            type="submit"
+            className="flex items-center justify-center gap-2 h-10 rounded-xl text-body-sm font-medium text-white bg-primary-600 hover:bg-primary-800 transition-colors"
+          >
+            Try this link <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </form>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 w-full">
+          <div className="flex-1 h-px bg-[var(--color-border-tertiary)]" />
+          <span className="text-caption text-[var(--color-text-tertiary)]">or</span>
+          <div className="flex-1 h-px bg-[var(--color-border-tertiary)]" />
+        </div>
+
+        <button
+          onClick={() => router.push('/search')}
+          className="text-body-sm text-primary-600 hover:text-primary-800 transition-colors underline underline-offset-2"
+        >
+          Search for a video instead
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -108,7 +251,15 @@ export default function WorkspaceNewPage() {
         )
       } catch (err: any) {
         if (!cancelled) {
-          setError(err.response?.data?.error || 'Failed to fetch video metadata.')
+          const data = err.response?.data
+          // DRF ValidationError shape: { youtube_id: ['msg'] } or { error: 'msg' }
+          const msg =
+            (Array.isArray(data?.youtube_id) ? data.youtube_id[0] : data?.youtube_id) ||
+            data?.error?.message ||
+            data?.error ||
+            data?.detail ||
+            'Failed to fetch video metadata. Please check the link and try again.'
+          setError(msg)
           setSteps((prev) =>
             prev.map((s) => s.id === 'fetch' ? { ...s, status: 'error' } : s)
           )
@@ -207,25 +358,7 @@ export default function WorkspaceNewPage() {
   // ── Error state ───────────────────────────────────────────
 
   if (error) {
-    return (
-      <div className="min-h-screen bg-[var(--color-bg-tertiary)] flex items-center justify-center p-6">
-        <div className="max-w-md w-full text-center flex flex-col items-center gap-5">
-          <div className="w-14 h-14 rounded-2xl bg-danger-50 border border-danger-200 flex items-center justify-center">
-            <AlertCircle className="w-7 h-7 text-danger-600" />
-          </div>
-          <div>
-            <h1 className="text-heading-xl text-[var(--color-text-primary)] mb-2">Processing failed</h1>
-            <p className="text-body-sm text-[var(--color-text-secondary)]">{error}</p>
-          </div>
-          <button
-            onClick={() => router.push('/search')}
-            className="px-5 py-2.5 rounded-xl text-body-sm font-medium text-white bg-primary-600 hover:bg-primary-800 transition-colors"
-          >
-            Try another video
-          </button>
-        </div>
-      </div>
-    )
+    return <ErrorScreen error={error} />
   }
 
   // ── Processing UI ─────────────────────────────────────────
