@@ -112,6 +112,15 @@ USE_TZ = True
 # ── Static files ───────────────────────────────────────────
 STATIC_URL = 'static/'
 
+# ── Media files (user-generated cut clips) ─────────────────
+MEDIA_URL  = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+CUTS_DIR   = MEDIA_ROOT / 'cuts'
+
+# Create the cuts directory on startup if it does not exist yet
+import os as _os
+_os.makedirs(CUTS_DIR, exist_ok=True)
+
 # ── Security headers (safe for dev; enforce via env in prod) ─
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'

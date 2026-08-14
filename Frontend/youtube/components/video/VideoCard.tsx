@@ -132,9 +132,9 @@ const GridCard: React.FC<VideoCardProps> = ({
           {cutCount !== undefined && cutCount > 0 && (
             <span className="text-caption text-[var(--color-text-tertiary)]">{cutCount} cut{cutCount !== 1 ? 's' : ''}</span>
           )}
-          {userVideo?.last_accessed_at && (
+          {(userVideo?.last_accessed_at || userVideo?.saved_at) && (
             <span className="text-caption text-[var(--color-text-tertiary)] ml-auto">
-              <RelativeDate date={userVideo.last_accessed_at} />
+              <RelativeDate date={userVideo.last_accessed_at || userVideo.saved_at!} />
             </span>
           )}
         </div>

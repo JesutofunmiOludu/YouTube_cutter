@@ -261,6 +261,7 @@ function CutCard({
   totalDuration,
   userVideoId,
   onCut,
+  onDownload,
   onEditSave,
   onMetaSave,
   onSeek,
@@ -271,6 +272,7 @@ function CutCard({
   totalDuration: number
   userVideoId:   string
   onCut:         (id: string) => void
+  onDownload:    (cut: VideoCut) => void
   onEditSave:    (id: string, start: number, end: number) => void
   onMetaSave:    (id: string, title: string, rationale: string) => void
   onSeek:        (s: number) => void
@@ -505,39 +507,74 @@ function CutCard({
       )}
 
       {/* ── Action buttons (hidden while editing) ── */}
-      {editMode === 'none' && (
-        <div className="flex gap-2 mt-3">
-          <button
-            onClick={() => onCut(cut.id)}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium border transition-colors',
-              cut.user_approved
-                ? 'bg-success-50 text-success-800 border-success-200 hover:bg-success-200'
-                : 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)]',
+      {editMode === 'none' && (() => {
+        const isProcessing = cut.download_status === 'processing'
+        const isReady      = cut.download_status === 'ready' && !!cut.download_url
+        const isFailed     = cut.download_status === 'failed'
+        const apiBase      = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+
+        return (
+          <div className="flex gap-2 mt-3 flex-wrap">
+            {/* ── Cut / Approve button ── */}
+            <button
+              onClick={() => onCut(cut.id)}
+              disabled={isProcessing}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium border transition-colors',
+                isProcessing
+                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200 cursor-wait'
+                  : isReady
+                    ? 'bg-success-50 text-success-800 border-success-200 hover:bg-success-200'
+                    : isFailed
+                      ? 'bg-danger-50 text-danger-700 border-danger-200 hover:bg-danger-100'
+                      : cut.user_approved
+                        ? 'bg-success-50 text-success-800 border-success-200 hover:bg-success-200'
+                        : 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)]',
+              )}
+            >
+              {isProcessing ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Cutting…</>
+              ) : isReady ? (
+                <><Check className="w-3.5 h-3.5" /> Cut & Ready</>
+              ) : isFailed ? (
+                <><Scissors className="w-3.5 h-3.5" /> Retry Cut</>
+              ) : cut.user_approved ? (
+                <><Check className="w-3.5 h-3.5" /> Cut</>
+              ) : (
+                <><Scissors className="w-3.5 h-3.5" /> Cut</>
+              )}
+            </button>
+
+            {/* ── Download button — only when the clip file is ready ── */}
+            {isReady && (
+              <button
+                onClick={() => onDownload(cut)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium border transition-colors bg-primary-600 text-white border-primary-600 hover:bg-primary-700"
+                title="Download clip (.mp4)"
+              >
+                <Download className="w-3.5 h-3.5" /> Download
+              </button>
             )}
-          >
-            {cut.user_approved
-              ? <><Check className="w-3.5 h-3.5" /> Cut</>
-              : <><Scissors className="w-3.5 h-3.5" /> Cut</>
-            }
-          </button>
-          <button
-            onClick={() => setEditMode('time')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            Edit Time
-          </button>
-          <button
-            onClick={() => setEditMode('meta')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
-            title="Edit title and description"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            Edit Details
-          </button>
-        </div>
-      )}
+
+            {/* ── Edit buttons ── */}
+            <button
+              onClick={() => setEditMode('time')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Edit Time
+            </button>
+            <button
+              onClick={() => setEditMode('meta')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+              title="Edit title and description"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Edit Details
+            </button>
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -546,17 +583,32 @@ function CutCard({
 
 function CutClipsPanel({
   cuts,
+  userVideoId,
   onDownloadAll,
+  onDownload,
   onSeek,
 }: {
   cuts:          VideoCut[]
+  userVideoId:   string
   onDownloadAll: () => void
+  onDownload:    (cut: VideoCut) => Promise<void>
   onSeek:        (s: number) => void
 }) {
   const { canUse } = useSubscription()
   const canBatchDownload = canUse('batch_download')
   const [showUpgrade, setShowUpgrade] = useState(false)
+  // Track which cut IDs are currently downloading
+  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set())
   const approved = cuts.filter((c) => c.user_approved)
+
+  async function handleDownloadCut(cut: VideoCut) {
+    setDownloadingIds((prev) => new Set(prev).add(cut.id))
+    try {
+      await onDownload(cut)
+    } finally {
+      setDownloadingIds((prev) => { const n = new Set(prev); n.delete(cut.id); return n })
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -575,33 +627,78 @@ function CutClipsPanel({
             </p>
           </div>
         ) : (
-          approved.map((cut, i) => (
-            <button
-              key={cut.id}
-              onClick={() => onSeek(cut.start_seconds)}
-              className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-tertiary)] text-left hover:border-[var(--color-border-secondary)] transition-colors group"
-            >
-              {/* Number */}
-              <span className="w-6 h-6 rounded-full bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] flex items-center justify-center text-body-sm font-medium text-[var(--color-text-secondary)] shrink-0">
-                {i + 1}
-              </span>
+          approved.map((cut, i) => {
+            const isDownloading = downloadingIds.has(cut.id)
+            const isReady       = cut.download_status === 'ready' && !!cut.download_url
+            const isProcessing  = cut.download_status === 'processing'
+            const apiBase       = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+            return (
+              <div
+                key={cut.id}
+                className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-tertiary)] hover:border-[var(--color-border-secondary)] transition-colors group"
+              >
+                {/* Seek area — clicking text/number seeks the player */}
+                <button
+                  onClick={() => onSeek(cut.start_seconds)}
+                  className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                  title={`Seek to ${formatTime(cut.start_seconds)}`}
+                >
+                  {/* Number */}
+                  <span className="w-6 h-6 rounded-full bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] flex items-center justify-center text-body-sm font-medium text-[var(--color-text-secondary)] shrink-0">
+                    {i + 1}
+                  </span>
 
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <p className="text-body-sm font-medium text-[var(--color-text-primary)] truncate">
-                  {cut.title ?? `Clip ${i + 1}`}
-                </p>
-                <p className="text-caption text-[var(--color-text-tertiary)] tabular-nums">
-                  {formatTime(cut.start_seconds)} - {formatTime(cut.end_seconds)}
-                </p>
-              </div>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-body-sm font-medium text-[var(--color-text-primary)] truncate">
+                      {cut.title ?? `Clip ${i + 1}`}
+                    </p>
+                    <p className="text-caption text-[var(--color-text-tertiary)] tabular-nums">
+                      {formatTime(cut.start_seconds)} – {formatTime(cut.end_seconds)}
+                    </p>
+                  </div>
+                </button>
 
-              {/* Download icon */}
-              <div className="w-8 h-8 rounded-full border border-[var(--color-border-secondary)] flex items-center justify-center text-[var(--color-text-secondary)] group-hover:border-primary-200 group-hover:text-primary-600 transition-colors shrink-0">
-                <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                {/* Download button — separate hit target */}
+                {isReady ? (
+                  // File is ready — download via API blob (bypasses cross-origin restriction)
+                  <button
+                    onClick={() => handleDownloadCut(cut)}
+                    title="Download clip (.mp4)"
+                    className="w-8 h-8 rounded-full border border-success-400 bg-success-50 flex items-center justify-center text-success-700 hover:bg-success-100 transition-colors shrink-0"
+                    aria-label="Download clip"
+                  >
+                    <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                  </button>
+                ) : isProcessing ? (
+                  // Show spinner while server is cutting
+                  <div
+                    title="Cutting in progress…"
+                    className="w-8 h-8 rounded-full border border-indigo-200 bg-indigo-50 flex items-center justify-center text-indigo-400 shrink-0"
+                  >
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleDownloadCut(cut)}
+                    disabled={isDownloading}
+                    title="Get clip link"
+                    aria-label="Download clip"
+                    className={cn(
+                      'w-8 h-8 rounded-full border flex items-center justify-center transition-colors shrink-0',
+                      isDownloading
+                        ? 'border-primary-200 bg-primary-50 text-primary-400 cursor-wait'
+                        : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] group-hover:border-primary-300 group-hover:text-primary-600',
+                    )}
+                  >
+                    {isDownloading
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                      : <Download className="w-3.5 h-3.5" aria-hidden="true" />}
+                  </button>
+                )}
               </div>
-            </button>
-          ))
+            )
+          })
         )}
       </div>
 
@@ -1917,7 +2014,7 @@ export default function WorkspacePage() {
       try {
         setIsLoading(true)
         // 1. Fetch user video details
-        const videoRes = await apiClient.get(`/videos/${userVideoId}/`)
+        const videoRes = await apiClient.get(`/videos/${userVideoId}/?touch=true`)
         if (!active) return
         setUserVideo(videoRes.data)
         setCuts(videoRes.data.cuts || [])
@@ -2057,25 +2154,103 @@ export default function WorkspacePage() {
   const handleCut = async (cutId: string) => {
     const cut = cuts.find((c) => c.id === cutId)
     if (!cut) return
+
+    // Special case: cut already approved but failed — just retry processing
+    // without toggling approval (it's still approved, just needs another attempt)
+    if (cut.user_approved && cut.download_status === 'failed') {
+      try {
+        const processRes = await apiClient.post(`/videos/${userVideoId}/cuts/${cutId}/process/`)
+        setCuts((prev) => prev.map((c) =>
+          c.id === cutId ? { ...c, ...processRes.data } : c
+        ))
+      } catch (processErr: any) {
+        if (processErr?.response?.status !== 409) {
+          const msg = processErr?.response?.data?.error?.message || 'Could not start cutting. Try again.'
+          toast.warning(msg)
+        }
+      }
+      return
+    }
+
+    const willApprove = !cut.user_approved
     try {
       const res = await apiClient.patch(`/videos/${userVideoId}/cuts/${cutId}/`, {
-        user_approved: !cut.user_approved,
+        user_approved: willApprove,
       })
       setCuts((prev) => prev.map((c) => c.id === cutId ? res.data : c))
+
+      // When the user approves a cut, immediately kick off the real video cutting
+      if (willApprove) {
+        try {
+          const processRes = await apiClient.post(
+            `/videos/${userVideoId}/cuts/${cutId}/process/`
+          )
+          // Merge the updated download_status ('processing') back into state
+          setCuts((prev) => prev.map((c) =>
+            c.id === cutId ? { ...c, ...processRes.data } : c
+          ))
+        } catch (processErr: any) {
+          // 409 = already processing — ignore, else show a warning
+          if (processErr?.response?.status !== 409) {
+            const msg = processErr?.response?.data?.error?.message || 'Could not start cutting. Try again.'
+            toast.warning(msg)
+          }
+
+        }
+      }
     } catch (err) {
       console.error('Failed to toggle cut approval', err)
     }
   }
 
+  // ── Poll for cuts that are still processing ──────────────────────────────
+  // When any approved cut has download_status === 'processing', poll every 3s
+  // until it becomes 'ready' or 'failed', then merge the result into state.
+  useEffect(() => {
+    const processingCuts = cuts.filter((c) => c.download_status === 'processing')
+    if (processingCuts.length === 0) return
+
+    let active = true
+    const pollCut = async (cutId: string) => {
+      try {
+        const res = await apiClient.get(`/videos/${userVideoId}/cuts/${cutId}/status/`)
+        if (!active) return
+        const { download_status, download_url } = res.data
+        setCuts((prev) => prev.map((c) =>
+          c.id === cutId ? { ...c, download_status, download_url } : c
+        ))
+        // If still processing, keep polling
+        if (download_status === 'processing') {
+          setTimeout(() => { if (active) pollCut(cutId) }, 3000)
+        }
+      } catch {
+        // Non-fatal: will retry on the next render cycle if still processing
+      }
+    }
+
+    // Start a polling chain for each processing cut
+    processingCuts.forEach((c) => pollCut(c.id))
+    return () => { active = false }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cuts.map((c) => `${c.id}:${c.download_status}`).join(','), userVideoId])
+
   const handleEditSave = async (cutId: string, start: number, end: number) => {
+    // Snapshot old status before sending the request
+    const oldCut = cuts.find((c) => c.id === cutId)
+    const wasReady = oldCut?.download_status === 'ready'
     try {
       const res = await apiClient.patch(`/videos/${userVideoId}/cuts/${cutId}/`, {
         start_seconds: Math.round(start),
         end_seconds: Math.round(end),
       })
       setCuts((prev) => prev.map((c) => c.id === cutId ? res.data : c))
+      // Inform the user if the old processed clip was invalidated
+      if (wasReady && res.data.download_status !== 'ready') {
+        toast.info('Time range updated — click Cut to re-process the clip at the new timestamps.')
+      }
     } catch (err) {
       console.error('Failed to edit cut range', err)
+      toast.error('Failed to save new time range.')
     }
   }
 
@@ -2150,6 +2325,84 @@ export default function WorkspacePage() {
   }
 
   // (handleAddCutPoint now inlined into the button — calls handleSplitAtTime directly)
+
+  // ── Download helpers ───────────────────────────────────────────
+  /**
+   * Fetch a cut clip through the authenticated API and trigger a real
+   * browser Save-As download — bypasses the cross-origin restriction that
+   * causes browsers to ignore the `download` attribute on <a> tags.
+   */
+  const triggerApiDownload = useCallback(async (cut: VideoCut) => {
+    try {
+      const res = await apiClient.get(
+        `/videos/${userVideoId}/cuts/${cut.id}/file/`,
+        { responseType: 'blob' },
+      )
+      const blob    = new Blob([res.data], { type: 'video/mp4' })
+      const objUrl  = URL.createObjectURL(blob)
+      const anchor  = document.createElement('a')
+      const safeName = (cut.title || `clip_${cut.cut_order || cut.id.slice(0, 8)}`)
+        .replace(/[^\w\s-]/g, '_').trim()
+      anchor.href     = objUrl
+      anchor.download = `${safeName}.mp4`
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      setTimeout(() => URL.revokeObjectURL(objUrl), 10_000)
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || 'Download failed.'
+      toast.error(msg)
+    }
+  }, [userVideoId, toast])
+
+  // ── Download handlers ──────────────────────────────────────────
+  /**
+   * If the clip is ready, download it via the API blob approach.
+   * If not yet cut, trigger processing so polling picks it up.
+   */
+  const handleDownloadCut = useCallback(async (cut: VideoCut) => {
+    if (cut.download_status === 'ready' && cut.download_url) {
+      await triggerApiDownload(cut)
+      return
+    }
+
+    if (cut.download_status === 'processing') {
+      toast.warning('This clip is still being cut — check back in a moment.')
+      return
+    }
+
+    // Not yet processed — trigger it now
+    try {
+      const processRes = await apiClient.post(
+        `/videos/${userVideoId}/cuts/${cut.id}/process/`
+      )
+      setCuts((prev) => prev.map((c) =>
+        c.id === cut.id ? { ...c, ...processRes.data } : c
+      ))
+      toast.success('Cutting started — the download button will activate when ready.')
+    } catch (err: any) {
+      if (err?.response?.status === 409) {
+        toast.warning('Already processing — please wait.')
+      } else {
+        const msg = err?.response?.data?.error?.message || 'Failed to start cutting.'
+        toast.error(msg)
+      }
+    }
+  }, [userVideoId, toast, triggerApiDownload])
+
+  /** Download all ready clips via the blob approach. */
+  const handleDownloadAll = useCallback(async () => {
+    const readyCuts = cuts.filter(
+      (c) => c.user_approved && c.download_status === 'ready' && !!c.download_url
+    )
+    if (readyCuts.length === 0) {
+      toast.warning('No clips are ready yet. Cut your clips first.')
+      return
+    }
+    for (const c of readyCuts) {
+      await triggerApiDownload(c)
+    }
+  }, [cuts, toast, triggerApiDownload])
 
   // Chat actions
   const handleSendMessage = useCallback(async (content: string) => {
@@ -2617,23 +2870,12 @@ export default function WorkspacePage() {
                 {highlightedRange ? 'Cut Selection' : 'Cut'}
               </button>
 
-              {/* Add Cut Point: splits at current time OR at start of highlighted range */}
+              {/* Split at Time: splits at current playback time, or at start of a highlighted range */}
               <button
                 onClick={() => handleSplitAtTime(highlightedRange?.start)}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-lg text-body-sm font-medium border transition-colors',
-                  highlightedRange
-                    ? 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100'
-                    : 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)]',
-                )}
-              >
-                <Plus className="w-4 h-4" aria-hidden="true" />
-                {highlightedRange ? 'Split at Start' : 'Add Cut Point'}
-              </button>
-
-              {/* Split Time: same as Add Cut Point when range is active */}
-              <button
-                onClick={() => handleSplitAtTime(highlightedRange?.start)}
+                title={highlightedRange
+                  ? `Split at ${formatTime(highlightedRange.start)}`
+                  : `Split at current time (${formatTime(currentTime)})`}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2 rounded-lg text-body-sm font-medium border transition-colors',
                   highlightedRange
@@ -2642,7 +2884,9 @@ export default function WorkspacePage() {
                 )}
               >
                 <Clock className="w-4 h-4" aria-hidden="true" />
-                {highlightedRange ? 'Split at Selection' : 'Split Time'}
+                {highlightedRange
+                  ? `Split at ${formatTime(highlightedRange.start)}`
+                  : `Split at ${formatTime(currentTime)}`}
               </button>
             </div>
 
@@ -2687,6 +2931,7 @@ export default function WorkspacePage() {
                 totalDuration={duration}
                 userVideoId={userVideoId as string}
                 onCut={handleCut}
+                onDownload={handleDownloadCut}
                 onEditSave={handleEditSave}
                 onMetaSave={handleMetaSave}
                 onSeek={seekPlayer}
@@ -2716,7 +2961,9 @@ export default function WorkspacePage() {
         >
           <CutClipsPanel
             cuts={cuts}
-            onDownloadAll={() => console.log('Download all')}
+            userVideoId={userVideoId as string}
+            onDownload={handleDownloadCut}
+            onDownloadAll={handleDownloadAll}
             onSeek={seekPlayer}
           />
         </div>
@@ -2728,7 +2975,7 @@ export default function WorkspacePage() {
         className="fixed bottom-20 right-4 z-40 md:hidden w-14 h-14 rounded-full bg-primary-600 text-white shadow-lg flex items-center justify-center hover:bg-primary-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200"
         aria-label="Quick actions"
       >
-        <Plus className="w-6 h-6" />
+        <MessageSquare className="w-6 h-6" />
       </button>
 
       {/* ── Quick Actions Drawer Overlay ── */}

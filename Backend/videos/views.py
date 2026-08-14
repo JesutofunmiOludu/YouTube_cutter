@@ -54,13 +54,14 @@ class UserVideoDetailView(generics.RetrieveUpdateDestroyAPIView):
             .prefetch_related('cuts', 'transcription__segments')
         )
 
-    # Update last_accessed_at on GET and heal stuck processes
+    # Update last_accessed_at only when touch=true and heal stuck processes
     def retrieve(self, request, *args, **kwargs):
         from django.utils import timezone
         from .processing_pipeline import trigger_processing_if_needed
         instance = self.get_object()
-        instance.last_accessed_at = timezone.now()
-        instance.save(update_fields=['last_accessed_at'])
+        if request.query_params.get('touch') in ('true', '1'):
+            instance.last_accessed_at = timezone.now()
+            instance.save(update_fields=['last_accessed_at'])
         
         # Self-heal if the background thread died (e.g. server restart)
         trigger_processing_if_needed(instance)
@@ -124,6 +125,62 @@ class VideoCutDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         return self.get_queryset().get(pk=self.kwargs['cut_pk'])
+
+    def update(self, request, *args, **kwargs):
+        """
+        On time-range edits, invalidate the existing processed clip.
+
+        If start_seconds or end_seconds change and the cut already has a
+        processed file (download_status == 'ready'), we:
+          1. Delete the old .mp4 from disk (frees storage immediately).
+          2. Reset download_status → 'pending' and download_url → None.
+
+        The user must click "Cut" again to re-process at the new range.
+        """
+        import os
+        from django.conf import settings as dj_settings
+
+        cut = self.get_object()
+        is_time_change = (
+            'start_seconds' in request.data or
+            'end_seconds'   in request.data
+        )
+        was_ready = cut.download_status == VideoCut.DownloadStatus.READY
+
+        if is_time_change and was_ready:
+            # ── Remove the stale clip file from disk ─────────────────────────
+            if cut.download_url:
+                relative  = cut.download_url.lstrip('/')           # media/cuts/<file>
+                media_rel = relative[len('media/'):]               # cuts/<file>
+                file_path = os.path.join(str(dj_settings.MEDIA_ROOT), media_rel)
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    pass   # already gone — that's fine
+
+            # ── Inject reset fields into the request before serializer runs ──
+            # We use a mutable copy so we don't mutate the original QueryDict.
+            data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+            data['download_status'] = 'pending'
+            data['download_url']    = None
+            request._full_data = data   # patch for DRF's partial update path
+
+        return super().update(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        """Persist download_status reset alongside time-range changes."""
+        cut  = self.get_object()
+        data = self.request.data
+        is_time_change = (
+            'start_seconds' in data or
+            'end_seconds'   in data
+        )
+        was_ready = cut.download_status == VideoCut.DownloadStatus.READY
+
+        if is_time_change and was_ready:
+            serializer.save(download_status='pending', download_url=None)
+        else:
+            serializer.save()
 
 
 # ── GET /api/videos/<id>/transcription/ ───────────────────
@@ -395,3 +452,245 @@ class VideoSearchView(APIView):
         ]
 
         return Response({'results': results})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Background worker for video cutting
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _run_cut_in_background(cut_id: str) -> None:
+    """
+    Background thread entry point.
+
+    Downloads the full YouTube video using yt-dlp, then extracts the
+    requested segment with ffmpeg (stream-copy / no re-encode).
+    Updates the VideoCut row on the main DB connection when done.
+    """
+    import os
+    import tempfile
+    import django
+    from django.conf import settings as dj_settings
+
+    # Django ORM is safe to use from threads as long as we use a fresh
+    # connection (Django handles this automatically per-thread).
+    try:
+        cut        = VideoCut.objects.select_related('user_video__video').get(pk=cut_id)
+        youtube_id = cut.user_video.video.youtube_id
+        start_s    = int(cut.start_seconds)
+        end_s      = int(cut.end_seconds)
+
+        # Sanitise a filename-safe title fragment
+        safe_title = ''.join(
+            c if c.isalnum() or c in ('-', '_') else '_'
+            for c in (cut.title or f'cut_{cut.cut_order}')
+        )[:40]
+        output_filename = f"{cut_id}_{safe_title}.mp4"
+        output_path     = str(dj_settings.CUTS_DIR / output_filename)
+
+        # If we already produced this file, skip downloading again
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            relative_url = f"{dj_settings.MEDIA_URL}cuts/{output_filename}"
+            cut.download_url    = relative_url
+            cut.download_status = VideoCut.DownloadStatus.READY
+            cut.save(update_fields=['download_url', 'download_status'])
+            return
+
+        from .utils import download_and_cut_youtube_video
+
+        # Single step — download only the clip's time range and write directly
+        # to the output file.  Much faster than downloading the whole video.
+        download_and_cut_youtube_video(
+            youtube_id  = youtube_id,
+            start_seconds = start_s,
+            end_seconds   = end_s,
+            output_path   = output_path,
+        )
+
+        # Step 4 — Persist the download URL on the cut record
+        relative_url = f"{dj_settings.MEDIA_URL}cuts/{output_filename}"
+        cut.download_url    = relative_url
+        cut.download_status = VideoCut.DownloadStatus.READY
+        cut.save(update_fields=['download_url', 'download_status'])
+
+    except Exception as exc:
+        import traceback
+        print(f"[video-cut] ERROR for cut {cut_id}: {exc}\n{traceback.format_exc()}")
+        try:
+            cut = VideoCut.objects.get(pk=cut_id)
+            cut.download_status = VideoCut.DownloadStatus.FAILED
+            cut.save(update_fields=['download_status'])
+        except Exception:
+            pass
+
+
+# ── POST /api/videos/<video_pk>/cuts/<cut_pk>/process/ ───────────────────────
+class VideoCutProcessView(APIView):
+    """
+    Start server-side video cutting for a specific cut segment.
+
+    Immediately returns HTTP 202 Accepted and launches the actual work
+    (yt-dlp download + ffmpeg copy-cut) in a background thread.
+
+    The frontend should poll GET .../status/ every 3 s until
+    download_status becomes 'ready' or 'failed'.
+
+    Returns:
+        202  { id, download_status: 'processing' }   — job started
+        409  { error }                               — already processing
+        404  { error }                               — cut / video not found
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, video_pk, cut_pk):
+        # ── Ownership check ──────────────────────────────────────────────────
+        try:
+            user_video = UserVideo.objects.select_related('video').get(
+                pk=video_pk, user=request.user
+            )
+        except UserVideo.DoesNotExist:
+            return Response(
+                {'error': {'code': 'not_found', 'message': 'Video not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            cut = VideoCut.objects.get(pk=cut_pk, user_video=user_video)
+        except VideoCut.DoesNotExist:
+            return Response(
+                {'error': {'code': 'not_found', 'message': 'Cut not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # ── Idempotency guard — don't double-launch ──────────────────────────
+        if cut.download_status == VideoCut.DownloadStatus.PROCESSING:
+            serializer = VideoCutSerializer(cut)
+            return Response(serializer.data, status=status.HTTP_409_CONFLICT)
+
+        # ── Mark as processing immediately so the UI reacts ──────────────────
+        cut.download_status = VideoCut.DownloadStatus.PROCESSING
+        cut.save(update_fields=['download_status'])
+
+        # ── Spawn background thread ──────────────────────────────────────────
+        import threading
+        thread = threading.Thread(
+            target=_run_cut_in_background,
+            args=(str(cut.id),),
+            daemon=True,
+            name=f"cut-{cut.id}",
+        )
+        thread.start()
+
+        serializer = VideoCutSerializer(cut)
+        return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+
+
+# ── GET /api/videos/<video_pk>/cuts/<cut_pk>/status/ ─────────────────────────
+class VideoCutStatusView(APIView):
+    """
+    Return the current download_status and download_url for a cut.
+
+    Used by the frontend to poll for completion after calling /process/.
+
+    Returns:
+        200 { id, download_status, download_url }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, video_pk, cut_pk):
+        try:
+            user_video = UserVideo.objects.get(pk=video_pk, user=request.user)
+        except UserVideo.DoesNotExist:
+            return Response(
+                {'error': {'code': 'not_found', 'message': 'Video not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            cut = VideoCut.objects.get(pk=cut_pk, user_video=user_video)
+        except VideoCut.DoesNotExist:
+            return Response(
+                {'error': {'code': 'not_found', 'message': 'Cut not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response({
+            'id':              str(cut.id),
+            'download_status': cut.download_status,
+            'download_url':    cut.download_url,
+        }, status=status.HTTP_200_OK)
+
+
+# ── GET /api/videos/<video_pk>/cuts/<cut_pk>/file/ ────────────────────────────
+class VideoCutFileDownloadView(APIView):
+    """
+    Stream the cut .mp4 clip to the browser as a forced download.
+
+    The `download` attribute on HTML anchor tags is silently ignored by
+    browsers when the file URL is cross-origin (e.g. Next.js on :3000
+    linking to Django media on :8000).  This view re-serves the file
+    through the API origin, adding a  Content-Disposition: attachment
+    header so the browser always offers a Save-As dialog.
+
+    Returns:
+        200  — streams the .mp4 file
+        404  — cut or file not found / not yet ready
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, video_pk, cut_pk):
+        import os
+        import mimetypes
+        from django.http import FileResponse
+
+        # ── Ownership check ──────────────────────────────────────────────────
+        try:
+            user_video = UserVideo.objects.get(pk=video_pk, user=request.user)
+        except UserVideo.DoesNotExist:
+            return Response(
+                {'error': {'code': 'not_found', 'message': 'Video not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            cut = VideoCut.objects.get(pk=cut_pk, user_video=user_video)
+        except VideoCut.DoesNotExist:
+            return Response(
+                {'error': {'code': 'not_found', 'message': 'Cut not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # ── Check file is ready ───────────────────────────────────────────────
+        if cut.download_status != VideoCut.DownloadStatus.READY or not cut.download_url:
+            return Response(
+                {'error': {'code': 'not_ready', 'message': 'Clip is not ready yet.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # download_url is a relative URL like  /media/cuts/<filename>.mp4
+        # Resolve it to an absolute filesystem path
+        relative   = cut.download_url.lstrip('/')          # "media/cuts/<filename>.mp4"
+        media_rel  = relative[len('media/'):]              # "cuts/<filename>.mp4"
+        file_path  = os.path.join(settings.MEDIA_ROOT, media_rel)
+
+        if not os.path.exists(file_path):
+            return Response(
+                {'error': {'code': 'file_missing', 'message': 'Clip file not found on disk.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # ── Derive a friendly filename for the download ───────────────────────
+        safe_title = ''.join(
+            c if c.isalnum() or c in (' ', '-', '_') else '_'
+            for c in (cut.title or f'clip_{cut.cut_order}')
+        ).strip()[:60]
+        download_filename = f"{safe_title}.mp4"
+
+        # ── Stream the file with attachment disposition ───────────────────────
+        file_handle = open(file_path, 'rb')
+        response = FileResponse(
+            file_handle,
+            content_type='video/mp4',
+            as_attachment=True,
+            filename=download_filename,
+        )
+        return response
