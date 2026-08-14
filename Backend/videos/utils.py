@@ -122,47 +122,27 @@ def download_youtube_audio(youtube_id: str) -> str:
         return file_path
 
 
-def download_and_cut_youtube_video(
-    youtube_id: str,
-    start_seconds: int,
-    end_seconds: int,
-    output_path: str,
-) -> str:
+def download_youtube_video(youtube_id: str, output_dir: str) -> str:
     """
-    Download ONLY the requested clip section from YouTube and save it directly
-    to output_path as an .mp4 file.
+    Download the source YouTube video file to output_dir using yt-dlp's native downloader.
 
-    Uses yt-dlp's download_ranges option so only the bytes for the clip's
-    time window are transferred (instead of the entire video).  Combined with
-    force_keyframes_at_cuts this gives frame-accurate output via ffmpeg.
-
-    Cookie strategy (tried in order):
-      1. cookies.txt file at Backend/yt-cookies.txt  — most reliable
-      2. Browser cookies (edge → firefox → brave → chrome)
-      3. No cookies — last resort
+    Uses yt-dlp's internal HTTP downloader (NOT ffmpeg external downloader),
+    passing browser cookies and headers to avoid HTTP 403 Forbidden errors.
 
     Args:
-        youtube_id:    11-character YouTube video ID.
-        start_seconds: Clip start time in whole seconds.
-        end_seconds:   Clip end time in whole seconds.
-        output_path:   Full path where the .mp4 should be written.
+        youtube_id: The 11-character YouTube video ID.
+        output_dir: Directory where the downloaded file will be saved.
 
     Returns:
-        output_path on success.
+        Absolute path of the downloaded .mp4 file.
     """
     import os
-    import shutil
     import yt_dlp
     from django.conf import settings as dj_settings
 
     video_url = f"https://www.youtube.com/watch?v={youtube_id}"
-    # yt-dlp writes to a path derived from outtmpl — we want output_path exactly.
-    # Strip the extension so yt-dlp can append .mp4 itself, then rename.
-    out_dir      = os.path.dirname(output_path)
-    out_stem     = os.path.splitext(os.path.basename(output_path))[0]
-    outtmpl      = os.path.join(out_dir, f"{out_stem}.%(ext)s")
+    output_template = os.path.join(output_dir, f"yt_video_{youtube_id}.%(ext)s")
 
-    # ── Error keywords that mean "try the next auth method" ──────────────────
     _RETRYABLE = (
         'sign in', 'bot', 'cookie', 'permission denied',
         'could not copy', 'failed to load cookies',
@@ -172,38 +152,20 @@ def download_and_cut_youtube_video(
         return any(kw in str(exc).lower() for kw in _RETRYABLE)
 
     def _base_opts() -> dict:
-        from yt_dlp.utils import download_range_func
         return {
-            # ── Format selection ──────────────────────────────────────────────
-            # IMPORTANT: must use a pre-merged (single-stream) format.
-            #
-            # If we pick bestvideo+bestaudio (separate DASH streams), yt-dlp
-            # is forced to use ffmpeg as an *external downloader* to handle the
-            # range request + merge in one pass.  That ffmpeg process opens the
-            # YouTube URL directly without cookies → HTTP 403 Forbidden.
-            #
-            # Pre-merged streams are downloaded entirely by yt-dlp using its
-            # own authenticated HTTP session, so the cookies work correctly.
-            #
-            # Quality ladder (yt-dlp tries each in order, stops at first match):
-            #   1080p mp4 → 720p mp4 → best available mp4 → best any format
+            # Prefer 720p/360p pre-merged mp4 for fast download & light bandwidth.
+            # Falls back to best available mp4 / best format.
             'format': (
-                'best[ext=mp4][height<=1080]'
-                '/best[ext=mp4][height<=720]'
+                'best[ext=mp4][height<=720]'
+                '/best[ext=mp4][height<=1080]'
                 '/best[ext=mp4]'
+                '/bestvideo[ext=mp4]+bestaudio[ext=m4a]'
                 '/best'
             ),
-            'outtmpl': outtmpl,
+            'outtmpl': output_template,
             'merge_output_format': 'mp4',
-            # ── Download only the requested time window ───────────────────────
-            'download_ranges': download_range_func(None, [(start_seconds, end_seconds)]),
-            # force_keyframes_at_cuts intentionally OMITTED — it triggers the
-            # same ffmpeg-external-downloader path and gets 403.
-            # ── Resilience ───────────────────────────────────────────────────
             'retries': 10,
             'fragment_retries': 10,
-            'skip_unavailable_fragments': False,
-            # ── Logging ──────────────────────────────────────────────────────
             'quiet': False,
             'no_warnings': True,
         }
@@ -212,14 +174,13 @@ def download_and_cut_youtube_video(
         opts = {**_base_opts(), **extra_opts}
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([video_url])
-            # yt-dlp writes <stem>.mp4 (or merges to it)
-            candidate = os.path.join(out_dir, f"{out_stem}.mp4")
-            if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                if candidate != output_path:
-                    shutil.move(candidate, output_path)
-                return output_path
-            return None
+                info = ydl.extract_info(video_url, download=True)
+                file_path = ydl.prepare_filename(info)
+                if not os.path.exists(file_path):
+                    file_path = os.path.splitext(file_path)[0] + '.mp4'
+                if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                    return file_path
+                return None
         except (yt_dlp.utils.DownloadError, Exception) as exc:
             if _is_auth_error(exc):
                 return None   # try next auth method
@@ -252,12 +213,46 @@ def download_and_cut_youtube_video(
     )
 
 
-# Keep the old name as an alias so existing imports don't break
-def download_youtube_video(youtube_id: str, output_dir: str) -> str:
-    """Deprecated: use download_and_cut_youtube_video() instead."""
-    raise NotImplementedError(
-        "Use download_and_cut_youtube_video(youtube_id, start, end, output_path)"
-    )
+def download_and_cut_youtube_video(
+    youtube_id: str,
+    start_seconds: int,
+    end_seconds: int,
+    output_path: str,
+) -> str:
+    """
+    Download the YouTube video to a temporary directory using yt-dlp native downloader,
+    then extract the clip segment locally using ffmpeg stream-copy (-c copy).
+
+    This 2-step approach avoids passing live HTTP URLs to ffmpeg, preventing 403 errors.
+
+    Args:
+        youtube_id:    11-character YouTube video ID.
+        start_seconds: Clip start time in whole seconds.
+        end_seconds:   Clip end time in whole seconds.
+        output_path:   Full path where the .mp4 should be written.
+
+    Returns:
+        output_path on success.
+    """
+    import os
+    import shutil
+    import tempfile
+
+    temp_dir = tempfile.mkdtemp(prefix='ytcutter_')
+    try:
+        # Step 1: Download full video locally using yt-dlp native downloader
+        source_path = download_youtube_video(youtube_id, temp_dir)
+
+        # Step 2: Cut segment from local file using local ffmpeg stream-copy
+        cut_video_segment(source_path, start_seconds, end_seconds, output_path)
+        return output_path
+    finally:
+        # Step 3: Clean up temp directory and source file
+        try:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        except OSError:
+            pass
+
 
 
 
