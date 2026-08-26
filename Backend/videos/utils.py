@@ -164,6 +164,13 @@ def download_youtube_video(youtube_id: str, output_dir: str) -> str:
             ),
             'outtmpl': output_template,
             'merge_output_format': 'mp4',
+            # Force player clients that stream video data without requiring a GVS PO token.
+            # Prevents HTTP 403 Forbidden on default android_vr / mweb clients.
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web', 'ios'],
+                },
+            },
             'retries': 10,
             'fragment_retries': 10,
             'quiet': False,
