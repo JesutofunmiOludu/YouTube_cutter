@@ -28,11 +28,17 @@ process.chdir(realCwd);
 console.log(`[dev.mjs] CWD normalised → ${realCwd}`);
 
 // Spawn the actual Next.js dev server.
-// We call `npm run dev:next` so that cross-env and NODE_OPTIONS
-// still apply exactly as configured in package.json.
+// We call `npm run dev:next` with explicit normalized cwd so that Webpack and
+// child node processes inherit the identical disk casing on Windows.
 const result = spawnSync('npm', ['run', 'dev:next'], {
   stdio: 'inherit',
   shell: true,
+  cwd: realCwd,
+  env: {
+    ...process.env,
+    INIT_CWD: realCwd,
+    PWD: realCwd,
+  },
 });
 
 process.exit(result.status ?? 0);

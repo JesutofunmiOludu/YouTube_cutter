@@ -62,13 +62,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 # ── Custom JWT claims ──────────────────────────────────────
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Adds user email and full_name to the token payload."""
+    """Adds user email, full_name, and is_verified status to the token payload."""
 
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        token['email']     = user.email
-        token['full_name'] = user.full_name
+        token['email']       = user.email
+        token['full_name']   = user.full_name
+        token['is_verified'] = user.is_verified
         return token
 
     def validate(self, attrs):
@@ -76,3 +77,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Include basic profile alongside the tokens
         data['user'] = UserProfileSerializer(self.user).data
         return data
+
+
+# ── Email verification serializer ───────────────────────────
+class VerifyEmailSerializer(serializers.Serializer):
+    uid   = serializers.CharField(required=True, error_messages={'required': 'UID is required.'})
+    token = serializers.CharField(required=True, error_messages={'required': 'Verification token is required.'})

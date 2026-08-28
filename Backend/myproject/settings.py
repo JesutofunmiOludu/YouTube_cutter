@@ -3,7 +3,9 @@ Django settings for YouTube Cutter backend.
 """
 
 from pathlib import Path
+from datetime import timedelta
 from decouple import config, Csv
+from django.core.exceptions import ImproperlyConfigured
 
 # ── Paths ──────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -13,6 +15,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me-in-production')
 DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv()) + ['testserver']
+
+# Guard against deploying with insecure default SECRET_KEY in production
+if not DEBUG and SECRET_KEY.startswith('django-insecure-'):
+    raise ImproperlyConfigured('Insecure SECRET_KEY must be replaced before deploying to production.')
 
 
 # ── Installed apps ─────────────────────────────────────────
@@ -121,9 +127,14 @@ CUTS_DIR   = MEDIA_ROOT / 'cuts'
 import os as _os
 _os.makedirs(CUTS_DIR, exist_ok=True)
 
-# ── Security headers (safe for dev; enforce via env in prod) ─
+# ── Security headers & Cookie protection ───────────────────
 SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
+X_FRAME_OPTIONS             = 'DENY'
+SESSION_COOKIE_HTTPONLY     = True
+CSRF_COOKIE_HTTPONLY        = True
+SESSION_COOKIE_SAMESITE     = 'Lax'
+CSRF_COOKIE_SAMESITE        = 'Lax'
+
 # Enable only in production (HTTPS required):
 # SECURE_SSL_REDIRECT = not DEBUG
 # SESSION_COOKIE_SECURE = not DEBUG
@@ -161,12 +172,13 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.ScopedRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon':     '60/hour',    # unauthenticated requests
-        'user':     '1000/hour',  # authenticated baseline
-        'search':   '500/hour',   # YouTube API search — raised from 200
-        'chat':     '100/hour',   # per-user chat messages
-        'research': '20/hour',    # expensive Gemini research report creation
-        'cuts':     '50/hour',    # AI cut suggestion requests
+        'anon':         '60/hour',    # unauthenticated requests
+        'user':         '1000/hour',  # authenticated baseline
+        'search':       '500/hour',   # YouTube API search
+        'chat':         '100/hour',   # per-user chat messages
+        'research':     '20/hour',    # expensive Gemini research report creation
+        'cuts':         '50/hour',    # AI cut suggestion requests
+        'email_verify': '5/hour',     # verification email resend limit
     },
 
     # ── Exception handler ──────────────────────────────────
@@ -174,8 +186,6 @@ REST_FRAMEWORK = {
 }
 
 # ── Simple JWT ─────────────────────────────────────────────
-from datetime import timedelta
-
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME':  timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -189,6 +199,20 @@ SIMPLE_JWT = {
 # ── Django Debug Toolbar ───────────────────────────────────
 INTERNAL_IPS = ['127.0.0.1']
 
+# ── Email configuration ────────────────────────────────────
+EMAIL_BACKEND       = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST          = config('EMAIL_HOST', default='localhost')
+EMAIL_PORT          = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_HOST_USER     = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_USE_TLS       = config('EMAIL_USE_TLS', default=True, cast=bool)
+DEFAULT_FROM_EMAIL  = config('DEFAULT_FROM_EMAIL', default='VidMind AI <noreply@vidmind.ai>')
+FRONTEND_URL        = config('FRONTEND_URL', default='http://localhost:3000')
+
+# Token timeout in seconds for password reset & email verification tokens (e.g. 24 hours)
+PASSWORD_RESET_TIMEOUT = 86400
+
 # ── External API keys ──────────────────────────────────────
-YOUTUBE_API_KEY = config('YOUTUBE_API_KEY', default='')
-GEMINI_API_KEY  = config('GEMINI_AI_API', default='')
+YOUTUBE_API_KEY        = config('YOUTUBE_API_KEY', default='')
+GEMINI_API_KEY         = config('GEMINI_AI_API', default='')
+GOOGLE_OAUTH_CLIENT_ID = config('GOOGLE_OAUTH_CLIENT_ID', default='')

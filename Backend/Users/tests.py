@@ -1,10 +1,16 @@
 """
-Users/tests.py — Auth endpoint tests
+Users/tests.py — Auth endpoint and verification tests
 """
 from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.core import mail
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
+
+from Users.serializers import CustomTokenObtainPairSerializer
 
 User = get_user_model()
 
@@ -12,7 +18,7 @@ User = get_user_model()
 class RegisterViewTest(APITestCase):
     url = '/api/auth/register/'
 
-    def test_register_returns_201_and_tokens(self):
+    def test_register_returns_201_and_tokens_and_sends_email(self):
         res = self.client.post(self.url, {
             'email':      'alice@example.com',
             'first_name': 'Alice',
@@ -24,6 +30,11 @@ class RegisterViewTest(APITestCase):
         self.assertIn('access',  res.data)
         self.assertIn('refresh', res.data)
         self.assertTrue(User.objects.filter(email='alice@example.com').exists())
+        user = User.objects.get(email='alice@example.com')
+        self.assertFalse(user.is_verified)
+        # Check email was dispatched
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('Verify your VidMind AI account', mail.outbox[0].subject)
 
     def test_register_duplicate_email_returns_400(self):
         User.objects.create_user(
@@ -82,3 +93,57 @@ class MeViewTest(APITestCase):
         self.client.credentials()
         res = self.client.get(self.url)
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class EmailVerificationTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='verify@example.com',
+            password='SecurePass123!',
+            first_name='Verify',
+            last_name='User',
+        )
+
+    def test_send_verification_email(self):
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+
+        res = self.client.post('/api/auth/send-verification/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(self.user.email, mail.outbox[0].to)
+
+    def test_verify_email_success(self):
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+
+        res = self.client.post('/api/auth/verify-email/', {
+            'uid': uid,
+            'token': token,
+        }, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn('access', res.data)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_verified)
+
+    def test_verify_email_invalid_token(self):
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        res = self.client.post('/api/auth/verify-email/', {
+            'uid': uid,
+            'token': 'invalid-token-123',
+        }, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_verified)
+
+    def test_jwt_contains_is_verified_claim(self):
+        token = CustomTokenObtainPairSerializer.get_token(self.user)
+        self.assertIn('is_verified', token)
+        self.assertFalse(token['is_verified'])
+
+        self.user.is_verified = True
+        self.user.save()
+        verified_token = CustomTokenObtainPairSerializer.get_token(self.user)
+        self.assertTrue(verified_token['is_verified'])

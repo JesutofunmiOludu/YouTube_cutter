@@ -11,6 +11,7 @@ dependencies = [
     "django-debug-toolbar>=6.2.0",
     "djangorestframework>=3.17.0",
     "djangorestframework-simplejwt>=5.5.1",
+    "google-auth>=2.56.2",
     "google-generativeai>=0.8.6",
     "python-decouple>=3.8",
     "requests>=2.34.2",

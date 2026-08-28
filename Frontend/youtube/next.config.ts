@@ -1,8 +1,11 @@
 import type { NextConfig } from "next";
 import path from "path";
+import fs from "fs";
 
-const rootDir = path.resolve(__dirname);
-const nm = path.join(rootDir, "node_modules");
+// Resolve canonical NTFS casing on Windows to prevent module duplication
+const rootDir = typeof fs.realpathSync?.native === 'function'
+  ? fs.realpathSync.native(path.resolve(__dirname))
+  : path.resolve(__dirname);
 
 const nextConfig: NextConfig = {
   reactStrictMode: false,
@@ -11,19 +14,6 @@ const nextConfig: NextConfig = {
 
   webpack: (config) => {
     config.context = rootDir;
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      react: path.join(nm, "react"),
-      "react-dom": path.join(nm, "react-dom"),
-      "next/router": path.join(nm, "next/router"),
-      "next/navigation": path.join(nm, "next/navigation"),
-      "next/dist/shared/lib/router-context.shared-runtime":
-        path.join(nm, "next/dist/shared/lib/router-context.shared-runtime.js"),
-      "next/dist/shared/lib/router-context":
-        path.join(nm, "next/dist/shared/lib/router-context.js"),
-      "next/dist/client/router":
-        path.join(nm, "next/dist/client/router.js"),
-    };
     return config;
   },
 };

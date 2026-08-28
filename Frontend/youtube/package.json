@@ -4,14 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev":        "node dev.mjs",
-    "dev:next":   "cross-env NODE_OPTIONS=--max-old-space-size=1536 next dev --webpack",
-    "dev:turbo":  "cross-env NODE_OPTIONS=--max-old-space-size=1536 TURBOPACK_MAX_MEMORY=1024 next dev",
+    "dev": "node dev.mjs",
+    "dev:next": "cross-env NODE_OPTIONS=--max-old-space-size=1536 next dev --webpack",
+    "dev:turbo": "cross-env NODE_OPTIONS=--max-old-space-size=1536 TURBOPACK_MAX_MEMORY=1024 next dev",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=2048 next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.13.5",
     "@tanstack/react-query": "^5.99.0",
     "axios": "^1.15.0",
     "clsx": "^2.1.1",
