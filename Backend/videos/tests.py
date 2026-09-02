@@ -1,15 +1,17 @@
 """
-videos/tests.py — Video API + Freemium enforcement tests
+videos/tests.py — Video API, Dual-Engine Transcription, Search Caching & Freemium tests
 """
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from billing.models import UsageSummary
-from videos.models import UserVideo
+from billing.services import FREE_LIMITS
+from videos.models import UserVideo, Video
 
 User = get_user_model()
 
@@ -25,53 +27,61 @@ class VideoListCreateTest(APITestCase):
     url = '/api/videos/'
 
     def setUp(self):
+        cache.clear()
         self.user = User.objects.create_user(
-            email='f@f.com', password='pass'
+            email='f@f.com', password='pass', credits_balance=10
         )
         auth_client(self.client, self.user)
 
-    @patch('videos.processing_pipeline.run_video_setup')          # mock the pipeline
+    @patch('videos.processing_pipeline.trigger_processing_if_needed')
     @patch('videos.utils.fetch_or_create_video')
-    def test_save_video_returns_201(self, mock_fetch, mock_pipeline):
-        from videos.models import Video
+    def test_save_video_standard_mode_returns_201(self, mock_fetch, mock_trigger):
         mock_fetch.return_value = Video.objects.create(
             youtube_id='test123',
             title='Test Video',
             duration_seconds=600,
         )
-        res = self.client.post(self.url, {'youtube_id': 'test123'}, format='json')
+        res = self.client.post(self.url, {
+            'youtube_id': 'test123',
+            'transcription_mode': 'standard'
+        }, format='json')
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.credits_balance, 10)  # Standard mode = 0 credits deducted
+        mock_trigger.assert_called_once()
 
-    @patch('videos.processing_pipeline.run_video_setup')
+    @patch('videos.processing_pipeline.trigger_processing_if_needed')
     @patch('videos.utils.fetch_or_create_video')
-    def test_pipeline_called_on_new_video(self, mock_fetch, mock_pipeline):
-        """Pipeline must be called exactly once when a new UserVideo is created."""
-        from videos.models import Video
+    def test_save_video_extended_mode_deducts_1_credit(self, mock_fetch, mock_trigger):
+        """Extended mode should deduct 1 credit from the user's balance."""
         mock_fetch.return_value = Video.objects.create(
-            youtube_id='new456',
-            title='New Video',
-            duration_seconds=300,
+            youtube_id='ext789',
+            title='Extended Video',
+            duration_seconds=600,
         )
-        self.client.post(self.url, {'youtube_id': 'new456'}, format='json')
-        mock_pipeline.assert_called_once()
+        res = self.client.post(self.url, {
+            'youtube_id': 'ext789',
+            'transcription_mode': 'extended'
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.credits_balance, 9)  # 1 credit deducted
+        mock_trigger.assert_called_once()
 
-    @patch('videos.processing_pipeline.run_video_setup')
+    @patch('videos.processing_pipeline.trigger_processing_if_needed')
     @patch('videos.utils.fetch_or_create_video')
-    def test_pipeline_not_called_for_existing_video(self, mock_fetch, mock_pipeline):
+    def test_pipeline_not_called_for_existing_video(self, mock_fetch, mock_trigger):
         """Pipeline must NOT fire again if the UserVideo already exists."""
-        from videos.models import Video, UserVideo
         video = Video.objects.create(
             youtube_id='dup789',
             title='Dup Video',
             duration_seconds=200,
         )
-        # Pre-create the UserVideo so this POST is a duplicate
         UserVideo.objects.create(user=self.user, video=video)
         mock_fetch.return_value = video
 
         self.client.post(self.url, {'youtube_id': 'dup789'}, format='json')
-        mock_pipeline.assert_not_called()
-
+        mock_trigger.assert_not_called()
 
     def test_list_videos_returns_200(self):
         res = self.client.get(self.url)
@@ -84,33 +94,39 @@ class VideoListCreateTest(APITestCase):
 
 
 class FreemiumSearchTest(APITestCase):
-    """Verify the search endpoint enforces the free-tier limit."""
+    """Verify the search endpoint caching and free-tier limits."""
     url = '/api/videos/search/?q=test'
 
     def setUp(self):
+        cache.clear()
         self.user = User.objects.create_user(
             email='g@g.com', password='pass'
         )
         auth_client(self.client, self.user)
 
     @patch('videos.views.requests.get')
-    def test_search_within_limit_returns_200(self, mock_get):
+    def test_search_caching(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.raise_for_status = lambda: None
         mock_get.return_value.json.return_value = {'items': []}
-        # First request should succeed (limit = 5/day)
-        res = self.client.get(self.url)
-        self.assertIn(res.status_code, [status.HTTP_200_OK, status.HTTP_403_FORBIDDEN])
+
+        # First request -> cached: False
+        res1 = self.client.get(self.url)
+        self.assertEqual(res1.status_code, status.HTTP_200_OK)
+        self.assertFalse(res1.data.get('cached'))
+
+        # Second request with same query -> cached: True (served from cache)
+        res2 = self.client.get(self.url)
+        self.assertEqual(res2.status_code, status.HTTP_200_OK)
+        self.assertTrue(res2.data.get('cached'))
 
     def test_search_over_free_limit_returns_403(self):
         from django.utils import timezone
-        from billing.models import UsageSummary
-        # Manually set usage at the limit
         summary, _ = UsageSummary.objects.get_or_create(
             user=self.user,
             summary_date=timezone.now().date(),
         )
-        summary.searches_count = 5  # FREE_LIMITS['search']
+        summary.searches_count = 10  # FREE_LIMITS['search']
         summary.save()
 
         res = self.client.get(self.url)
@@ -122,7 +138,7 @@ class FreemiumCutTest(APITestCase):
     """Verify cut creation enforces the free-tier limit."""
 
     def setUp(self):
-        from videos.models import Video
+        cache.clear()
         self.user = User.objects.create_user(
             email='h@h.com', password='pass'
         )
@@ -141,7 +157,7 @@ class FreemiumCutTest(APITestCase):
             user=self.user,
             summary_date=timezone.now().date(),
         )
-        summary.cuts_count = 3  # FREE_LIMITS['cut']
+        summary.cuts_count = 5  # FREE_LIMITS['cut']
         summary.save()
 
         res = self.client.post(self.url, {

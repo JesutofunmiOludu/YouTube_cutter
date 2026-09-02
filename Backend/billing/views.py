@@ -79,3 +79,21 @@ class MonthlyUsageView(APIView):
     def get(self, request):
         counts = UsageService.get_monthly_usage(request.user)
         return Response(counts)
+
+
+# ── GET /api/billing/credits/ ─────────────────────────────
+class CreditsBalanceView(APIView):
+    """
+    Return the authenticated user's current AI credits balance,
+    subscription plan, and monthly credit allowance.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        is_prem = UsageService.is_premium(user)
+        return Response({
+            'credits_balance': getattr(user, 'credits_balance', 0),
+            'subscription_tier': 'premium' if is_prem else 'free',
+            'monthly_allowance': 100 if is_prem else 10,
+        })

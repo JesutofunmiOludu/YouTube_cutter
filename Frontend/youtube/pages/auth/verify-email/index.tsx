@@ -65,7 +65,7 @@ const VerifyEmailPage: React.FC = () => {
         const { user, access, refresh } = res.data
         setAuth(user, access, refresh)
         setState('success')
-        toast.success('Email verified successfully! Welcome to VidMind AI 🎉')
+        toast.success('Email verified successfully! Welcome to ClipMide 🎉')
 
         // Retrieve pre-registration intent if stored
         let destination = '/dashboard'

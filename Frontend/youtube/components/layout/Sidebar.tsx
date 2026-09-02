@@ -1,15 +1,9 @@
-// ============================================================
-// VidMind AI — Sidebar
-// components/layout/Sidebar.tsx
-//
-// No 'use client' — Pages Router project.
-// No useRouter() at module/render level — see hooks/useClientPathname.ts
-// ============================================================
-
+import { useState } from 'react'
 import Link                      from 'next/link'
 import {
-  LayoutDashboard, PlaySquare, Search,
+  LayoutDashboard, Search,
   Globe, MessageSquare, LogOut, Crown, Zap, FolderOpen,
+  PanelLeft,
 } from 'lucide-react'
 import { cn }                    from '@/utils/cn'
 import { Avatar }                from '@/components/ui/Avatar'
@@ -18,20 +12,70 @@ import { useClientPathname }     from '@/hooks/useClientPathname'
 import { useSubscription }       from '@/hooks/useSubscription'
 import type { User }             from '@/types'
 
-// ── Logo ─────────────────────────────────────────────────
+// ── Logo / Collapse toggle ────────────────────────────────
 
-function LogoMark({ collapsed }: { collapsed: boolean }) {
+function LogoMark({
+  collapsed,
+  onToggle,
+}: {
+  collapsed: boolean
+  onToggle: () => void
+}) {
+  const [hovered, setHovered] = useState(false)
+
+  if (collapsed) {
+    // Collapsed: show real logo icon; on hover show panel-expand icon
+    return (
+      <Tooltip content="Expand sidebar" placement="right">
+        <button
+          type="button"
+          onClick={onToggle}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          aria-label="Expand sidebar"
+          className={cn(
+            'w-10 h-10 flex items-center justify-center rounded-lg mx-auto',
+            'text-primary-600 hover:bg-primary-50 transition-all duration-200',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200',
+          )}
+        >
+          {hovered ? (
+            <PanelLeft className="w-5 h-5" aria-hidden="true" />
+          ) : (
+            <img src="/logo.png" alt="ClipMide" width={28} height={28} style={{ width: 28, height: 28, objectFit: 'contain' }} />
+          )}
+        </button>
+      </Tooltip>
+    )
+  }
+
+  // Expanded: logo image + "ClipMide" text + panel-collapse icon on the right
   return (
-    <div className={cn('flex items-center gap-2.5 shrink-0 px-2 py-4', collapsed && 'justify-center')}>
-      {!collapsed ? (
-        <span className="text-body-md font-bold text-primary-600 whitespace-nowrap">
-          Video Dashboard
+    <div className="flex items-center justify-between w-full gap-2">
+      <Link
+        href="/dashboard"
+        className="flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200"
+        aria-label="Go to dashboard"
+      >
+        <img src="/logo.png" alt="ClipMide logo" width={28} height={28} style={{ width: 28, height: 28, objectFit: 'contain' }} />
+        <span className="text-body-md font-bold text-primary-600 whitespace-nowrap select-none">
+          ClipMide
         </span>
-      ) : (
-        <span className="text-body-md font-bold text-primary-600 whitespace-nowrap">
-          VD
-        </span>
-      )}
+      </Link>
+
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label="Collapse sidebar"
+        className={cn(
+          'w-8 h-8 flex items-center justify-center rounded-lg shrink-0',
+          'text-[var(--color-text-tertiary)] hover:text-primary-600 hover:bg-primary-50',
+          'transition-all duration-200',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200',
+        )}
+      >
+        <PanelLeft className="w-4 h-4" aria-hidden="true" />
+      </button>
     </div>
   )
 }
@@ -94,12 +138,13 @@ function NavItem({
 export interface SidebarProps {
   user?:      User | null
   collapsed?: boolean
+  onToggle?:  () => void
   onSignOut?: () => void
 }
 
 // ── Component ────────────────────────────────────────────
 
-export function Sidebar({ user, collapsed = false, onSignOut }: SidebarProps) {
+export function Sidebar({ user, collapsed = false, onToggle, onSignOut }: SidebarProps) {
   const fullName  = user ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() : 'Alex Rivers'
   const avatarUrl = user?.avatar_url || 'https://i.pravatar.cc/150?u=alex'
   const { isPremium } = useSubscription()
@@ -108,23 +153,17 @@ export function Sidebar({ user, collapsed = false, onSignOut }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col h-full bg-white border-r border-[var(--color-border-tertiary)] transition-[width] duration-base',
+        'hidden md:flex flex-col h-full bg-white border-r border-[var(--color-border-tertiary)] transition-[width] duration-300 ease-in-out overflow-hidden',
         collapsed ? 'w-[var(--sidebar-collapsed)]' : 'w-[var(--sidebar-width)]',
       )}
       aria-label="Main navigation"
     >
-      {/* Logo */}
+      {/* Logo + collapse toggle */}
       <div className={cn(
-        'flex items-center shrink-0 pt-2',
-        collapsed ? 'justify-center px-0' : 'px-4',
+        'flex items-center shrink-0 pt-2 pb-1',
+        collapsed ? 'justify-center px-0 py-3' : 'px-4',
       )}>
-        <Link
-          href="/dashboard"
-          className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200 w-full"
-          aria-label="Go to dashboard"
-        >
-          <LogoMark collapsed={collapsed} />
-        </Link>
+        <LogoMark collapsed={collapsed} onToggle={onToggle ?? (() => {})} />
       </div>
 
       {/* Nav */}

@@ -97,6 +97,16 @@ class UserVideo(models.Model):
         choices=ProcessingStage.choices,
         default=ProcessingStage.PENDING,
     )
+    class TranscriptionMode(models.TextChoices):
+        STANDARD = "standard", "Standard (YouTube Captions)"
+        EXTENDED = "extended", "Extended (Gemini AI Studio)"
+
+    transcription_mode = models.CharField(
+        max_length=20,
+        choices=TranscriptionMode.choices,
+        default=TranscriptionMode.STANDARD,
+        help_text="Engine used to transcribe this video",
+    )
     saved_at = models.DateTimeField(auto_now_add=True)
     last_accessed_at = models.DateTimeField(null=True, blank=True)
 

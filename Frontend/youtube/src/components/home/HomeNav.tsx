@@ -1,23 +1,16 @@
 // src/components/home/HomeNav.tsx — Server Component
-import Link from 'next/link'
-
-function LogoMark() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <rect x="1" y="1" width="30" height="22" rx="5" fill="#E6F1FB" stroke="#185FA5" strokeWidth="1.5"/>
-      <path d="M12 29h8M16 23v6" stroke="#185FA5" strokeWidth="1.5" strokeLinecap="round"/>
-      <path d="M11 9l9 4.5-9 4.5V9z" fill="#185FA5"/>
-    </svg>
-  )
-}
+import Link  from 'next/link'
 
 export function HomeNav() {
   return (
     <header className="sticky top-0 z-sticky bg-white backdrop-blur-sm border-b border-gray-300">
       <div className="max-w-content mx-auto px-6 h-14 flex items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2 text-heading-sm font-medium text-gray-900 hover:opacity-80 transition-opacity rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200">
-          <LogoMark />
-          VidMind AI
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 text-heading-sm font-bold text-primary-600 hover:opacity-80 transition-opacity rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200"
+        >
+          <img src="/logo.png" alt="ClipMide logo" width={28} height={28} style={{ width: 28, height: 28, objectFit: 'contain' }} />
+          ClipMide
         </Link>
         <nav className="hidden md:flex items-center gap-6">
           {['Features', 'Pricing'].map((item) => (

@@ -74,7 +74,7 @@ class UserVideoSerializer(serializers.ModelSerializer):
     class Meta:
         model  = UserVideo
         fields = (
-            'id', 'video', 'youtube_id',
+            'id', 'video', 'youtube_id', 'transcription_mode',
             'storage_type', 'file_url',
             'processing_status', 'processing_stage', 'saved_at', 'last_accessed_at',
         )
@@ -92,8 +92,18 @@ class UserVideoSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        youtube_id   = validated_data.pop('youtube_id')
-        user         = self.context['request'].user
+        youtube_id         = validated_data.pop('youtube_id')
+        transcription_mode = validated_data.get('transcription_mode', UserVideo.TranscriptionMode.STANDARD)
+        user               = self.context['request'].user
+
+        # If user requested Extended (Gemini Studio) transcription, deduct 1 credit
+        if transcription_mode == UserVideo.TranscriptionMode.EXTENDED:
+            from billing.services import UsageService
+            from django.core.exceptions import PermissionDenied
+            try:
+                UsageService.check_and_deduct_credits(user, 1, 'extended_transcription')
+            except PermissionDenied as exc:
+                raise serializers.ValidationError({'credits': str(exc)})
 
         # Get or create the shared Video record
         from .utils import fetch_or_create_video
@@ -109,7 +119,10 @@ class UserVideoSerializer(serializers.ModelSerializer):
         user_video, created = UserVideo.objects.get_or_create(
             user=user,
             video=video,
-            defaults={'storage_type': validated_data.get('storage_type', UserVideo.StorageType.REFERENCE)},
+            defaults={
+                'storage_type': validated_data.get('storage_type', UserVideo.StorageType.REFERENCE),
+                'transcription_mode': transcription_mode,
+            },
         )
 
         if created:

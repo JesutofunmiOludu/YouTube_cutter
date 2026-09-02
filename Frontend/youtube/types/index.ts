@@ -73,6 +73,7 @@ export interface User {
   language_code:   string
   is_active:       boolean
   is_verified:     boolean
+  credits_balance: number
   last_login_at:   Nullable<string>
   created_at:      string
   updated_at:      string

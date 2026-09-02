@@ -20,7 +20,7 @@ export const BillingSection: React.FC = () => {
       <Card padded className="bg-gray-800 border-gray-700 rounded-[12px]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-medium text-gray-200">VidMind Pro</h3>
+            <h3 className="text-lg font-medium text-gray-200">ClipMide Pro</h3>
             <p className="text-sm text-gray-400 mt-1">Your next billing date is April 1, 2026.</p>
           </div>
           <div className="flex items-center gap-3">

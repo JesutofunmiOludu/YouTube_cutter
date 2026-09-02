@@ -37,6 +37,8 @@ interface AuthState {
 
   setAuth:    (user: User, token: string, refreshToken?: string) => void
   updateUser: (partial: Partial<User>)    => void
+  deductCredits: (amount: number)         => void
+  setCredits: (balance: number)           => void
   clearAuth:  ()                           => void
   setLoading: (v: boolean)                => void
 }
@@ -64,6 +66,18 @@ export const useAuthStore = create<AuthState>()(
       updateUser: (partial) =>
         set((state) => ({
           user: state.user ? { ...state.user, ...partial } : null,
+        })),
+
+      deductCredits: (amount) =>
+        set((state) => ({
+          user: state.user
+            ? { ...state.user, credits_balance: Math.max(0, (state.user.credits_balance || 0) - amount) }
+            : null,
+        })),
+
+      setCredits: (balance) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, credits_balance: balance } : null,
         })),
 
       clearAuth: () => {

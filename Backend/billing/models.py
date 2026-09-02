@@ -22,9 +22,10 @@ class SubscriptionPlan(models.Model):
     billing_cycle = models.CharField(max_length=20, help_text="monthly, yearly")
 
     # Feature limits (-1 = unlimited)
-    max_searches_per_day = models.IntegerField(default=5)
-    max_cuts_per_month = models.IntegerField(default=3)
-    max_transcriptions_per_month = models.IntegerField(default=3)
+    max_searches_per_day = models.IntegerField(default=10)
+    max_cuts_per_month = models.IntegerField(default=5)
+    max_transcriptions_per_month = models.IntegerField(default=5)
+    monthly_credits_allowance = models.IntegerField(default=10, help_text="Monthly credits allocated to plan")
 
     # Feature flags
     can_deep_research = models.BooleanField(default=False)

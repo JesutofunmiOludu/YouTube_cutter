@@ -31,7 +31,7 @@ export const APIKeysSection: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold text-gray-50 tracking-tight">API Keys</h2>
-          <p className="text-sm text-gray-400 mt-1">Manage API keys for VidMind integrations.</p>
+          <p className="text-sm text-gray-400 mt-1">Manage API keys for ClipMide integrations.</p>
         </div>
         <Button className="bg-[#3B82F6] hover:bg-blue-600 text-white rounded-[8px] flex items-center justify-center gap-2">
           <KeyRound className="w-4 h-4" />

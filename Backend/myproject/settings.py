@@ -174,16 +174,35 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon':         '60/hour',    # unauthenticated requests
         'user':         '1000/hour',  # authenticated baseline
-        'search':       '500/hour',   # YouTube API search
-        'chat':         '100/hour',   # per-user chat messages
-        'research':     '20/hour',    # expensive Gemini research report creation
-        'cuts':         '50/hour',    # AI cut suggestion requests
+        'search':       '60/minute',  # YouTube API search burst protection
+        'chat':         '30/minute',  # per-user chat messages
+        'research':     '10/hour',    # expensive Gemini research report creation
+        'cuts':         '30/hour',    # AI cut suggestion requests
         'email_verify': '5/hour',     # verification email resend limit
     },
 
     # ── Exception handler ──────────────────────────────────
     'EXCEPTION_HANDLER': 'myproject.exceptions.custom_exception_handler',
 }
+
+# ── Cache Configuration ────────────────────────────────────
+REDIS_URL = config('REDIS_URL', default=config('CACHE_URL', default=''))
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+            'TIMEOUT': 300,
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-vidmind-cache',
+            'TIMEOUT': 300,
+        }
+    }
 
 # ── Simple JWT ─────────────────────────────────────────────
 SIMPLE_JWT = {

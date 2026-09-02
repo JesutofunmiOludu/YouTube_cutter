@@ -7,61 +7,11 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link                             from 'next/link'
-import { Search, Bell, ChevronDown, Settings, CreditCard, LogOut, User } from 'lucide-react'
+import { Bell, ChevronDown, Settings, CreditCard, LogOut, User } from 'lucide-react'
 import { cn }                           from '@/utils/cn'
 import { Avatar }                       from '@components/ui/Avatar'
 import { clientNavigate }               from '@/hooks/useClientPathname'
 import type { User as UserType }        from '@/types'
-
-function isYouTubeUrl(val: string) {
-  return /youtube\.com\/watch|youtu\.be\//i.test(val)
-}
-
-// ── Search bar ───────────────────────────────────────────
-
-function TopbarSearch() {
-  const [val, setVal] = useState('')
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = val.trim()
-    if (!trimmed) return
-    if (isYouTubeUrl(trimmed)) {
-      clientNavigate(`/workspace/new?url=${encodeURIComponent(trimmed)}`)
-    } else {
-      clientNavigate(`/search?q=${encodeURIComponent(trimmed)}`)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex-1 max-w-xl" role="search">
-      <div className={cn(
-        'flex items-center gap-2 h-9 px-3',
-        'bg-[var(--color-bg-secondary)] border border-[var(--color-border-secondary)] rounded-lg',
-        'focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-200',
-        'focus-within:bg-[var(--color-bg-primary)] transition-colors duration-fast',
-      )}>
-        <Search className="w-4 h-4 shrink-0 text-[var(--color-text-tertiary)]" aria-hidden="true" />
-        <input
-          type="search"
-          value={val}
-          onChange={(e) => setVal(e.target.value)}
-          placeholder="Search topic or paste YouTube link…"
-          className="flex-1 bg-transparent border-none outline-none text-body-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
-          aria-label="Search"
-        />
-        {val && (
-          <button
-            type="submit"
-            className="shrink-0 text-caption font-medium px-2 py-0.5 rounded bg-primary-600 text-white hover:bg-primary-800 transition-colors"
-          >
-            Go
-          </button>
-        )}
-      </div>
-    </form>
-  )
-}
 
 // ── User dropdown ────────────────────────────────────────
 
@@ -155,7 +105,6 @@ export interface TopbarProps {
 export function Topbar({ user, onSignOut }: TopbarProps) {
   return (
     <header className="flex items-center gap-3 h-[var(--topbar-height)] px-4 shrink-0 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-tertiary)] sticky top-0 z-sticky">
-      <TopbarSearch />
       <div className="flex items-center gap-1 shrink-0 ml-auto">
         <button
           aria-label="Notifications"

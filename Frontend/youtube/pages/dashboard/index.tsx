@@ -409,7 +409,7 @@ const OnboardingState: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-[40vh] px-4 text-center gap-5">
       <div>
         <h2 className="text-heading-xl text-[var(--color-text-primary)] mb-2">
-          Welcome to VidMind AI 🎉
+          Welcome to ClipMide 🎉
         </h2>
         <p className="text-body-md text-[var(--color-text-secondary)] max-w-md">
           Paste a YouTube link to create your first video project. AI splits it into

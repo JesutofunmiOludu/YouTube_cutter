@@ -34,8 +34,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar
         user={user}
         collapsed={collapsed}
+        onToggle={() => setCollapsed((v) => !v)}
         onSignOut={clearAuth}
       />
+
 
       {/* Main column */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">

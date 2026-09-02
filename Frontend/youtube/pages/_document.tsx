@@ -17,8 +17,8 @@ export default function Document() {
         />
 
         {/* ── SEO / Theme ──────────────────────────────── */}
-        <meta name="application-name" content="VidMind AI" />
-        <meta name="author" content="VidMind AI" />
+        <meta name="application-name" content="ClipMide" />
+        <meta name="author" content="ClipMide" />
         <meta
           name="description"
           content="Paste any YouTube link. AI splits it into chapters, transcribes it, and builds a cited research report — in seconds."
@@ -41,10 +41,10 @@ export default function Document() {
         {/* ── Open Graph ───────────────────────────────── */}
         <meta property="og:type" content="website" />
         <meta property="og:locale" content="en_US" />
-        <meta property="og:site_name" content="VidMind AI" />
+        <meta property="og:site_name" content="ClipMide" />
         <meta
           property="og:title"
-          content="VidMind AI — Smart Video Learning & Research"
+          content="ClipMide — Smart Video Learning & Research"
         />
         <meta
           property="og:description"
@@ -53,8 +53,8 @@ export default function Document() {
 
         {/* ── Twitter Card ─────────────────────────────── */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:creator" content="@vidmindai" />
-        <meta name="twitter:title" content="VidMind AI" />
+        <meta name="twitter:creator" content="@clipmide" />
+        <meta name="twitter:title" content="ClipMide" />
         <meta
           name="twitter:description"
           content="Stop watching. Start understanding."

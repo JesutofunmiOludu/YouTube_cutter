@@ -368,6 +368,16 @@ class VideoSearchView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # ── Check shared cache before hitting external YouTube API ────
+        import hashlib
+        from django.core.cache import cache
+
+        cache_key_raw = f"yt_search:{query.lower()}:{duration}:{yt_order}:{max_res}"
+        cache_key = f"yt_search:{hashlib.md5(cache_key_raw.encode()).hexdigest()}"
+        cached_results = cache.get(cache_key)
+        if cached_results is not None:
+            return Response({'results': cached_results, 'cached': True})
+
         api_key = settings.YOUTUBE_API_KEY
         if not api_key:
             return Response({'results': [], 'warning': 'YouTube API key not configured.'})
@@ -451,7 +461,9 @@ class VideoSearchView(APIView):
             if item.get('id', {}).get('videoId')
         ]
 
-        return Response({'results': results})
+        # Cache for 3 hours (10,800 seconds)
+        cache.set(cache_key, results, timeout=10800)
+        return Response({'results': results, 'cached': False})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

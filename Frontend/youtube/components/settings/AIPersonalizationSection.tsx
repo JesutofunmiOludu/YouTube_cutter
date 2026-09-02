@@ -23,7 +23,7 @@ export const AIPersonalizationSection: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-gray-50 tracking-tight">AI Personalization</h2>
-        <p className="text-sm text-gray-400 mt-1">Customize how the VidMind AI researches and responds.</p>
+        <p className="text-sm text-gray-400 mt-1">Customize how ClipMide researches and responds.</p>
       </div>
 
       <Card padded className="bg-gray-800 border-gray-700 rounded-[12px] space-y-6 max-w-2xl">

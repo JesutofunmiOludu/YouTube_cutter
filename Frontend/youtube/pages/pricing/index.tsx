@@ -28,7 +28,7 @@ interface Plan {
 const PLANS: Plan[] = [
   {
     id: 'free', name: 'Free', monthlyPrice: 0, yearlyPrice: 0,
-    description: 'Perfect for trying VidMind AI and light personal use.',
+    description: 'Perfect for trying ClipMide and light personal use.',
     cta: 'Current plan',
     highlighted: false,
     features: [
@@ -250,7 +250,7 @@ export default function PricingPage() {
         <div>
           <h1 className="text-heading-xl text-[var(--color-text-primary)] mb-2">You're on Premium</h1>
           <p className="text-body-md text-[var(--color-text-secondary)]">
-            You have full access to all VidMind AI features. Manage your subscription below.
+            You have full access to all ClipMide features. Manage your subscription below.
           </p>
         </div>
         <div className="w-full bg-[var(--color-bg-secondary)] rounded-xl p-5 text-left flex flex-col gap-3">
@@ -381,4 +381,4 @@ export default function PricingPage() {
 
 PricingPage.getLayout = function getLayout(page: React.ReactElement) {
   return <AppShell>{page}</AppShell>
-}
+}

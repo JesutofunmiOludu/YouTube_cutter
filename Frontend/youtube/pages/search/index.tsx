@@ -4,8 +4,8 @@
 import { useState, useCallback, useTransition, useEffect } from 'react'
 import { useRouter }                            from 'next/router'
 import {
-  Search, SlidersHorizontal, Clock,
-  Play, X, ArrowRight,
+  Clock,
+  Play, ArrowRight,
 } from 'lucide-react'
 import { cn }              from '@/utils/cn'
 import { Button }          from '@/components/ui/Button'
@@ -18,6 +18,7 @@ import { apiClient }       from '@/utils/apiClient'
 import { useToast }        from '@/components/ui/Toast'
 import { useSubscription } from '@/hooks/useSubscription'
 import Link                from 'next/link'
+import { UnifiedIngestionBar, CategoryFilter, TranscriptionEngine } from '@/components/workspace/UnifiedIngestionBar'
 import type { Video }      from '@/types'
 
 // ── Types ─────────────────────────────────────────────────
@@ -181,11 +182,11 @@ export default function SearchPage() {
   // Track how many searches the free user has done this session.
   // The backend enforces the hard 5/day limit; this is purely for the UX banner.
   const [searchesUsed, setSearchesUsed] = useState(0)
-  const FREE_SEARCH_LIMIT = 5
+  const FREE_SEARCH_LIMIT = 10
   const [results, setResults] = useState<Video[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const [errorState, setErrorState] = useState<'network' | 'limit' | 'generic' | null>(null)
+  const [errorState, setErrorState] = useState<'network' | 'limit' | 'auth' | 'not_found' | 'generic' | null>(null)
   const hasResults = results.length > 0
 
   useEffect(() => {
@@ -249,27 +250,37 @@ export default function SearchPage() {
         })
 
         setResults(filtered)
-        // Increment free-tier search counter on success
         if (!isPremium) setSearchesUsed((n) => Math.min(n + 1, FREE_SEARCH_LIMIT))
       } catch (err: any) {
+        const status = err?.response?.status
         const errorPayload = err?.response?.data?.error
         let msg = 'Search failed. Please try again.'
-        let type: 'network' | 'limit' | 'generic' = 'generic'
+        let type: 'network' | 'limit' | 'auth' | 'not_found' | 'generic' = 'generic'
 
-        if (err.message?.toLowerCase().includes('network') || err.code === 'ERR_NETWORK') {
+        if (status === 401) {
+          msg = 'Please sign in to search and process YouTube videos.'
+          type = 'auth'
+        } else if (status === 404) {
+          msg = err?.response?.data?.detail || errorPayload?.message || 'Search endpoint not found. Please verify your backend server.'
+          type = 'not_found'
+        } else if (err.message?.toLowerCase().includes('network') || err.code === 'ERR_NETWORK') {
           msg = 'Internet error: Please check your internet connection and try again.'
           type = 'network'
-        } else if (errorPayload?.code === 'plan_limit_reached') {
-          msg = errorPayload.message ?? 'Free-tier limit reached: 5 searches per day. Upgrade to Premium for unlimited access.'
+        } else if (errorPayload?.code === 'plan_limit_reached' || status === 403) {
+          msg = errorPayload?.message ?? 'Free-tier limit reached: 10 searches per day. Upgrade to Premium for unlimited access.'
           type = 'limit'
         } else if (errorPayload?.code === 'upstream_error') {
-          msg = 'Connection error: The YouTube API service is currently unreachable or disconnected. Please try again.'
+          msg = 'Connection error: The YouTube API service is currently unreachable. Please try again.'
         } else if (errorPayload?.message) {
           msg = errorPayload.message
+        } else if (err?.response?.data?.detail) {
+          msg = err.response.data.detail
         }
         setSearchError(msg)
         setErrorState(type)
-        toast.error(msg)
+        if (type !== 'auth') {
+          toast.error(msg)
+        }
         setResults([])
       } finally {
         setIsLoading(false)
@@ -279,136 +290,37 @@ export default function SearchPage() {
     performFetch()
   }, [query, filters.sort, filters.duration, filters.category])
 
-  const handleSearch = useCallback((e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = input.trim()
-    if (!trimmed) return
-    startTransition(() => {
-      setQuery(trimmed)
-      router.push(`/search?q=${encodeURIComponent(trimmed)}`)
+  const handleUnifiedSearch = (q: string, cat: CategoryFilter, dur: string, ord: string) => {
+    setQuery(q)
+    setFilters({
+      category: cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1),
+      duration: dur as DurationFilter,
+      sort: (ord === 'viewCount' || ord === 'views') ? 'views' : ord === 'date' ? 'date' : 'relevance',
     })
-  }, [input, router])
+    router.push(`/search?q=${encodeURIComponent(q)}`)
+  }
 
   const handleProcess = (video: Video) => {
     router.push(`/workspace/new?url=https://youtube.com/watch?v=${video.youtube_id}&title=${encodeURIComponent(video.title)}`)
   }
 
-  const durationOptions: { label: string; value: DurationFilter }[] = [
-    { label: 'Any length', value: 'any'    },
-    { label: '< 4 min',    value: 'short'  },
-    { label: '4–20 min',   value: 'medium' },
-    { label: '> 20 min',   value: 'long'   },
-  ]
-
-  const sortOptions: { label: string; value: SortFilter }[] = [
-    { label: 'Most relevant', value: 'relevance' },
-    { label: 'Latest',        value: 'date'       },
-    { label: 'Most viewed',   value: 'views'      },
-  ]
-
   return (
-    <div className="flex flex-col gap-5 max-w-content mx-auto">
+    <div className={cn(
+      'flex flex-col max-w-content mx-auto w-full',
+      !query ? 'min-h-[calc(100vh-var(--topbar-height))] justify-center items-center' : 'gap-6'
+    )}>
 
-      {/* ── Search bar ── */}
-      <form onSubmit={handleSearch} role="search" className="flex gap-2">
-        <div className={cn(
-          'flex items-center gap-2 flex-1 h-11 px-4',
-          'bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] rounded-xl',
-          'focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-200',
-          'transition-colors duration-fast',
-        )}>
-          <Search className="w-4 h-4 shrink-0 text-[var(--color-text-tertiary)]" aria-hidden="true" />
-          <input
-            type="search"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Search a topic or paste a YouTube link…"
-            className="flex-1 bg-transparent border-none outline-none text-body-md text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
-            aria-label="Search videos"
-            autoFocus={!initialQ}
-          />
-          {input && (
-            <button type="button" onClick={() => { setInput(''); setQuery('') }}
-              className="shrink-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors"
-              aria-label="Clear search">
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-        <Button type="submit" variant="primary" size="md" loading={isPending}>
-          Search
-        </Button>
-        <Button
-          type="button"
-          variant={showFilters ? 'primary' : 'secondary'}
-          size="md"
-          leftIcon={<SlidersHorizontal className="w-4 h-4" />}
-          onClick={() => setShowFilters((v) => !v)}
-          aria-expanded={showFilters}
-          aria-label="Toggle filters"
-        >
-          <span className="hidden sm:inline">Filters</span>
-        </Button>
-      </form>
+      {/* ── Unified Command Bar — centered when idle, top when searching ── */}
+      <div className={cn('w-full', !query && 'max-w-5xl px-4')}>
 
-      {/* ── Filter panel ── */}
-      {showFilters && (
-        <div className="bg-[var(--color-bg-primary)] border border-[var(--color-border-tertiary)] rounded-xl p-4 flex flex-col gap-4 animate-slide-up">
-          <div className="flex flex-col gap-2">
-            <p className="text-label text-[var(--color-text-tertiary)] uppercase tracking-wider">Duration</p>
-            <div className="flex flex-wrap gap-2">
-              {durationOptions.map((opt) => (
-                <FilterChip
-                  key={opt.value}
-                  label={opt.label}
-                  active={filters.duration === opt.value}
-                  onClick={() => setFilters((f) => ({ ...f, duration: opt.value }))}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="text-label text-[var(--color-text-tertiary)] uppercase tracking-wider">Sort by</p>
-            <div className="flex flex-wrap gap-2">
-              {sortOptions.map((opt) => (
-                <FilterChip
-                  key={opt.value}
-                  label={opt.label}
-                  active={filters.sort === opt.value}
-                  onClick={() => setFilters((f) => ({ ...f, sort: opt.value }))}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="text-label text-[var(--color-text-tertiary)] uppercase tracking-wider">Category</p>
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((cat) => (
-                <FilterChip
-                  key={cat}
-                  label={cat}
-                  active={filters.category === cat}
-                  onClick={() => setFilters((f) => ({ ...f, category: cat }))}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Category chips row ── */}
-      {!showFilters && (
-        <div className="flex gap-2 overflow-x-auto pb-1 scroll-x no-scrollbar">
-          {CATEGORIES.map((cat) => (
-            <FilterChip
-              key={cat}
-              label={cat}
-              active={filters.category === cat}
-              onClick={() => setFilters((f) => ({ ...f, category: cat }))}
-            />
-          ))}
-        </div>
-      )}
+        <UnifiedIngestionBar
+          initialQuery={query}
+          onSearch={handleUnifiedSearch}
+          onProcess={(ytId, engine) => {
+            router.push(`/workspace/new?url=https://youtube.com/watch?v=${ytId}&engine=${engine}`)
+          }}
+        />
+      </div>
 
       {/* ── Free-tier search usage banner ── */}
       {!isPremium && searchesUsed > 0 && (
@@ -486,7 +398,27 @@ export default function SearchPage() {
       {/* ── Error state ── */}
       {!isLoading && searchError && (
         <>
-          {errorState === 'limit' ? (
+          {errorState === 'auth' ? (
+            <EmptyState
+              icon={
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary-500">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              }
+              title="Sign in Required"
+              description={searchError}
+              action={{
+                label: 'Sign in to continue',
+                onClick: () => router.push(`/auth/login?from=${encodeURIComponent(router.asPath)}`)
+              }}
+              secondaryAction={{
+                label: 'Create an account',
+                onClick: () => router.push('/auth/register')
+              }}
+              minHeight="300px"
+            />
+          ) : errorState === 'limit' ? (
             <EmptyState
               icon={
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-warning-500">
@@ -502,6 +434,25 @@ export default function SearchPage() {
               }}
               secondaryAction={{
                 label: 'Back to Dashboard',
+                onClick: () => router.push('/dashboard')
+              }}
+              minHeight="300px"
+            />
+          ) : errorState === 'not_found' ? (
+            <EmptyState
+              icon={EmptyIcons.search}
+              title="Resource Not Found"
+              description={searchError}
+              action={{
+                label: 'Try searching again',
+                onClick: () => {
+                  const q = query
+                  setQuery('')
+                  setTimeout(() => setQuery(q), 50)
+                }
+              }}
+              secondaryAction={{
+                label: 'Go to Dashboard',
                 onClick: () => router.push('/dashboard')
               }}
               minHeight="300px"
@@ -561,29 +512,7 @@ export default function SearchPage() {
         />
       )}
 
-      {/* ── Initial empty (no query yet) ── */}
-      {!query && (
-        <div className="flex flex-col items-center justify-center min-h-[40vh] text-center gap-4">
-          <Search className="w-12 h-12 text-[var(--color-text-tertiary)]" aria-hidden="true" />
-          <div>
-            <h2 className="text-heading-md text-[var(--color-text-primary)] mb-1">Search for a topic</h2>
-            <p className="text-body-sm text-[var(--color-text-secondary)]">
-              Or paste a YouTube link to process it directly.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 justify-center">
-            {['React hooks', 'Django REST', 'TypeScript generics', 'System design', 'PostgreSQL'].map((s) => (
-              <button
-                key={s}
-                onClick={() => { setInput(s); setQuery(s); router.push(`/search?q=${encodeURIComponent(s)}`) }}
-                className="px-3 py-1.5 rounded-full text-caption font-medium bg-[var(--color-bg-secondary)] border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:border-primary-200 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+
     </div>
   )
 }

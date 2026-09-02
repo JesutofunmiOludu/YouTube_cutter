@@ -1,12 +1,11 @@
 'use client'
 
 // pages/workspace/new.tsx
-// Handles /workspace/new?url=<youtube-url>&title=<optional-title>
-// Shows a "processing" screen while setting up the workspace,
-// then redirects to /workspace/[uservideoId] once ready.
+// Unified workspace creation & video ingestion page.
+// Matches user's sketch layout with UnifiedIngestionBar and progress stages.
 
 import { useEffect, useState, useRef } from 'react'
-import { useRouter }           from 'next/router'
+import { useRouter } from 'next/router'
 import {
   Scissors,
   CheckCircle,
@@ -15,68 +14,16 @@ import {
   Play,
   FileText,
   Zap,
+  Sparkles,
   Link,
   ArrowRight,
+  ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { apiClient } from '@/utils/apiClient'
 import { useToast } from '@/components/ui/Toast'
-
-// ── Helpers ───────────────────────────────────────────────
-
-/**
- * Extracts the YouTube video ID from any common YouTube URL format:
- *  - youtube.com/watch?v=ID
- *  - youtu.be/ID
- *  - youtube.com/shorts/ID
- *  - youtube.com/embed/ID
- *  - youtube.com/live/ID
- *  - youtube.com/v/ID
- *  - m.youtube.com/watch?v=ID
- *  - youtube.com/attribution_link?...&v=ID
- */
-function extractYouTubeId(url: string): string | null {
-  const trimmed = url.trim()
-
-  // Bare 11-character video ID (no URL wrapper)
-  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed
-
-  try {
-    const u = new URL(trimmed)
-    const host = u.hostname.replace(/^(www\.|m\.)/, '')
-
-    if (host === 'youtu.be') {
-      // https://youtu.be/ID or https://youtu.be/ID?t=30
-      const id = u.pathname.slice(1).split('/')[0]
-      return id.length === 11 ? id : null
-    }
-
-    if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
-      // /watch?v=ID
-      const v = u.searchParams.get('v')
-      if (v && v.length === 11) return v
-
-      // /shorts/ID, /embed/ID, /live/ID, /v/ID
-      const pathParts = u.pathname.split('/').filter(Boolean)
-      if (['shorts', 'embed', 'live', 'v', 'e'].includes(pathParts[0]) && pathParts[1]) {
-        const id = pathParts[1].split('?')[0]
-        return id.length === 11 ? id : null
-      }
-
-      // /attribution_link?a=...&u=%2Fwatch%3Fv%3DID
-      if (pathParts[0] === 'attribution_link') {
-        const inner = u.searchParams.get('u') || ''
-        const match = inner.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
-        return match ? match[1] : null
-      }
-    }
-
-    return null
-  } catch {
-    // URL() constructor threw — not a valid URL
-    return null
-  }
-}
+import { useAuthStore } from '@/store/auth.store'
+import { UnifiedIngestionBar, extractYouTubeId, TranscriptionEngine } from '@/components/workspace/UnifiedIngestionBar'
 
 // ── Processing step type ──────────────────────────────────
 
@@ -99,9 +46,9 @@ const INITIAL_STEPS: ProcessingStep[] = [
 // ── Step icon ─────────────────────────────────────────────
 
 function StepIcon({ status }: { status: StepStatus }) {
-  if (status === 'done')    return <CheckCircle className="w-5 h-5 text-success-600"  aria-hidden="true" />
-  if (status === 'error')   return <AlertCircle  className="w-5 h-5 text-danger-600"   aria-hidden="true" />
-  if (status === 'running') return <Loader2      className="w-5 h-5 text-primary-600 animate-spin" aria-hidden="true" />
+  if (status === 'done')    return <CheckCircle className="w-5 h-5 text-emerald-500"  aria-hidden="true" />
+  if (status === 'error')   return <AlertCircle  className="w-5 h-5 text-rose-500"   aria-hidden="true" />
+  if (status === 'running') return <Loader2      className="w-5 h-5 text-primary-500 animate-spin" aria-hidden="true" />
   return (
     <div className="w-5 h-5 rounded-full border-2 border-[var(--color-border-secondary)] bg-[var(--color-bg-tertiary)]" aria-hidden="true" />
   )
@@ -109,156 +56,110 @@ function StepIcon({ status }: { status: StepStatus }) {
 
 // ── Error screen with retry input ────────────────────────
 
-function ErrorScreen({ error }: { error: string }) {
-  const router         = useRouter()
-  const [retryUrl, setRetryUrl] = useState('')
-  const [urlError, setUrlError] = useState('')
-  const inputRef       = useRef<HTMLInputElement>(null)
-
-  const isUrlError = error.toLowerCase().includes('invalid youtube url') ||
-                     error.toLowerCase().includes('incorrect')
-
-  const handleRetry = (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = retryUrl.trim()
-    if (!trimmed) { setUrlError('Please paste a YouTube link.'); return }
-    const ytId = extractYouTubeId(trimmed)
-    if (!ytId) {
-      setUrlError('That doesn\'t look like a valid YouTube link. Try youtube.com/watch?v=… or youtu.be/…')
-      return
-    }
-    setUrlError('')
-    router.push(`/workspace/new?url=${encodeURIComponent(trimmed)}`)
-  }
-
+function ErrorScreen({ error, onReset }: { error: string; onReset: () => void }) {
   return (
     <div className="min-h-screen bg-[var(--color-bg-tertiary)] flex items-center justify-center p-6">
-      <div className="max-w-md w-full flex flex-col items-center gap-6">
-
-        {/* Icon */}
-        <div className="w-16 h-16 rounded-2xl bg-danger-50 border border-danger-200 flex items-center justify-center">
-          <AlertCircle className="w-8 h-8 text-danger-600" aria-hidden="true" />
+      <div className="max-w-xl w-full flex flex-col items-center gap-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+          <AlertCircle className="w-8 h-8 text-rose-500" aria-hidden="true" />
         </div>
 
-        {/* Message */}
-        <div className="text-center">
+        <div>
           <h1 className="text-heading-xl text-[var(--color-text-primary)] mb-2">
-            {isUrlError ? 'Invalid YouTube link' : 'Could not load video'}
+            Could not load video
           </h1>
           <p className="text-body-sm text-[var(--color-text-secondary)]">{error}</p>
         </div>
 
-        {/* Retry input */}
-        <form onSubmit={handleRetry} className="w-full flex flex-col gap-3">
-          <label className="text-body-sm font-medium text-[var(--color-text-primary)]">
-            Paste a different YouTube link
-          </label>
-          <div className={cn(
-            'flex items-center gap-2 h-10 px-3 rounded-lg border',
-            'bg-[var(--color-bg-primary)] transition-colors duration-fast',
-            urlError
-              ? 'border-danger-400 ring-2 ring-danger-100'
-              : 'border-[var(--color-border-secondary)] focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-200',
-          )}>
-            <Link className="w-4 h-4 shrink-0 text-[var(--color-text-tertiary)]" aria-hidden="true" />
-            <input
-              ref={inputRef}
-              type="url"
-              value={retryUrl}
-              onChange={(e) => { setRetryUrl(e.target.value); setUrlError('') }}
-              placeholder="https://youtube.com/watch?v=…"
-              autoFocus
-              className="flex-1 bg-transparent border-none outline-none text-body-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
-              aria-label="YouTube URL to retry"
-            />
-          </div>
-          {urlError && (
-            <p className="text-caption text-danger-800 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3 shrink-0" aria-hidden="true" />
-              {urlError}
-            </p>
-          )}
-          <button
-            type="submit"
-            className="flex items-center justify-center gap-2 h-10 rounded-xl text-body-sm font-medium text-white bg-primary-600 hover:bg-primary-800 transition-colors"
-          >
-            Try this link <ArrowRight className="w-4 h-4" aria-hidden="true" />
-          </button>
-        </form>
-
-        {/* Divider */}
-        <div className="flex items-center gap-3 w-full">
-          <div className="flex-1 h-px bg-[var(--color-border-tertiary)]" />
-          <span className="text-caption text-[var(--color-text-tertiary)]">or</span>
-          <div className="flex-1 h-px bg-[var(--color-border-tertiary)]" />
+        <div className="w-full">
+          <UnifiedIngestionBar />
         </div>
 
         <button
-          onClick={() => router.push('/search')}
-          className="text-body-sm text-primary-600 hover:text-primary-800 transition-colors underline underline-offset-2"
+          onClick={onReset}
+          className="text-body-sm text-primary-600 hover:text-primary-700 transition-colors underline underline-offset-2"
         >
-          Search for a video instead
+          Reset and try again
         </button>
       </div>
     </div>
   )
 }
 
-// ── Page ─────────────────────────────────────────────────
+// ── Main Page ─────────────────────────────────────────────
 
 export default function WorkspaceNewPage() {
   const router = useRouter()
-  const { url, title: titleParam } = router.query as { url?: string; title?: string }
+  const { url, title: titleParam, engine: engineParam } = router.query as {
+    url?: string
+    title?: string
+    engine?: TranscriptionEngine
+  }
 
-  const [steps,   setSteps]   = useState<ProcessingStep[]>(INITIAL_STEPS)
-  const [error,   setError]   = useState<string | null>(null)
+  const { user, deductCredits } = useAuthStore()
+  const { toast } = useToast()
+
+  const [steps, setSteps] = useState<ProcessingStep[]>(INITIAL_STEPS)
+  const [error, setError] = useState<string | null>(null)
   const [videoId, setVideoId] = useState<string | null>(null)
   const [videoTitle, setVideoTitle] = useState<string>('')
+  const [selectedEngine, setSelectedEngine] = useState<TranscriptionEngine>(
+    engineParam === 'extended' ? 'extended' : 'standard'
+  )
 
-  // Derive YouTube ID from the URL query param
+  // Derive YouTube ID from URL
   useEffect(() => {
     if (!url) return
     const ytId = extractYouTubeId(url)
     if (ytId) {
       setVideoId(ytId)
       setVideoTitle(titleParam ? decodeURIComponent(titleParam) : 'YouTube Video')
+      if (engineParam) {
+        setSelectedEngine(engineParam)
+      }
     } else {
       setError('Invalid YouTube URL. Please paste a valid youtube.com or youtu.be link.')
     }
-  }, [url, titleParam])
+  }, [url, titleParam, engineParam])
 
-  // Real processing pipeline connecting to Django backend
-  const { toast } = useToast()
-
+  // Processing pipeline
   useEffect(() => {
     if (!videoId || error) return
 
     let cancelled = false
 
     const runSteps = async () => {
-      // Step 1: Fetching video metadata (POST /api/videos/)
       setSteps((prev) =>
         prev.map((s) => s.id === 'fetch' ? { ...s, status: 'running' } : s)
       )
 
       let userVideoId = ''
       try {
-        const res = await apiClient.post('/videos/', { youtube_id: videoId })
+        const res = await apiClient.post('/videos/', {
+          youtube_id: videoId,
+          transcription_mode: selectedEngine,
+        })
         const uv = res.data
         userVideoId = uv.id
+
+        // If extended mode succeeded, deduct credit in UI store
+        if (selectedEngine === 'extended') {
+          deductCredits(1)
+        }
+
         setSteps((prev) =>
           prev.map((s) => s.id === 'fetch' ? { ...s, status: 'done' } : s)
         )
       } catch (err: any) {
         if (!cancelled) {
           const data = err.response?.data
-          // DRF ValidationError shape: { youtube_id: ['msg'] } or { error: 'msg' }
           const msg =
             (Array.isArray(data?.youtube_id) ? data.youtube_id[0] : data?.youtube_id) ||
+            data?.credits ||
             data?.error?.message ||
             data?.error ||
             data?.detail ||
-            'Failed to fetch video metadata. Please check the link and try again.'
+            'Failed to setup video workspace. Please check the link and try again.'
           setError(msg)
           setSteps((prev) =>
             prev.map((s) => s.id === 'fetch' ? { ...s, status: 'error' } : s)
@@ -267,10 +168,10 @@ export default function WorkspaceNewPage() {
         return
       }
 
-      // Steps 2, 3, 4: Poll status & simulate progress for transcript and analysis
+      // Poll status
       let completed = false
       let attempts = 0
-      const maxAttempts = 30 // 60 seconds max
+      const maxAttempts = 40
 
       while (!completed && attempts < maxAttempts && !cancelled) {
         try {
@@ -286,7 +187,6 @@ export default function WorkspaceNewPage() {
             }
             return
           } else {
-            // Processing or pending, wait and check again
             setSteps((prev) =>
               prev.map((s) => s.id === 'transcribe' ? { ...s, status: 'running' } : s)
             )
@@ -303,21 +203,21 @@ export default function WorkspaceNewPage() {
 
       if (cancelled) return
 
-      // Smoothly transition remaining steps for high-end UI feel
+      // Smooth step animation
       const remaining = ['transcribe', 'analyse', 'cuts']
       for (const stepId of remaining) {
         if (cancelled) return
         setSteps((prev) =>
           prev.map((s) => s.id === stepId ? { ...s, status: 'running' } : s)
         )
-        await new Promise((res) => setTimeout(res, 600))
+        await new Promise((res) => setTimeout(res, 500))
         if (cancelled) return
         setSteps((prev) =>
           prev.map((s) => s.id === stepId ? { ...s, status: 'done' } : s)
         )
       }
 
-      await new Promise((res) => setTimeout(res, 500))
+      await new Promise((res) => setTimeout(res, 400))
       if (!cancelled) {
         toast.success('Workspace is ready!')
         router.push(`/workspace/${userVideoId}`)
@@ -327,45 +227,77 @@ export default function WorkspaceNewPage() {
     runSteps()
 
     return () => { cancelled = true }
-  }, [videoId, error, router])
+  }, [videoId, selectedEngine, error, router])
 
-  // ── No URL provided ──────────────────────────────────────
-
+  // ── No URL provided -> Render Unified Command Bar Entry Page ──
   if (!url && router.isReady) {
     return (
-      <div className="min-h-screen bg-[var(--color-bg-tertiary)] flex items-center justify-center p-6">
-        <div className="max-w-md w-full text-center flex flex-col items-center gap-5">
-          <div className="w-14 h-14 rounded-2xl bg-danger-50 border border-danger-200 flex items-center justify-center">
-            <AlertCircle className="w-7 h-7 text-danger-600" />
-          </div>
-          <div>
-            <h1 className="text-heading-xl text-[var(--color-text-primary)] mb-2">No video URL provided</h1>
-            <p className="text-body-sm text-[var(--color-text-secondary)]">
-              Please go back and select a video to process.
+      <div className="min-h-[85vh] flex flex-col items-center justify-center p-6">
+        <div className="max-w-4xl w-full flex flex-col items-center gap-8 text-center">
+          
+          {/* Header Badge & Title */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400 text-caption font-semibold border border-primary-500/20">
+              <Sparkles className="w-3.5 h-3.5" />
+              ClipMide Workspace Setup
+            </div>
+            <h1 className="text-display-sm sm:text-display-md font-bold text-[var(--color-text-primary)] tracking-tight">
+              Create New Project
+            </h1>
+            <p className="text-body-md text-[var(--color-text-secondary)] max-w-xl">
+              Paste any YouTube video or search topics to generate smart AI timestamps, chapter cuts, and studio transcripts.
             </p>
           </div>
-          <button
-            onClick={() => router.push('/search')}
-            className="px-5 py-2.5 rounded-xl text-body-sm font-medium text-white bg-primary-600 hover:bg-primary-800 transition-colors"
-          >
-            Search for a video
-          </button>
+
+          {/* Unified Command Bar (From User Sketch) */}
+          <UnifiedIngestionBar />
+
+          {/* Feature Highlights Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-3xl mt-4">
+            <div className="p-4 rounded-2xl bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] text-left flex flex-col gap-1.5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-1">
+                <Zap className="w-4 h-4" />
+              </div>
+              <h3 className="text-body-sm font-semibold text-[var(--color-text-primary)]">Standard Engine</h3>
+              <p className="text-caption text-[var(--color-text-secondary)]">
+                Instant YouTube captions at 0 credit cost. Perfect for quick reviews.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] text-left flex flex-col gap-1.5">
+              <div className="w-8 h-8 rounded-lg bg-primary-500/10 text-primary-500 flex items-center justify-center mb-1">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <h3 className="text-body-sm font-semibold text-[var(--color-text-primary)]">Extended AI Studio</h3>
+              <p className="text-caption text-[var(--color-text-secondary)]">
+                Gemini audio speech-to-text with punctuation, speaker tags & high precision.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] text-left flex flex-col gap-1.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-1">
+                <Scissors className="w-4 h-4" />
+              </div>
+              <h3 className="text-body-sm font-semibold text-[var(--color-text-primary)]">Lossless Stream Cuts</h3>
+              <p className="text-caption text-[var(--color-text-secondary)]">
+                Instant 1-click video clip downloads with zero quality degradation.
+              </p>
+            </div>
+          </div>
+
         </div>
       </div>
     )
   }
 
   // ── Error state ───────────────────────────────────────────
-
   if (error) {
-    return <ErrorScreen error={error} />
+    return <ErrorScreen error={error} onReset={() => { setError(null); router.push('/workspace/new') }} />
   }
 
-  // ── Processing UI ─────────────────────────────────────────
-
-  const allDone    = steps.every((s) => s.status === 'done')
-  const currentIdx = steps.findIndex((s) => s.status === 'running')
-  const progress   = (steps.filter((s) => s.status === 'done').length / steps.length) * 100
+  // ── Processing State UI ───────────────────────────────────
+  const allDone  = steps.every((s) => s.status === 'done')
+  const progress = (steps.filter((s) => s.status === 'done').length / steps.length) * 100
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-tertiary)] flex items-center justify-center p-6">
@@ -373,7 +305,7 @@ export default function WorkspaceNewPage() {
 
         {/* Header */}
         <div className="flex flex-col items-center text-center gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-primary-50 border border-primary-200 flex items-center justify-center">
+          <div className="w-14 h-14 rounded-2xl bg-primary-500/10 border border-primary-500/20 flex items-center justify-center">
             <Scissors className="w-7 h-7 text-primary-600" />
           </div>
           <div>
@@ -383,14 +315,16 @@ export default function WorkspaceNewPage() {
             <p className="text-body-sm text-[var(--color-text-secondary)]">
               {allDone
                 ? 'Redirecting you to the editor…'
-                : 'This usually takes less than a minute.'}
+                : selectedEngine === 'extended'
+                  ? 'Running Gemini AI Studio audio analysis (1 Credit deducted)…'
+                  : 'Fetching captions and building AI cut points…'}
             </p>
           </div>
         </div>
 
         {/* Video info card */}
         {videoId && (
-          <div className="bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] rounded-xl overflow-hidden flex gap-3 p-3">
+          <div className="bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] rounded-xl overflow-hidden flex gap-3 p-3 shadow-md">
             <div className="w-24 shrink-0 rounded-md overflow-hidden bg-[var(--color-bg-tertiary)] aspect-video flex items-center justify-center">
               <img
                 src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
@@ -400,9 +334,18 @@ export default function WorkspaceNewPage() {
               />
             </div>
             <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-              <div className="flex items-center gap-1.5">
-                <Play className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                <span className="text-caption text-[var(--color-text-tertiary)]">YouTube</span>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-500">
+                  <Play className="w-3 h-3 fill-current" /> YouTube
+                </span>
+                <span className={cn(
+                  'text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider',
+                  selectedEngine === 'extended'
+                    ? 'bg-primary-500/10 text-primary-600'
+                    : 'bg-emerald-500/10 text-emerald-600'
+                )}>
+                  {selectedEngine === 'extended' ? 'Extended AI' : 'Standard'}
+                </span>
               </div>
               <p className="text-body-sm font-medium text-[var(--color-text-primary)] line-clamp-2 leading-snug">
                 {videoTitle}
@@ -413,9 +356,9 @@ export default function WorkspaceNewPage() {
 
         {/* Progress bar */}
         <div className="flex flex-col gap-2">
-          <div className="h-1.5 rounded-full bg-[var(--color-bg-secondary)] overflow-hidden">
+          <div className="h-2 rounded-full bg-[var(--color-bg-secondary)] overflow-hidden">
             <div
-              className="h-full bg-primary-600 rounded-full transition-all duration-700 ease-out"
+              className="h-full bg-gradient-to-r from-primary-600 to-indigo-600 rounded-full transition-all duration-700 ease-out"
               style={{ width: `${progress}%` }}
               role="progressbar"
               aria-valuenow={Math.round(progress)}
@@ -423,19 +366,19 @@ export default function WorkspaceNewPage() {
               aria-valuemax={100}
             />
           </div>
-          <p className="text-caption text-[var(--color-text-tertiary)] text-right tabular-nums">
+          <p className="text-caption text-[var(--color-text-tertiary)] text-right tabular-nums font-mono">
             {Math.round(progress)}%
           </p>
         </div>
 
         {/* Steps list */}
-        <div className="bg-[var(--color-bg-primary)] border border-[var(--color-border-tertiary)] rounded-xl divide-y divide-[var(--color-border-tertiary)] overflow-hidden">
-          {steps.map((step, i) => (
+        <div className="bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] rounded-2xl divide-y divide-[var(--color-border-tertiary)] overflow-hidden shadow-sm">
+          {steps.map((step) => (
             <div
               key={step.id}
               className={cn(
-                'flex items-start gap-3 px-4 py-3.5 transition-colors duration-fast',
-                step.status === 'running' && 'bg-primary-50/40',
+                'flex items-start gap-3.5 px-4 py-3.5 transition-colors duration-fast',
+                step.status === 'running' && 'bg-primary-50/50 dark:bg-primary-950/20',
               )}
             >
               <div className="mt-0.5 shrink-0">
@@ -444,10 +387,10 @@ export default function WorkspaceNewPage() {
               <div className="flex-1 min-w-0">
                 <p className={cn(
                   'text-body-sm font-medium',
-                  step.status === 'done'    && 'text-success-800',
-                  step.status === 'running' && 'text-primary-800',
+                  step.status === 'done'    && 'text-emerald-600 dark:text-emerald-400 font-semibold',
+                  step.status === 'running' && 'text-primary-600 dark:text-primary-400 font-semibold',
                   step.status === 'pending' && 'text-[var(--color-text-tertiary)]',
-                  step.status === 'error'   && 'text-danger-800',
+                  step.status === 'error'   && 'text-rose-600 font-semibold',
                 )}>
                   {step.label}
                 </p>
@@ -458,25 +401,8 @@ export default function WorkspaceNewPage() {
                 )}
               </div>
               {step.status === 'done' && (
-                <span className="text-caption text-success-600 font-medium shrink-0 mt-0.5">Done</span>
+                <span className="text-caption text-emerald-600 font-semibold shrink-0 mt-0.5">Done</span>
               )}
-            </div>
-          ))}
-        </div>
-
-        {/* Feature hints */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { icon: <FileText className="w-4 h-4" />,  label: 'Full transcript'    },
-            { icon: <Scissors className="w-4 h-4" />,  label: 'AI cut suggestions' },
-            { icon: <Zap       className="w-4 h-4" />, label: 'Deep research'       },
-          ].map(({ icon, label }) => (
-            <div
-              key={label}
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-tertiary)] text-center"
-            >
-              <div className="text-primary-600">{icon}</div>
-              <p className="text-caption text-[var(--color-text-secondary)]">{label}</p>
             </div>
           ))}
         </div>

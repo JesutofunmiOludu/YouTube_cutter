@@ -54,10 +54,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'email', 'first_name', 'last_name', 'full_name',
             'avatar_url', 'country_code', 'language', 'language_code',
-            'subscription_tier', 'is_premium',
+            'subscription_tier', 'is_premium', 'credits_balance',
             'is_verified', 'created_at', 'updated_at',
         )
-        read_only_fields = ('id', 'email', 'subscription_tier', 'is_premium', 'is_verified', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'email', 'subscription_tier', 'is_premium', 'credits_balance', 'is_verified', 'created_at', 'updated_at')
 
 
 # ── Custom JWT claims ──────────────────────────────────────

@@ -25,6 +25,8 @@ const PROTECTED_PREFIXES = [
   '/research',
   '/pricing',
   '/settings',
+  '/search',
+  '/projects',
 ]
 
 // Auth entry routes (authenticated users should not visit these)
@@ -147,6 +149,10 @@ export const config = {
     '/research/:path*',
     '/pricing/:path*',
     '/settings/:path*',
+    '/search/:path*',
+    '/search',
+    '/projects/:path*',
+    '/projects',
     '/login',
     '/register',
     '/auth/login',

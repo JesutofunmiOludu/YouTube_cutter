@@ -91,47 +91,53 @@ def run_video_setup(user_video: 'UserVideo') -> None:
     _update(UV.ProcessingStatus.PROCESSING, UV.ProcessingStage.METADATA)
 
     try:
-        # ── 2. Fetch real transcript ─────────────────────────
-        _update(UV.ProcessingStatus.PROCESSING, UV.ProcessingStage.TRANSCRIPT)
-        transcript_ok, language_code = fetch_and_save_transcript(user_video)
+        # ── 2. Transcription & AI Cut Generation ─────────────
+        suggested_cuts = []
+        is_extended = getattr(user_video, 'transcription_mode', UV.TranscriptionMode.STANDARD) == UV.TranscriptionMode.EXTENDED
 
-        if transcript_ok:
-            logger.info(
-                'Transcript ready for UserVideo %s (lang=%s)',
-                user_video.id, language_code,
-            )
-            # ── 3. Generate AI cut suggestions from transcript ───
-            _update(UV.ProcessingStatus.PROCESSING, UV.ProcessingStage.TRANSCRIBING)
-            suggested_cuts = ai_service.suggest_cuts(user_video)
-        else:
-            # Fallback path: download audio and use Gemini multimodal transcription + cuts
-            logger.info('YouTube transcript unavailable. Falling back to Gemini Multimodal Audio...')
+        if not is_extended:
+            # Standard Mode: Fetch real YouTube transcript (free & instant)
+            _update(UV.ProcessingStatus.PROCESSING, UV.ProcessingStage.TRANSCRIPT)
+            transcript_ok, language_code = fetch_and_save_transcript(user_video)
+
+            if transcript_ok:
+                logger.info(
+                    'Standard transcript ready for UserVideo %s (lang=%s)',
+                    user_video.id, language_code,
+                )
+                _update(UV.ProcessingStatus.PROCESSING, UV.ProcessingStage.TRANSCRIBING)
+                suggested_cuts = ai_service.suggest_cuts(user_video)
+            else:
+                logger.info('YouTube transcript unavailable. Falling back to Gemini Multimodal Audio...')
+                is_extended = True  # Fallback to audio processing
+
+        if is_extended and not suggested_cuts:
+            # Extended / Studio Mode (or Fallback): Download audio + Gemini STT
             _update(UV.ProcessingStatus.PROCESSING, UV.ProcessingStage.DOWNLOADING)
             from .utils import download_youtube_audio
             import os
-            
+
             audio_path = None
-            suggested_cuts = []
             try:
                 audio_path = download_youtube_audio(user_video.video.youtube_id)
                 _update(UV.ProcessingStatus.PROCESSING, UV.ProcessingStage.TRANSCRIBING)
                 suggested_cuts, transcript_segs = ai_service.suggest_cuts_and_transcript_from_audio(
                     user_video, audio_path
                 )
-                
+
                 # Save the generated transcript to DB if we got segments back
                 if transcript_segs:
                     _update(UV.ProcessingStatus.PROCESSING, UV.ProcessingStage.SAVING)
                     from videos.models import Transcription, TranscriptSegment
                     from django.utils import timezone
-                    
+
                     transcription, _ = Transcription.objects.get_or_create(
                          user_video=user_video,
                          defaults={'status': Transcription.Status.PROCESSING},
                     )
                     # Clear stubs
                     TranscriptSegment.objects.filter(transcription=transcription).delete()
-                    
+
                     segs_to_create = []
                     full_text_parts = []
                     for seg in transcript_segs:
@@ -153,13 +159,11 @@ def run_video_setup(user_video: 'UserVideo') -> None:
                     logger.info('Saved Gemini-generated transcript for UserVideo %s', user_video.id)
                 else:
                     logger.warning('Gemini audio processing returned no transcript segments.')
-                    
+
             except Exception as audio_exc:
-                logger.error('Audio fallback processing failed: %s', audio_exc)
-                # Fallback to standard suggest_cuts which handles stubs automatically
+                logger.error('Audio processing failed: %s', audio_exc)
                 suggested_cuts = ai_service.suggest_cuts(user_video)
             finally:
-                # Cleanup temp audio file
                 if audio_path and os.path.exists(audio_path):
                     try:
                         os.remove(audio_path)

@@ -1,27 +1,31 @@
 """
 billing/services.py
 ===================
-Central freemium enforcement service.
+Central freemium and credit enforcement service.
 
 Usage
 -----
 from billing.services import UsageService
 
-# Check + increment (raises PermissionDenied if limit exceeded):
+# Check + increment quota:
 UsageService.check_and_increment(request.user, 'search')
+
+# Check + deduct AI credits:
+remaining = UsageService.check_and_deduct_credits(request.user, 1, 'extended_transcription')
 
 # Read-only checks:
 if UsageService.is_premium(request.user): ...
-limits = UsageService.get_plan_limits(request.user)
+credits = UsageService.get_user_credits(request.user)
 """
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
 
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Sum, F
 from django.utils import timezone
 
 if TYPE_CHECKING:
@@ -32,15 +36,14 @@ logger = logging.getLogger(__name__)
 
 # ── Free-tier hard limits ──────────────────────────────────
 FREE_LIMITS: dict[str, int] = {
-    'search':        5,   # YouTube searches per day
-    'cut':           3,   # AI-cut videos per month
-    'transcription': 3,   # Transcriptions per month
+    'search':        10,  # YouTube searches per day (was 5)
+    'cut':           5,   # AI-cut videos per month (was 3)
+    'transcription': 5,   # Transcriptions per month (was 3)
     'research':      1,   # Deep research sessions per month
-    'chat_message':  50,  # Chat messages per day
+    'chat_message':  30,  # Chat messages per day (was 50)
 }
 
 # Actions whose limits reset MONTHLY (not daily).
-# search and chat_message reset daily.
 MONTHLY_ACTIONS: frozenset[str] = frozenset({'research', 'cut', 'transcription'})
 
 # Premium = -1 (unlimited)
@@ -53,13 +56,22 @@ class UsageService:
 
     @staticmethod
     def is_premium(user) -> bool:
-        """Return True if the user has an active premium subscription."""
+        """Return True if the user has an active premium subscription with cache."""
+        if not user or not user.is_authenticated:
+            return False
+        cache_key = f"user_is_premium:{user.pk}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         from billing.models import Subscription
-        return Subscription.objects.filter(
+        is_prem = Subscription.objects.filter(
             user=user,
             status=Subscription.Status.ACTIVE,
             plan__name__iexact='premium',
         ).exists()
+        cache.set(cache_key, is_prem, timeout=300) # 5 min cache
+        return is_prem
 
     @staticmethod
     def get_plan_limits(user) -> dict[str, int]:
@@ -67,6 +79,45 @@ class UsageService:
         if UsageService.is_premium(user):
             return PREMIUM_LIMITS
         return FREE_LIMITS
+
+    @staticmethod
+    def get_user_credits(user) -> int:
+        """Return current credit balance for user."""
+        if not user or not user.is_authenticated:
+            return 0
+        return getattr(user, 'credits_balance', 0)
+
+    @staticmethod
+    def check_and_deduct_credits(user, amount: int, action: str) -> int:
+        """
+        Atomically check and deduct credits from the user's balance.
+        Raises PermissionDenied if insufficient credits.
+        Returns remaining balance.
+        """
+        from django.contrib.auth import get_user_model
+        from billing.models import UsageLog
+        UserModel = get_user_model()
+
+        with transaction.atomic():
+            db_user = UserModel.objects.select_for_update().get(pk=user.pk)
+            if db_user.credits_balance < amount:
+                raise PermissionDenied(
+                    f"Insufficient credits: requires {amount} credit(s), but you currently have {db_user.credits_balance}. "
+                    "Please upgrade your plan or top up credits to proceed."
+                )
+            db_user.credits_balance = db_user.credits_balance - amount
+            db_user.save(update_fields=['credits_balance'])
+
+            # Record usage log
+            today = timezone.now().date()
+            UsageLog.objects.create(
+                user=db_user,
+                action_type=action,
+                log_date=today,
+                resource_id=f"credits:{amount}",
+            )
+
+            return db_user.credits_balance
 
     @staticmethod
     def get_today_usage(user) -> dict[str, int]:
@@ -90,13 +141,10 @@ class UsageService:
         """
         Return this calendar month's aggregated usage counts for
         monthly-limited actions, and today's counts for daily actions.
-        Used by the /api/billing/usage/monthly/ endpoint.
         """
         from billing.models import UsageSummary
         now = timezone.now()
-        today = now.date()
 
-        # Monthly aggregate (all tracked actions)
         monthly = UsageSummary.objects.filter(
             user=user,
             summary_date__year=now.year,
@@ -122,8 +170,6 @@ class UsageService:
         """
         Check if the user is within their limit for *action*.
         Raises PermissionDenied if the limit has already been reached.
-        Monthly actions (research, cut, transcription) are counted across
-        the full calendar month; daily actions use today's row only.
         """
         if UsageService.is_premium(user):
             return
@@ -136,7 +182,6 @@ class UsageService:
         now = timezone.now()
 
         if action in MONTHLY_ACTIONS:
-            # Sum the action's count across all rows in the current month
             field = _field_for_action(action)
             monthly_total = UsageSummary.objects.filter(
                 user=user,
@@ -150,7 +195,6 @@ class UsageService:
                     'Upgrade to Premium for unlimited access.'
                 )
         else:
-            # Daily limit — check only today's row
             today = now.date()
             summary = UsageSummary.objects.filter(user=user, summary_date=today).first()
             if summary:
@@ -158,30 +202,28 @@ class UsageService:
                 if current >= limit:
                     raise PermissionDenied(
                         f'Free-tier limit reached: {limit} {action.replace("_", " ")}(s) per day. '
-                        'Upgrade to Premium for unlimited access.'
+                        'Upgrade to Premium for unlimited searches.'
                     )
 
     @staticmethod
-    def increment_limit(user, action: str) -> None:
+    def increment(user, action: str) -> None:
         """
-        Atomically increments the usage counter for *action*.
-        Does not check limits (assumes check_limit was called first).
+        Increment the usage counter for *action* by 1 on today's UsageSummary.
+        Also creates a raw UsageLog record for audit purposes.
         """
-        if UsageService.is_premium(user):
-            UsageService._log_action(user, action)
-            return
+        from billing.models import UsageSummary, UsageLog
 
         today = timezone.now().date()
+        field_name = _field_for_action(action)
+
         with transaction.atomic():
-            from billing.models import UsageSummary, UsageLog
             summary, _ = UsageSummary.objects.select_for_update().get_or_create(
                 user=user,
                 summary_date=today,
             )
-            _increment_count(summary, action)
-            summary.save()
+            setattr(summary, field_name, getattr(summary, field_name) + 1)
+            summary.save(update_fields=[field_name])
 
-            # Raw audit log
             UsageLog.objects.create(
                 user=user,
                 action_type=action,
@@ -190,117 +232,26 @@ class UsageService:
 
     @staticmethod
     def check_and_increment(user, action: str) -> None:
-        """
-        Check the user's usage against their plan limit for *action*.
-        If within limit, atomically increments the counter.
-        Raises PermissionDenied (→ HTTP 403) if the limit is reached.
-
-        Monthly actions (research, cut, transcription): limit is evaluated
-        against the total for the current calendar month.
-        Daily actions (search, chat_message): limit is per-day.
-
-        action must be one of: 'search', 'cut', 'transcription',
-                                'research', 'chat_message'
-        """
-        if UsageService.is_premium(user):
-            # Premium users bypass all limits; still log for analytics
-            UsageService._log_action(user, action)
-            return
-
-        limit = FREE_LIMITS.get(action)
-        if limit is None:
-            logger.warning('Unknown usage action "%s" — skipping enforcement.', action)
-            return
-
-        now = timezone.now()
-        today = now.date()
-
-        with transaction.atomic():
-            from billing.models import UsageSummary, UsageLog
-
-            if action in MONTHLY_ACTIONS:
-                # ── Monthly limit: aggregate across the whole month ──────
-                # Still lock today's row (the one we will increment) to
-                # prevent concurrent over-increments on the same day.
-                summary, _ = UsageSummary.objects.select_for_update().get_or_create(
-                    user=user,
-                    summary_date=today,
-                )
-
-                # Count all rows for this month (excluding the locked row,
-                # which select_for_update already holds).
-                field = _field_for_action(action)
-                month_total = (
-                    UsageSummary.objects
-                    .filter(
-                        user=user,
-                        summary_date__year=now.year,
-                        summary_date__month=now.month,
-                    )
-                    .aggregate(total=Sum(field))['total'] or 0
-                )
-
-                if month_total >= limit:
-                    raise PermissionDenied(
-                        f'Free-tier limit reached: {limit} {action.replace("_", " ")}(s) per month. '
-                        'Upgrade to Premium for unlimited access.'
-                    )
-            else:
-                # ── Daily limit: lock and check today's row only ─────────
-                summary, _ = UsageSummary.objects.select_for_update().get_or_create(
-                    user=user,
-                    summary_date=today,
-                )
-
-                current = _get_count(summary, action)
-                if current >= limit:
-                    raise PermissionDenied(
-                        f'Free-tier limit reached: {limit} {action.replace("_", " ")}(s) per day. '
-                        'Upgrade to Premium for unlimited access.'
-                    )
-
-            # Increment today's row (applies for both monthly and daily)
-            _increment_count(summary, action)
-            summary.save()
-
-            # Raw audit log
-            UsageLog.objects.create(
-                user=user,
-                action_type=action,
-                log_date=today,
-            )
-
-    @staticmethod
-    def _log_action(user, action: str) -> None:
-        """Log a premium action for analytics (no enforcement)."""
-        from billing.models import UsageLog
-        UsageLog.objects.create(
-            user=user,
-            action_type=action,
-            log_date=timezone.now().date(),
-        )
+        """Atomic check + increment helper."""
+        UsageService.check_limit(user, action)
+        UsageService.increment(user, action)
 
 
 # ── Private helpers ────────────────────────────────────────
 
-_ACTION_FIELD_MAP: dict[str, str] = {
-    'search':        'searches_count',
-    'cut':           'cuts_count',
-    'transcription': 'transcriptions_count',
-    'research':      'research_count',
-    'chat_message':  'chat_messages_count',
-}
-
-
 def _field_for_action(action: str) -> str:
-    """Return the UsageSummary field name for a given action key."""
-    return _ACTION_FIELD_MAP[action]
+    mapping = {
+        'search':        'searches_count',
+        'cut':           'cuts_count',
+        'transcription': 'transcriptions_count',
+        'research':      'research_count',
+        'chat_message':  'chat_messages_count',
+    }
+    field = mapping.get(action)
+    if not field:
+        raise ValueError(f'Unknown action: {action!r}')
+    return field
 
 
 def _get_count(summary, action: str) -> int:
-    return getattr(summary, _ACTION_FIELD_MAP[action], 0)
-
-
-def _increment_count(summary, action: str) -> None:
-    field = _ACTION_FIELD_MAP[action]
-    setattr(summary, field, getattr(summary, field, 0) + 1)
+    return getattr(summary, _field_for_action(action), 0)
