@@ -106,6 +106,11 @@ const VerifyEmailPendingPage: React.FC = () => {
           <ul className="list-disc pl-4 space-y-0.5">
             <li>Check your spam or junk folder</li>
             <li>Wait a minute and click resend below</li>
+            {process.env.NODE_ENV === 'development' && (
+              <li className="text-primary-500 font-medium">
+                [Dev] Check your backend terminal for the verification link.
+              </li>
+            )}
           </ul>
         </div>
 

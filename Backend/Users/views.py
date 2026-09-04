@@ -28,30 +28,87 @@ GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
 def send_user_verification_email(user):
     """
     Generate a secure, time-limited HMAC verification token and send
-    a verification email to the user.
+    a verification email to the user with both HTML and plain-text fallbacks.
     """
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
     frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000').rstrip('/')
     verify_url = f"{frontend_url}/auth/verify-email?uid={uid}&token={token}"
 
-    subject = "Verify your VidMind AI account"
+    subject = "Verify your ClipMide account"
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'ClipMide <noreply@clipmide.com>')
+    first_name = user.first_name or 'there'
+
     message = (
-        f"Hi {user.first_name or 'there'},\n\n"
-        f"Welcome to VidMind AI! Please confirm your email address by clicking the link below:\n\n"
+        f"Hi {first_name},\n\n"
+        f"Welcome to ClipMide! Please confirm your email address by clicking the link below:\n\n"
         f"{verify_url}\n\n"
-        f"This link will expire soon. If you did not create an account, you can safely ignore this email.\n\n"
-        f"— The VidMind AI Team"
+        f"This link will expire in 24 hours. If you did not create an account, you can safely ignore this email.\n\n"
+        f"— The ClipMide Team"
     )
-    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'VidMind AI <noreply@vidmind.ai>')
+
+    html_message = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #09090b; margin: 0; padding: 0; color: #f4f4f5; }}
+        .wrapper {{ width: 100%; padding: 40px 16px; background-color: #09090b; }}
+        .container {{ max-width: 520px; margin: 0 auto; background: #18181b; border-radius: 12px; border: 1px solid #27272a; overflow: hidden; }}
+        .header {{ padding: 28px 32px; border-bottom: 1px solid #27272a; text-align: center; }}
+        .header h1 {{ margin: 0; font-size: 24px; font-weight: 700; color: #fafafa; letter-spacing: -0.5px; }}
+        .content {{ padding: 32px; }}
+        .content h2 {{ font-size: 18px; font-weight: 600; margin-top: 0; margin-bottom: 16px; color: #fafafa; }}
+        .content p {{ font-size: 14px; line-height: 1.6; color: #a1a1aa; margin: 0 0 16px; }}
+        .btn-wrapper {{ text-align: center; margin: 28px 0; }}
+        .btn {{ display: inline-block; background: #6366f1; color: #ffffff !important; font-weight: 600; font-size: 14px; padding: 12px 28px; border-radius: 8px; text-decoration: none; }}
+        .link-alt {{ font-size: 12px; color: #71717a; word-break: break-all; margin-top: 24px; padding: 12px; background: #09090b; border: 1px solid #27272a; border-radius: 6px; line-height: 1.5; }}
+        .footer {{ padding: 20px 32px; text-align: center; border-top: 1px solid #27272a; font-size: 12px; color: #71717a; background: #141417; }}
+      </style>
+    </head>
+    <body>
+      <div class="wrapper">
+        <div class="container">
+          <div class="header">
+            <h1>ClipMide</h1>
+          </div>
+          <div class="content">
+            <h2>Welcome, {first_name}!</h2>
+            <p>Thank you for joining ClipMide. Please confirm your email address to activate your account and start creating, clipping, and researching videos with AI.</p>
+            <div class="btn-wrapper">
+              <a href="{verify_url}" class="btn" target="_blank">Activate My Account</a>
+            </div>
+            <p style="font-size: 13px; color: #71717a;">This activation link will expire in 24 hours. If you did not sign up for ClipMide, please ignore this email.</p>
+            <div class="link-alt">
+              If the button doesn't work, copy and paste this link into your browser:<br>
+              <a href="{verify_url}" style="color: #818cf8;">{verify_url}</a>
+            </div>
+          </div>
+          <div class="footer">
+            &copy; 2026 ClipMide. All rights reserved.
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
 
     send_mail(
         subject=subject,
         message=message,
+        html_message=html_message,
         from_email=from_email,
         recipient_list=[user.email],
         fail_silently=False,
     )
+
+    if getattr(settings, 'DEBUG', False):
+        print("\n" + "=" * 65)
+        print(f"📧 [DEV EMAIL] ClipMide Account Activation for: {user.email}")
+        print(f"🔗 Verification URL:\n{verify_url}")
+        print("=" * 65 + "\n")
 
 
 # ── POST /api/auth/register/ ───────────────────────────────

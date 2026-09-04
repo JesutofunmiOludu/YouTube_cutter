@@ -34,7 +34,7 @@ class RegisterViewTest(APITestCase):
         self.assertFalse(user.is_verified)
         # Check email was dispatched
         self.assertEqual(len(mail.outbox), 1)
-        self.assertIn('Verify your VidMind AI account', mail.outbox[0].subject)
+        self.assertIn('Verify your ClipMide account', mail.outbox[0].subject)
 
     def test_register_duplicate_email_returns_400(self):
         User.objects.create_user(

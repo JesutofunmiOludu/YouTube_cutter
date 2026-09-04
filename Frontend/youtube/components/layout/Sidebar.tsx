@@ -98,40 +98,61 @@ function NavItem({
   icon:      React.FC<{ className?: string }>
   collapsed: boolean
 }) {
-  // useClientPathname reads window.location.pathname after mount.
-  // This avoids any dependency on RouterContext (next/router),
-  // which can be split into two copies by Webpack due to Windows
-  // path-casing differences between the shell CWD and the actual
-  // folder name on disk.
   const pathname = useClientPathname()
   const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href + '/'))
 
-  const linkEl = (
+  if (collapsed) {
+    return (
+      <div className="relative group flex justify-center">
+        <Link
+          href={href}
+          className={cn(
+            'w-10 h-10 flex items-center justify-center rounded-md',
+            'transition-all duration-fast outline-none',
+            isActive
+              ? 'bg-primary-50 text-primary-600'
+              : 'text-[var(--color-text-tertiary)] hover:bg-slate-50 hover:text-[var(--color-text-primary)]',
+          )}
+          aria-current={isActive ? 'page' : undefined}
+          aria-label={label}
+        >
+          <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-primary-600' : '')} aria-hidden="true" />
+        </Link>
+
+        {/* Hover label — appears to the right */}
+        <span
+          className={cn(
+            'pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 z-[9999]',
+            'px-2.5 py-1.5 rounded-md text-caption font-medium whitespace-nowrap',
+            'bg-[var(--color-neutral-900)] text-[var(--color-bg-primary)]',
+            'opacity-0 group-hover:opacity-100 transition-opacity duration-150',
+            'shadow-lg',
+          )}
+        >
+          {label}
+        </span>
+      </div>
+    )
+  }
+
+  return (
     <Link
       href={href}
       className={cn(
         'flex items-center gap-3 font-medium text-body-sm transition-all duration-fast outline-none',
-        collapsed ? 'w-10 h-10 justify-center mx-auto rounded-md' : 'px-4 py-2.5 w-full',
+        'px-4 py-2.5 w-full',
         isActive
           ? 'bg-primary-50 text-primary-600 border-l-[3px] border-primary-600'
           : 'text-[var(--color-text-secondary)] hover:bg-slate-50 hover:text-[var(--color-text-primary)] border-l-[3px] border-transparent',
       )}
       aria-current={isActive ? 'page' : undefined}
     >
-      <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-primary-600" : "text-[var(--color-text-tertiary)]")} aria-hidden="true" />
-      {!collapsed && <span className="truncate">{label}</span>}
+      <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-primary-600' : 'text-[var(--color-text-tertiary)]')} aria-hidden="true" />
+      <span className="truncate">{label}</span>
     </Link>
   )
-
-  if (collapsed) {
-    return (
-      <Tooltip content={label} placement="right">
-        {linkEl}
-      </Tooltip>
-    )
-  }
-  return linkEl
 }
+
 
 // ── Props ─────────────────────────────────────────────────
 
@@ -153,8 +174,8 @@ export function Sidebar({ user, collapsed = false, onToggle, onSignOut }: Sideba
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col h-full bg-white border-r border-[var(--color-border-tertiary)] transition-[width] duration-300 ease-in-out overflow-hidden',
-        collapsed ? 'w-[var(--sidebar-collapsed)]' : 'w-[var(--sidebar-width)]',
+        'hidden md:flex flex-col h-full bg-white border-r border-[var(--color-border-tertiary)] transition-[width] duration-300 ease-in-out',
+        collapsed ? 'w-[var(--sidebar-collapsed)] overflow-visible' : 'w-[var(--sidebar-width)] overflow-hidden',
       )}
       aria-label="Main navigation"
     >
@@ -167,7 +188,8 @@ export function Sidebar({ user, collapsed = false, onToggle, onSignOut }: Sideba
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-6 flex flex-col gap-1">
+      <nav className={cn('flex-1 py-6 flex flex-col gap-1', collapsed ? 'overflow-visible' : 'overflow-y-auto')}>
+
         {NAV_ITEMS.map((item) => (
           <NavItem key={item.label} {...item} collapsed={collapsed} />
         ))}

@@ -11,7 +11,7 @@ const HomePage: NextPageWithLayout = () => {
   return (
     <>
       <Head>
-        <title>VidMind AI — Stop watching. Start understanding.</title>
+        <title>ClipMide — Stop watching. Start understanding.</title>
         <meta
           name="description"
           content="ClipMide transforms hours of video into structured intelligence. Search through content, extract insights, and master topics in minutes."
