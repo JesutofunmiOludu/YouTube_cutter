@@ -104,7 +104,13 @@ export interface TopbarProps {
 
 export function Topbar({ user, onSignOut }: TopbarProps) {
   return (
-    <header className="flex items-center gap-3 h-[var(--topbar-height)] px-4 shrink-0 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-tertiary)] sticky top-0 z-sticky">
+    <header className="flex items-center justify-between gap-3 h-[var(--topbar-height)] px-4 shrink-0 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-tertiary)] sticky top-0 z-sticky">
+      {/* Mobile Brand Header */}
+      <Link href="/dashboard" className="md:hidden flex items-center gap-2 text-body-md font-semibold text-[var(--color-text-primary)] hover:opacity-80 transition-opacity">
+        <img src="/logo.png" alt="ClipMide Logo" className="w-6 h-6 object-contain" />
+        <span>ClipMide</span>
+      </Link>
+
       <div className="flex items-center gap-1 shrink-0 ml-auto">
         <button
           aria-label="Notifications"

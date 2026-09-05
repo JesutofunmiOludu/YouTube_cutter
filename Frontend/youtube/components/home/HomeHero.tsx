@@ -60,7 +60,7 @@ export function HomeHero() {
         className="text-gray-600 max-w-xl mb-14"
         style={{ fontSize: '16px', lineHeight: '1.7' }}
       >
-        VidMind AI transforms hours of video into structured intelligence. Search
+        ClipMide transforms hours of video into structured intelligence. Search
         through content, extract insights, and master topics in minutes.
       </p>
 

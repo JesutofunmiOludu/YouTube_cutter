@@ -1,16 +1,6 @@
 // src/components/home/HomeNav.tsx — Server Component
 import Link from 'next/link'
 
-function LogoMark() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <rect x="1" y="1" width="30" height="22" rx="5" fill="#E6F1FB" stroke="#378ADD" strokeWidth="1.5"/>
-      <path d="M12 29h8M16 23v6" stroke="#378ADD" strokeWidth="1.5" strokeLinecap="round"/>
-      <path d="M11 9l9 4.5-9 4.5V9z" fill="#378ADD"/>
-    </svg>
-  )
-}
-
 export function HomeNav() {
   return (
     <header className="sticky top-0 z-sticky bg-white/95 backdrop-blur-sm border-b border-gray-200">
@@ -18,10 +8,10 @@ export function HomeNav() {
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 text-heading-sm font-medium text-gray-900 hover:opacity-80 transition-opacity rounded-md focus-visible:outline-none"
+          className="flex items-center gap-2.5 text-heading-sm font-semibold text-gray-900 hover:opacity-80 transition-opacity rounded-md focus-visible:outline-none"
         >
-          <LogoMark />
-          VidMind AI
+          <img src="/logo.png" alt="ClipMide Logo" className="w-7 h-7 object-contain" />
+          <span>ClipMide</span>
         </Link>
 
         {/* Centered nav links */}

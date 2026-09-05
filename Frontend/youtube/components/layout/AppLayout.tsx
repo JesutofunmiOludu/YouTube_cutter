@@ -29,11 +29,11 @@ export function AuthLayout({ children, maxWidth = '420px' }: AuthLayoutProps) {
     <div className="min-h-dvh w-full flex flex-col items-center justify-center bg-[var(--color-bg-tertiary)] px-4 py-10">
       <Link
         href="/"
-        className="flex items-center gap-2 mb-8 text-heading-sm font-medium text-[var(--color-text-primary)] hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200 rounded-md"
-        aria-label="VidMind AI — go to home"
+        className="flex items-center gap-2.5 mb-8 text-heading-sm font-semibold text-[var(--color-text-primary)] hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-200 rounded-md"
+        aria-label="ClipMide — go to home"
       >
-        <LogoMark />
-        VidMind AI
+        <img src="/logo.png" alt="ClipMide Logo" className="w-8 h-8 object-contain" />
+        <span className="font-semibold text-lg">ClipMide</span>
       </Link>
 
       <div
@@ -44,7 +44,7 @@ export function AuthLayout({ children, maxWidth = '420px' }: AuthLayoutProps) {
       </div>
 
       <p className="mt-6 text-caption text-[var(--color-text-tertiary)] text-center">
-        © {new Date().getFullYear()} VidMind AI. All rights reserved.
+        © {new Date().getFullYear()} ClipMide. All rights reserved.
       </p>
     </div>
   )

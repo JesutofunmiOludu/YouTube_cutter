@@ -27,7 +27,7 @@ export function HomeCTA() {
             className="text-gray-400 max-w-md mx-auto mb-12"
             style={{ fontSize: '16px', lineHeight: '1.7' }}
           >
-            Join 20,000+ creators, researchers, and students using VidMind
+            Join 20,000+ creators, researchers, and students using ClipMide
             to master complex topics faster than ever.
           </p>
 

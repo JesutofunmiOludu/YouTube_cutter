@@ -1,4 +1,5 @@
 import { useEffect, ReactElement, ReactNode } from "react";
+import Head from "next/head";
 import "@/index.css";
 import type { AppProps } from "next/app";
 import type { NextPage } from "next";
@@ -31,6 +32,11 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 
   return (
     <QueryProvider>
+      <Head>
+        <title>ClipMide</title>
+        <meta name="application-name" content="ClipMide" />
+        <link rel="icon" href="/logo.png" />
+      </Head>
       <ToastProvider>
         {getLayout(<Component {...pageProps} />)}
       </ToastProvider>

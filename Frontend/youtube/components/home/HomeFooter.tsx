@@ -27,9 +27,9 @@ export function HomeFooter() {
 
           {/* Brand */}
           <div className="sm:col-span-1">
-            <div className="flex items-center gap-2 text-gray-900 font-medium mb-4" style={{ fontSize: '14px' }}>
-              <LogoMark />
-              VidMind AI
+            <div className="flex items-center gap-2 text-gray-900 font-semibold mb-4" style={{ fontSize: '15px' }}>
+              <img src="/logo.png" alt="ClipMide Logo" className="w-5 h-5 object-contain" />
+              <span>ClipMide</span>
             </div>
             <p className="text-gray-600" style={{ fontSize: '13px', lineHeight: '1.6' }}>
               Intelligence for the visual era. We help you extract wisdom from pixels.

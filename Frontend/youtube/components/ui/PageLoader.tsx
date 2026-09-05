@@ -29,17 +29,11 @@ export interface PageLoaderProps {
 // ------------------------------------------------------------
 
 const LogoMark: React.FC = () => (
-  <svg
-    width="32"
-    height="32"
-    viewBox="0 0 32 32"
-    fill="none"
-    aria-hidden="true"
-  >
-    <rect x="1" y="1" width="30" height="22" rx="5" fill="#E6F1FB" stroke="#185FA5" strokeWidth="1.5"/>
-    <path d="M12 29h8M16 23v6" stroke="#185FA5" strokeWidth="1.5" strokeLinecap="round"/>
-    <path d="M11 9l9 4.5-9 4.5V9z" fill="#185FA5"/>
-  </svg>
+  <img
+    src="/logo.png"
+    alt="ClipMide"
+    className="w-10 h-10 object-contain animate-pulse"
+  />
 )
 
 // ------------------------------------------------------------

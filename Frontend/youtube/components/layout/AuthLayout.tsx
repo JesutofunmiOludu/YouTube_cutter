@@ -51,17 +51,17 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
     <Link
       href="/"
       className={cn(
-        'flex items-center gap-2 mb-8',
-        'text-heading-sm text-[var(--color-text-primary)]',
+        'flex items-center gap-2.5 mb-8',
+        'text-heading-sm text-[var(--color-text-primary)] font-semibold',
         'hover:opacity-80 transition-opacity duration-fast',
         'focus-visible:outline-none focus-visible:ring-2',
         'focus-visible:ring-primary-200 focus-visible:ring-offset-2',
         'rounded-md',
       )}
-      aria-label="VidMind AI — go to home"
+      aria-label="ClipMide — go to home"
     >
-      <LogoMark />
-      <span className="font-medium">VidMind AI</span>
+      <img src="/logo.png" alt="ClipMide Logo" className="w-8 h-8 object-contain" />
+      <span className="font-semibold text-lg">ClipMide</span>
     </Link>
 
     {/* Card */}
@@ -74,7 +74,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
 
     {/* Footer */}
     <p className="mt-6 text-caption text-[var(--color-text-tertiary)] text-center">
-      © {new Date().getFullYear()} VidMind AI. All rights reserved.
+      © {new Date().getFullYear()} ClipMide. All rights reserved.
     </p>
   </div>
 )
