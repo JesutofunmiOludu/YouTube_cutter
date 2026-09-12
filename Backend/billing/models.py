@@ -98,6 +98,18 @@ class Subscription(models.Model):
     def __str__(self):
         return f"{self.user.email} — {self.plan.name} ({self.status})"
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        from .services import UsageService
+        UsageService.invalidate_premium_cache(self.user_id)
+
+    def delete(self, *args, **kwargs):
+        user_id = self.user_id
+        result = super().delete(*args, **kwargs)
+        from .services import UsageService
+        UsageService.invalidate_premium_cache(user_id)
+        return result
+
 
 # ──────────────────────────────────────────────
 # Payment (transaction records)

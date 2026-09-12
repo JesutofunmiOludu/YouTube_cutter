@@ -470,40 +470,26 @@ const DashboardPage: NextPageWithLayout = () => {
         const usageRes = await apiClient.get('/billing/usage/monthly/')
         const usageData = usageRes.data
 
-        // 5. Build VideoProject list by fetching details for each video (which returns cuts)
-        const projectList: VideoProject[] = await Promise.all(
-          userVideos.map(async (uv) => {
-            try {
-              const detailRes = await apiClient.get(`/videos/${uv.id}/`)
-              const detail = detailRes.data
+        // 5. Build VideoProject list (cuts are prefetched directly on userVideos)
+        const projectList: VideoProject[] = userVideos.map((uv) => {
+          // Filter chats that have this video attached
+          const videoChats = chats.filter((c: any) =>
+            c.video_ids?.includes(uv.id)
+          )
 
-              // Filter chats that have this video attached
-              const videoChats = chats.filter((c: any) =>
-                c.video_ids?.includes(uv.id)
-              )
-
-              // Filter research sessions for this video
-              const videoResearch = research.filter((r) => {
-                const rUvId = typeof r.user_video === 'object' && r.user_video !== null ? r.user_video.id : r.user_video
-                return rUvId === uv.id
-              })
-
-              return {
-                userVideo: detail,
-                cuts: detail.cuts || [],
-                chats: videoChats,
-                research: videoResearch,
-              }
-            } catch (err) {
-              return {
-                userVideo: uv,
-                cuts: [],
-                chats: [],
-                research: [],
-              }
-            }
+          // Filter research sessions for this video
+          const videoResearch = research.filter((r) => {
+            const rUvId = typeof r.user_video === 'object' && r.user_video !== null ? r.user_video.id : r.user_video
+            return rUvId === uv.id
           })
-        )
+
+          return {
+            userVideo: uv,
+            cuts: uv.cuts || [],
+            chats: videoChats,
+            research: videoResearch,
+          }
+        })
 
         setProjects(projectList)
 

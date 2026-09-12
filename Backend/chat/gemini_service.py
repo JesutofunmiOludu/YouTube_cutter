@@ -20,6 +20,7 @@ from django.utils import timezone
 
 if TYPE_CHECKING:
     from chat.models import ChatSession, ResearchSession
+    from videos.models import UserVideo
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ def generate_chat_reply(user_content: str, session: 'ChatSession') -> str:
     history        = _build_chat_history(session, exclude_last=True)
 
     system_prompt = textwrap.dedent(f"""
-        You are an expert video content assistant called "ClipMind".
+        You are an expert video content assistant called "ClipMide".
         You help users understand, analyse, and explore YouTube video content.
 
         You have access to the following video transcript(s):
@@ -106,6 +107,67 @@ def generate_chat_reply(user_content: str, session: 'ChatSession') -> str:
             "I'm having trouble connecting to the AI right now. "
             "Please try again in a moment."
         )
+
+
+def generate_initial_video_overview(user_video: 'UserVideo') -> str:
+    """
+    Generate an introductory video summary with highlighted topics and
+    a discussion prompt. Uses Gemini if available, with structured fallback.
+    """
+    client = _get_client()
+    if client is None:
+        return _stub_initial_video_overview(user_video)
+
+    video = user_video.video
+    duration_str = _fmt_seconds(video.duration_seconds)
+    cuts = list(user_video.cuts.order_by('cut_order'))
+
+    chapters_lines = []
+    for cut in cuts:
+        ts = _fmt_seconds(cut.start_seconds)
+        title = cut.title or f"Segment {cut.cut_order}"
+        rationale = f" ({cut.ai_rationale})" if cut.ai_rationale else ""
+        chapters_lines.append(f"[{ts}] {title}{rationale}")
+    chapters_text = "\n".join(chapters_lines) if chapters_lines else "No specific chapters provided."
+
+    prompt = textwrap.dedent(f"""
+        You are an expert video AI assistant for ClipMide.
+        Generate a friendly, concise, and structured introductory message for this video:
+
+        Video Title: {video.title}
+        Channel: {video.channel_name}
+        Duration: {duration_str}
+
+        Description:
+        {(video.description or '')[:600]}
+
+        Available Segments/Chapters:
+        {chapters_text}
+
+        Instructions:
+        1. Start with an overview of what the video is about (2-3 concise sentences).
+        2. Provide 3 to 6 "Highlighted Topics" with timestamps in format `[MM:SS] Topic Name` - brief 1-sentence description.
+        3. End with:
+           ### 💬 What would you like to talk about?
+           Ask me to explain any topic above, summarize the key takeaways, or ask a specific question about the video!
+
+        Keep it clean, well-formatted, and visually appealing in Markdown.
+    """).strip()
+
+    try:
+        resp = client.models.generate_content(
+            model=CHAT_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.4,
+            ),
+        )
+        if resp and resp.text:
+            return resp.text
+    except Exception as exc:
+        logger.warning("Gemini failed to generate initial overview: %s. Using structured fallback.", exc)
+
+    return _stub_initial_video_overview(user_video)
 
 
 def _build_video_context(session: 'ChatSession') -> str:
@@ -260,8 +322,127 @@ def start_deep_research_interaction(session: 'ResearchSession') -> str | None:
         )
         return interaction.id
     except Exception as exc:
-        logger.error('Failed to trigger Gemini Deep Research: %s', exc)
+        logger.warning('Failed to trigger Gemini interactions agent: %s. Grounded search fallback will be used.', exc)
         return None
+
+
+def generate_grounded_research_report(session: 'ResearchSession') -> tuple[str, list[dict]]:
+    """
+    Generate a full, in-depth research report with live web sources using
+    Gemini 2.5 Flash grounded with Google Search.
+
+    Used when client.interactions (Google Deep Research agent) is unavailable,
+    ensuring the user always gets a high-quality, comprehensive, cited report
+    instead of a placeholder stub.
+    """
+    client = _get_client()
+    if client is None:
+        return _stub_research_report(session), []
+
+    video = session.user_video.video
+    transcript_text = _get_transcript_text(session.user_video)
+    user_topic = (session.title or '').strip()
+
+    if user_topic:
+        focus_block = textwrap.dedent(f"""
+        **Primary Research Objective / Topic**: "{user_topic}"
+        Focus heavily on thoroughly researching and answering this topic,
+        integrating live web search facts with the video transcript.
+        """).strip()
+    else:
+        focus_block = (
+            "Produce an exhaustive, highly insightful research report synthesizing the key subjects in this video with current web knowledge."
+        )
+
+    prompt = textwrap.dedent(f"""
+        You are ClipMide's Principal Research AI. Conduct an in-depth, professional research analysis on the following video and topic.
+
+        **Video Details**:
+        - Title: {video.title}
+        - Channel: {video.channel_name}
+        - Duration: {_fmt_seconds(video.duration_seconds)}
+
+        **Video Transcript / Context**:
+        {transcript_text[:12000] if transcript_text else '(No transcript available — research grounded on topic and web search)'}
+
+        ---
+
+        {focus_block}
+
+        **Instructions**:
+        Perform live web searches to gather real-world data, statistics, recent developments, and credible references.
+        Write a comprehensive research report in Markdown.
+
+        The report MUST include the following clear Markdown sections:
+        ## 📌 Executive Summary
+        A 2–4 sentence high-level synthesis addressing the core topic and main takeaway.
+
+        ## 🔍 Key Topics & Core Findings
+        A detailed breakdown of 3–5 core subjects, including key facts, statistics, and analysis.
+
+        ## 💡 In-Depth Analysis & Practical Implications
+        Expanded technical or practical implications, comparing alternative perspectives or real-world use cases.
+
+        ## 🚀 Recommendations & Next Steps
+        Actionable advice, key takeaways, and suggested follow-ups for the viewer.
+
+        ## 🔗 Related Resources
+        At the end of your report, provide 4 to 8 real, credible web resources found during search.
+        Format them strictly as a valid JSON code block at the very end of your response, like this:
+        ```json
+        [
+          {{
+            "title": "Resource Page Title",
+            "url": "https://example.com/actual-link",
+            "source_type": "website",
+            "excerpt": "Brief 1-2 sentence explanation of why this source is valuable and what it covers.",
+            "relevance_rank": 1
+          }}
+        ]
+        ```
+    """).strip()
+
+    try:
+        resp = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                temperature=0.3,
+            ),
+        )
+
+        raw = resp.text or ''
+        if not raw:
+            return _stub_research_report(session), []
+
+        report, sources = _parse_research_response(raw)
+
+        # Also harvest native grounding chunks if JSON parsing yielded few/no sources
+        if len(sources) < 2 and resp.candidates:
+            try:
+                gm = getattr(resp.candidates[0], 'grounding_metadata', None)
+                if gm and hasattr(gm, 'grounding_chunks'):
+                    rank = len(sources) + 1
+                    for chunk in (gm.grounding_chunks or []):
+                        web = getattr(chunk, 'web', None)
+                        if web and getattr(web, 'uri', None):
+                            sources.append({
+                                'title': getattr(web, 'title', '') or 'Web Source',
+                                'url': getattr(web, 'uri', ''),
+                                'source_type': 'website',
+                                'excerpt': getattr(web, 'title', '') or 'Referenced during deep research grounding.',
+                                'relevance_rank': rank,
+                            })
+                            rank += 1
+            except Exception as e:
+                logger.debug('Grounding metadata extraction note: %s', e)
+
+        return report, sources
+
+    except Exception as exc:
+        logger.error('Gemini grounded research report generation failed: %s', exc, exc_info=True)
+        return _stub_research_report(session), []
 
 
 def poll_and_save_research(session: 'ResearchSession') -> tuple[str, list[dict]]:
@@ -384,6 +565,46 @@ def _stub_research_report(session: 'ResearchSession') -> str:
         "_This is a placeholder report. Set `GEMINI_AI_API` in `.env` to generate real reports._\n\n"
         "### Key Topics\n- Topic 1\n- Topic 2\n- Topic 3\n\n"
         "### Conclusion\nWire up the Gemini API to get real research."
+    )
+
+
+def _stub_initial_video_overview(user_video: 'UserVideo') -> str:
+    video = user_video.video
+    duration_str = _fmt_seconds(video.duration_seconds)
+    cuts = list(user_video.cuts.order_by('cut_order'))
+
+    topics_lines = []
+    if cuts:
+        for cut in cuts[:6]:
+            ts = _fmt_seconds(cut.start_seconds)
+            title = cut.title or f"Clip {cut.cut_order}"
+            rationale = f" — {cut.ai_rationale}" if cut.ai_rationale else ""
+            topics_lines.append(f"- **[{ts}] {title}**{rationale}")
+    else:
+        topics_lines = [
+            f"- **[00:00] Introduction** — Opening concepts and overview of {video.title}",
+            "- **Key Insights & Discussion** — Core subject matter and demonstrations",
+            "- **Summary & Conclusions** — Key takeaways and practical applications",
+        ]
+
+    topics_block = "\n".join(topics_lines)
+    desc_summary = (video.description or "").strip()
+    if desc_summary:
+        first_para = desc_summary.split("\n")[0].strip()
+        desc_summary = first_para[:280] + ("..." if len(first_para) > 280 else "")
+    else:
+        desc_summary = f"An in-depth video on {video.title} presented by {video.channel_name}."
+
+    return (
+        f"## 🎬 Video Overview: {video.title}\n\n"
+        f"**Channel:** {video.channel_name} • **Duration:** {duration_str}\n\n"
+        f"### 📝 Summary\n"
+        f"{desc_summary}\n\n"
+        f"### 📌 Highlighted Topics\n"
+        f"{topics_block}\n\n"
+        f"---\n\n"
+        f"### 💬 What would you like to talk about?\n"
+        f"Feel free to ask about any of the highlighted topics above, request a deeper explanation of a concept, or ask specific questions about the video content!"
     )
 
 

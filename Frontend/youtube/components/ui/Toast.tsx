@@ -1,7 +1,7 @@
 'use client'
 
 // src/components/ui/Toast.tsx
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { CheckCircle, AlertCircle, AlertTriangle, Info, X } from 'lucide-react'
 import { cn }  from '@/utils/cn'
 import type { Toast, ToastType } from '@/types'
@@ -47,6 +47,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     if (duration > 0) timers.current[id] = setTimeout(() => dismiss(id), duration)
     return id
   }, [dismiss])
+
+  useEffect(() => {
+    const handleCustomToast = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.message) {
+        add({ type: detail.type || 'error', message: detail.message, duration: detail.duration })
+      }
+    }
+    window.addEventListener('app:toast', handleCustomToast)
+    return () => window.removeEventListener('app:toast', handleCustomToast)
+  }, [add])
 
   const toast: ToastContextValue['toast'] = {
     success: (msg, dur) => add({ type: 'success', message: msg, duration: dur }),

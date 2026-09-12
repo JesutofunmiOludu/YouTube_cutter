@@ -60,6 +60,27 @@ apiClient.interceptors.response.use(
         }
       }
     }
+
+    if (error.response?.status === 429) {
+      const headers = error.response.headers || {}
+      const retryAfter = headers['retry-after'] || headers['Retry-After']
+      const serverMsg = error.response?.data?.error?.message || error.response?.data?.detail
+      const message =
+        serverMsg && !String(serverMsg).toLowerCase().includes('request was throttled')
+          ? serverMsg
+          : retryAfter
+            ? `You're making requests too fast. Please wait ${retryAfter} seconds before trying again.`
+            : `You've reached the request rate limit. Please wait a moment before trying again.`
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('app:toast', {
+            detail: { type: 'warning', message, duration: 6000 },
+          })
+        )
+      }
+    }
+
     return Promise.reject(error)
   }
 )

@@ -13,13 +13,219 @@ import React, {
   useState,
   useCallback,
 } from 'react'
-import { Send, Plus, X, Video, Lock }  from 'lucide-react'
+import {
+  Send,
+  Plus,
+  X,
+  Video,
+  Lock,
+  Sparkles,
+  FileText,
+  Play,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react'
 import { cn }                    from '@/utils/cn'
 import { MessageBubble, TypingIndicator } from './MessageBubble'
 import { IconButton }            from '@components/ui/Button'
 import { EmptyState, EmptyIcons } from '@components/ui'
 import { useToast }              from '@/components/ui/Toast'
+import { formatDuration }        from '@/components/video/VideoCard'
 import type { ChatSession, ChatMessage, User, UserVideo } from '@/types'
+
+// ------------------------------------------------------------
+// STARTER PROMPTS
+// ------------------------------------------------------------
+
+const STARTER_PROMPTS = [
+  'Summarize key takeaways',
+  'Explain the main topic in simple terms',
+  'What are the key action points or lessons?',
+  'Break down the highlighted topics in detail',
+]
+
+// ------------------------------------------------------------
+// VIDEO OVERVIEW STARTER
+// ------------------------------------------------------------
+
+interface VideoOverviewStarterProps {
+  userVideo: UserVideo
+  onSeek?: (seconds: number) => void
+  onSelectPrompt?: (prompt: string) => void
+}
+
+const VideoOverviewStarter: React.FC<VideoOverviewStarterProps> = ({
+  userVideo,
+  onSeek,
+  onSelectPrompt,
+}) => {
+  const video = userVideo.video
+  const cuts = userVideo.cuts ?? []
+  const summaryText =
+    video?.description ||
+    'Video analysis and overview ready. Ask anything about this video to begin.'
+  const [isExpandedSummary, setIsExpandedSummary] = useState(false)
+
+  return (
+    <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full py-2">
+      {/* Video Overview Card */}
+      <div className="bg-[var(--color-bg-secondary)] border border-[var(--color-border-secondary)] rounded-2xl p-4 shadow-2xs overflow-hidden flex flex-col gap-3.5">
+        
+        {/* Header with thumbnail and metadata */}
+        <div className="flex items-start gap-3.5">
+          <div className="relative w-28 h-18 sm:w-36 sm:h-22 rounded-lg bg-[var(--color-bg-tertiary)] overflow-hidden shrink-0 border border-[var(--color-border-tertiary)] group">
+            {video?.thumbnail_url ? (
+              <img
+                src={video.thumbnail_url}
+                alt={video.title || 'Video thumbnail'}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Video className="w-6 h-6 text-[var(--color-text-tertiary)]" />
+              </div>
+            )}
+            {video?.duration_seconds ? (
+              <span className="absolute bottom-1 right-1 bg-black/75 backdrop-blur-xs text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
+                {formatDuration(video.duration_seconds)}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="flex-1 min-w-0 flex flex-col justify-center">
+            <div className="inline-flex items-center gap-1.5 text-caption font-semibold text-primary-600 mb-1">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Video Overview</span>
+            </div>
+            <h3 className="text-body-sm sm:text-body font-semibold text-[var(--color-text-primary)] line-clamp-2 leading-snug">
+              {video?.title || 'Video Title'}
+            </h3>
+            <p className="text-caption text-[var(--color-text-tertiary)] mt-1 flex items-center gap-1.5">
+              <span className="truncate">{video?.channel_name || 'Channel'}</span>
+              {video?.duration_seconds ? (
+                <>
+                  <span>•</span>
+                  <span className="shrink-0">{formatDuration(video.duration_seconds)}</span>
+                </>
+              ) : null}
+            </p>
+          </div>
+        </div>
+
+        {/* Summary Description */}
+        <div className="bg-[var(--color-bg-primary)] border border-[var(--color-border-tertiary)] rounded-xl p-3.5 text-body-sm text-[var(--color-text-secondary)] leading-relaxed">
+          <div className="flex items-center gap-2 mb-1.5 text-caption font-medium text-[var(--color-text-primary)]">
+            <FileText className="w-3.5 h-3.5 text-primary-500" />
+            <span>Summary & Details</span>
+          </div>
+          <p className={cn('text-body-sm text-[var(--color-text-secondary)]', !isExpandedSummary && 'line-clamp-3')}>
+            {summaryText}
+          </p>
+          {summaryText.length > 220 && (
+            <button
+              type="button"
+              onClick={() => setIsExpandedSummary(!isExpandedSummary)}
+              className="mt-1.5 text-caption font-medium text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
+            >
+              {isExpandedSummary ? (
+                <>Show less <ChevronUp className="w-3 h-3" /></>
+              ) : (
+                <>Read more <ChevronDown className="w-3 h-3" /></>
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Highlighted Topics / Cuts */}
+        {cuts.length > 0 && (
+          <div className="flex flex-col gap-2 pt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-caption font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">
+                Highlighted Topics ({cuts.length})
+              </span>
+              {onSeek && (
+                <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                  Click timestamp to seek video
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+              {cuts.map((cut) => {
+                const title = cut.title || `Segment ${cut.cut_order + 1}`
+                return (
+                  <div
+                    key={cut.id || cut.cut_order}
+                    className="flex items-start gap-2 p-2 rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-tertiary)] hover:border-primary-300 transition-colors text-left group"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onSeek?.(cut.start_seconds)}
+                      className={cn(
+                        'shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-mono font-medium',
+                        'bg-primary-50 text-primary-700 border border-primary-200 group-hover:bg-primary-100 group-hover:border-primary-300 transition-colors',
+                      )}
+                      title={`Jump to ${formatDuration(cut.start_seconds)}`}
+                    >
+                      <Play className="w-2.5 h-2.5 fill-current" />
+                      <span>{formatDuration(cut.start_seconds)}</span>
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-caption font-medium text-[var(--color-text-primary)] truncate group-hover:text-primary-600 transition-colors">
+                        {title}
+                      </p>
+                      {cut.ai_rationale && (
+                        <p className="text-[11px] text-[var(--color-text-tertiary)] line-clamp-1 mt-0.5">
+                          {cut.ai_rationale}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Discussion Call to Action & Starter Prompts */}
+      <div className="bg-primary-50/70 border border-primary-100 rounded-2xl p-4 flex flex-col gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center text-primary-600 shrink-0">
+            <MessageSquare className="w-4 h-4" />
+          </div>
+          <div>
+            <h4 className="text-body-sm font-semibold text-primary-950">
+              What would you like to talk about?
+            </h4>
+            <p className="text-caption text-primary-700">
+              Ask anything about this video or click a topic below to jump straight in:
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 pt-1">
+          {STARTER_PROMPTS.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => onSelectPrompt?.(prompt)}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-caption font-medium text-left',
+                'bg-white border border-primary-200 text-primary-900 shadow-2xs hover:bg-primary-50 hover:border-primary-400 active:scale-[0.98] transition-all',
+              )}
+            >
+              <Sparkles className="w-3 h-3 text-primary-500 shrink-0" />
+              <span>{prompt}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ------------------------------------------------------------
 // VIDEO CHIP — shows an attached video in the session header
@@ -181,12 +387,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4"
       >
         {messages.length === 0 && !isLoading ? (
-          <EmptyState
-            icon={EmptyIcons.chat}
-            title="Start the conversation"
-            description="Ask anything about the attached video. I'll answer based on the content."
-            minHeight="200px"
-          />
+          videos.length > 0 ? (
+            <VideoOverviewStarter
+              userVideo={videos[0]}
+              onSeek={onSeek}
+              onSelectPrompt={(p) => onSendMessage?.(p)}
+            />
+          ) : (
+            <EmptyState
+              icon={EmptyIcons.chat}
+              title="Start the conversation"
+              description="Ask anything about the attached video. I'll answer based on the content."
+              minHeight="200px"
+            />
+          )
         ) : (
           <>
             {messages.map((msg) => (
@@ -197,6 +411,30 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 onSeek={onSeek}
               />
             ))}
+            {messages.length === 1 && messages[0].role === 'assistant' && (
+              <div className="flex flex-col gap-2 pt-1 pb-2">
+                <p className="text-caption font-medium text-[var(--color-text-secondary)] flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-primary-500" />
+                  Suggested questions:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {STARTER_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => onSendMessage?.(prompt)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-caption font-medium text-left',
+                        'bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)]',
+                        'hover:text-primary-600 hover:border-primary-300 hover:bg-primary-50/50 active:scale-[0.98] transition-all',
+                      )}
+                    >
+                      <span>{prompt}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {isTyping && <TypingIndicator />}
           </>
         )}

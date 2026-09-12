@@ -457,22 +457,14 @@ const ProjectsPage: NextPageWithLayout = () => {
         const researchRes = await apiClient.get('/research/')
         const allResearch: ResearchSession[] = researchRes.data.results || researchRes.data || []
 
-        const list: VideoProject[] = await Promise.all(
-          userVideos.map(async (uv) => {
-            try {
-              const detailRes = await apiClient.get(`/videos/${uv.id}/`)
-              const detail    = detailRes.data
-              const videoChats    = allChats.filter((c: any) => c.video_ids?.includes(uv.id))
-              const videoResearch = allResearch.filter((r) => {
-                const id = typeof r.user_video === 'object' && r.user_video !== null ? r.user_video.id : r.user_video
-                return id === uv.id
-              })
-              return { userVideo: detail, cuts: detail.cuts || [], chats: videoChats, research: videoResearch }
-            } catch {
-              return { userVideo: uv, cuts: [], chats: [], research: [] }
-            }
-          }),
-        )
+        const list: VideoProject[] = userVideos.map((uv) => {
+          const videoChats    = allChats.filter((c: any) => c.video_ids?.includes(uv.id))
+          const videoResearch = allResearch.filter((r) => {
+            const id = typeof r.user_video === 'object' && r.user_video !== null ? r.user_video.id : r.user_video
+            return id === uv.id
+          })
+          return { userVideo: uv, cuts: uv.cuts || [], chats: videoChats, research: videoResearch }
+        })
         setProjects(list)
       } catch {
         toast.error('Failed to load projects.')

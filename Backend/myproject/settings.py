@@ -172,8 +172,11 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.ScopedRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon':         '60/hour',    # unauthenticated requests
+        'anon':         '60/hour',    # unauthenticated requests baseline
         'user':         '1000/hour',  # authenticated baseline
+        'login':        '10/minute',  # brute force & credential stuffing protection
+        'register':     '10/hour',    # account creation spam protection
+        'auth':         '30/minute',  # email verify & social auth
         'search':       '60/minute',  # YouTube API search burst protection
         'chat':         '30/minute',  # per-user chat messages
         'research':     '10/hour',    # expensive Gemini research report creation

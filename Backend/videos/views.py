@@ -359,15 +359,6 @@ class VideoSearchView(APIView):
         if not query:
             return Response({'results': []})
 
-        # ── Freemium enforcement ───────────────────────────
-        try:
-            UsageService.check_and_increment(request.user, 'search')
-        except PermissionDenied as exc:
-            return Response(
-                {'error': {'code': 'plan_limit_reached', 'message': str(exc)}},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         # ── Check shared cache before hitting external YouTube API ────
         import hashlib
         from django.core.cache import cache
@@ -377,6 +368,15 @@ class VideoSearchView(APIView):
         cached_results = cache.get(cache_key)
         if cached_results is not None:
             return Response({'results': cached_results, 'cached': True})
+
+        # ── Freemium enforcement (only for fresh upstream API requests) ────
+        try:
+            UsageService.check_and_increment(request.user, 'search')
+        except PermissionDenied as exc:
+            return Response(
+                {'error': {'code': 'plan_limit_reached', 'message': str(exc)}},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         api_key = settings.YOUTUBE_API_KEY
         if not api_key:

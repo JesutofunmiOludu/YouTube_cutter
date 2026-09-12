@@ -53,6 +53,25 @@ class ChatSessionDetailView(generics.RetrieveDestroyAPIView):
     def get_queryset(self):
         return ChatSession.objects.filter(user=self.request.user)
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.messages.count() == 0:
+            first_sv = instance.session_videos.select_related('user_video__video').first()
+            if first_sv:
+                try:
+                    from .gemini_service import generate_initial_video_overview
+                    intro_content = generate_initial_video_overview(first_sv.user_video)
+                    ChatMessage.objects.create(
+                        chat_session=instance,
+                        role=ChatMessage.Role.ASSISTANT,
+                        content=intro_content,
+                    )
+                    instance.save(update_fields=['updated_at'])
+                except Exception as exc:
+                    logger.warning("Could not create initial chat overview: %s", exc)
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
 
 # ── GET/POST /api/chat/sessions/<id>/messages/ ────────────
 class ChatMessageListCreateView(generics.ListCreateAPIView):
@@ -170,6 +189,19 @@ class ChatSessionAddVideoView(APIView):
             session.is_multi_video = True
             session.save(update_fields=['is_multi_video', 'updated_at'])
 
+        if session.messages.count() == 0:
+            try:
+                from .gemini_service import generate_initial_video_overview
+                intro_content = generate_initial_video_overview(user_video)
+                ChatMessage.objects.create(
+                    chat_session=session,
+                    role=ChatMessage.Role.ASSISTANT,
+                    content=intro_content,
+                )
+                session.save(update_fields=['updated_at'])
+            except Exception as exc:
+                logger.warning("Could not create initial chat overview on add video: %s", exc)
+
         return Response({'status': 'video added'}, status=status.HTTP_200_OK)
 
 
@@ -256,13 +288,47 @@ class ResearchSessionListCreateView(generics.ListCreateAPIView):
 
 
 
-# ── GET /api/research/<id>/ ────────────────────────────────
-class ResearchSessionDetailView(generics.RetrieveAPIView):
+# ── GET/DELETE /api/research/<id>/ ─────────────────────────
+class ResearchSessionDetailView(generics.RetrieveDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class   = ResearchSessionDetailSerializer
 
     def get_queryset(self):
         return ResearchSession.objects.filter(user=self.request.user)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        # Self-healing: if stuck in processing for > 15 minutes (server restarted/thread killed), mark failed & refund
+        if instance.status == ResearchSession.Status.PROCESSING:
+            delta = (timezone.now() - instance.created_at).total_seconds()
+            if delta > 900:  # 15 minutes
+                instance.status = ResearchSession.Status.FAILED
+                instance.save(update_fields=['status'])
+                try:
+                    UsageService.refund_usage(instance.user, 'research')
+                except Exception as exc:
+                    logger.warning("Could not refund research quota on self-heal: %s", exc)
+
+        # Cache completed reports (they are immutable)
+        if instance.status == ResearchSession.Status.COMPLETED:
+            from django.core.cache import cache
+            cache_key = f"research_detail:{instance.id}"
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return Response(cached)
+
+            serializer = self.get_serializer(instance)
+            cache.set(cache_key, serializer.data, timeout=86400)  # 24 hours
+            return Response(serializer.data)
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def perform_destroy(self, instance):
+        from django.core.cache import cache
+        cache.delete(f"research_detail:{instance.id}")
+        super().perform_destroy(instance)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -282,46 +348,66 @@ def _generate_ai_reply(user_content: str, session: ChatSession) -> str:
 
 def _run_research(session: ResearchSession) -> None:
     """
-    Use Gemini Deep Research agent to generate a structured research report + sources,
-    polling in the background and persisting results to the database when complete.
+    Use Gemini Deep Research agent or grounded Google Search fallback to generate
+    a structured research report + sources, polling in the background and persisting
+    results to the database when complete. Automatically refunds quota on failure.
     """
     session.status = ResearchSession.Status.PROCESSING
     session.save(update_fields=['status'])
 
-    # Start Deep Research interaction on Google's servers
+    # 1. Attempt to start Deep Research interaction on Google's servers
     interaction_id = gemini_service.start_deep_research_interaction(session)
-    
-    if not interaction_id:
-        # Fallback immediately to stub research report if API key or interaction fails
-        report_md = gemini_service._stub_research_report(session)
-        session.report_content = report_md
-        session.status = ResearchSession.Status.COMPLETED
-        session.completed_at = timezone.now()
-        session.save(update_fields=['report_content', 'status', 'completed_at'])
-        return
 
-    # Update session with interaction ID
+    if not interaction_id:
+        # Fallback: run grounded search generation directly via Gemini + Google Search
+        try:
+            report_md, raw_sources = gemini_service.generate_grounded_research_report(session)
+            if report_md:
+                session.report_content = report_md
+                session.status         = ResearchSession.Status.COMPLETED
+                session.completed_at   = timezone.now()
+                session.save(update_fields=['report_content', 'status', 'completed_at'])
+
+                ResearchSource.objects.filter(research_session=session).delete()
+                for source_data in (raw_sources or []):
+                    ResearchSource.objects.create(
+                        research_session=session,
+                        source_type=source_data.get('source_type', 'website'),
+                        title=source_data.get('title', '')[:500],
+                        url=source_data.get('url', ''),
+                        excerpt=source_data.get('excerpt', ''),
+                        relevance_rank=source_data.get('relevance_rank', 99),
+                    )
+                return
+        except Exception as exc:
+            logger.error('Grounded research fallback failed: %s', exc)
+            session.status = ResearchSession.Status.FAILED
+            session.save(update_fields=['status'])
+            try:
+                UsageService.refund_usage(session.user, 'research')
+            except Exception as ref_exc:
+                logger.warning('Could not refund research quota: %s', ref_exc)
+            return
+
+    # 2. Polling loop for active interaction
     session.research_interaction_id = interaction_id
     session.save(update_fields=['research_interaction_id'])
 
-    # Poll status in background thread
     import time
     completed = False
     attempts = 0
-    max_attempts = 60 # 10 minutes max (each interaction check sleeps 10s)
+    max_attempts = 60  # 10 minutes max (each interaction check sleeps 10s)
 
     while not completed and attempts < max_attempts:
         try:
             report_md, raw_sources = gemini_service.poll_and_save_research(session)
 
             if report_md and not report_md.startswith("Research generation failed"):
-                # Polling returned completed report (with or without sources)
                 session.report_content = report_md
                 session.status         = ResearchSession.Status.COMPLETED
                 session.completed_at   = timezone.now()
                 session.save(update_fields=['report_content', 'status', 'completed_at'])
 
-                # Persist each source
                 ResearchSource.objects.filter(research_session=session).delete()
                 for source_data in (raw_sources or []):
                     ResearchSource.objects.create(
@@ -334,24 +420,32 @@ def _run_research(session: ResearchSession) -> None:
                     )
                 completed = True
             elif report_md.startswith("Research generation failed"):
-                # Job failed on Google's end
                 session.status = ResearchSession.Status.FAILED
                 session.save(update_fields=['status'])
+                try:
+                    UsageService.refund_usage(session.user, 'research')
+                except Exception as ref_exc:
+                    logger.warning('Could not refund research quota: %s', ref_exc)
                 completed = True
             else:
-                # Still running (report_md is empty), wait and check again
                 time.sleep(10)
                 attempts += 1
         except Exception as exc:
-            import logging
-            logging.getLogger(__name__).error('Error in background research polling loop: %s', exc)
+            logger.error('Error in background research polling loop: %s', exc)
             session.status = ResearchSession.Status.FAILED
             session.save(update_fields=['status'])
+            try:
+                UsageService.refund_usage(session.user, 'research')
+            except Exception as ref_exc:
+                logger.warning('Could not refund research quota: %s', ref_exc)
             completed = True
 
     if not completed:
-        # Timeout reached
         logger.error('Deep Research polling timed out for session %s', session.id)
         session.status = ResearchSession.Status.FAILED
         session.save(update_fields=['status'])
+        try:
+            UsageService.refund_usage(session.user, 'research')
+        except Exception as ref_exc:
+            logger.warning('Could not refund research quota on timeout: %s', ref_exc)
 

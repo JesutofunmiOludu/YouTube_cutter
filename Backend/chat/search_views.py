@@ -45,8 +45,17 @@ class VideoSearchListCreateView(APIView):
         }
     """
     permission_classes = [permissions.IsAuthenticated]
-    throttle_scope     = 'search'
-    throttle_classes   = [ScopedRateThrottle]
+
+    def get_throttles(self):
+        """
+        Only apply the expensive 'search' ScopedRateThrottle for write (POST) requests.
+        Read (GET) requests use only baseline user throttling so loading search
+        history never exhausts the user's search rate limit.
+        """
+        if self.request.method == 'POST':
+            self.throttle_scope = 'search'
+            return [ScopedRateThrottle()]
+        return []
 
     def get(self, request):
         qs = VideoSearchSession.objects.filter(user=request.user)

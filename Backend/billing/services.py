@@ -74,6 +74,13 @@ class UsageService:
         return is_prem
 
     @staticmethod
+    def invalidate_premium_cache(user_or_pk) -> None:
+        """Immediately invalidate cached premium status for a user."""
+        pk = getattr(user_or_pk, 'pk', user_or_pk)
+        if pk:
+            cache.delete(f"user_is_premium:{pk}")
+
+    @staticmethod
     def get_plan_limits(user) -> dict[str, int]:
         """Return the per-action limits for this user's plan."""
         if UsageService.is_premium(user):
@@ -235,6 +242,43 @@ class UsageService:
         """Atomic check + increment helper."""
         UsageService.check_limit(user, action)
         UsageService.increment(user, action)
+
+    @staticmethod
+    def refund_usage(user, action: str) -> None:
+        """
+        Rollback/decrement the usage counter for *action* by 1 on today's UsageSummary
+        (or the most recent summary for this month), clamped to >= 0.
+        Also removes the latest UsageLog record for this action if present.
+        """
+        from billing.models import UsageSummary, UsageLog
+        today = timezone.now().date()
+        field_name = _field_for_action(action)
+
+        with transaction.atomic():
+            summary = UsageSummary.objects.filter(
+                user=user,
+                summary_date=today,
+            ).select_for_update().first()
+
+            if not summary and action in MONTHLY_ACTIONS:
+                summary = UsageSummary.objects.filter(
+                    user=user,
+                    summary_date__year=today.year,
+                    summary_date__month=today.month,
+                ).select_for_update().order_by('-summary_date').first()
+
+            if summary:
+                current_val = getattr(summary, field_name, 0)
+                if current_val > 0:
+                    setattr(summary, field_name, current_val - 1)
+                    summary.save(update_fields=[field_name])
+
+            last_log = UsageLog.objects.filter(
+                user=user,
+                action_type=action,
+            ).order_by('-created_at').first()
+            if last_log:
+                last_log.delete()
 
 
 # ── Private helpers ────────────────────────────────────────

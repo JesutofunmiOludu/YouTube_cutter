@@ -158,6 +158,7 @@ export interface UserVideo {
   processing_stage?: ProcessingStage
   saved_at:          string
   last_accessed_at:  Nullable<string>
+  cuts?:             VideoCut[]
 }
 
 

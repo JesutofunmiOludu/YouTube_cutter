@@ -7,6 +7,7 @@ from django.conf import settings
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.exceptions import TokenError
@@ -114,9 +115,11 @@ def send_user_verification_email(user):
 # ── POST /api/auth/register/ ───────────────────────────────
 class RegisterView(generics.CreateAPIView):
     """Create a new user account and dispatch verification email."""
-    queryset         = User.objects.all()
-    serializer_class = RegisterSerializer
+    queryset           = User.objects.all()
+    serializer_class   = RegisterSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes   = [ScopedRateThrottle]
+    throttle_scope     = 'register'
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -145,6 +148,8 @@ class LoginView(TokenObtainPairView):
     """Authenticate with email + password; returns JWT pair + user profile."""
     serializer_class   = CustomTokenObtainPairSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes   = [ScopedRateThrottle]
+    throttle_scope     = 'login'
 
 
 # ── POST /api/auth/logout/ ────────────────────────────────
@@ -188,6 +193,7 @@ class SendVerificationEmailView(APIView):
     Throttled to prevent spam.
     """
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes   = [ScopedRateThrottle]
     throttle_scope     = 'email_verify'
 
     def post(self, request):
@@ -218,6 +224,8 @@ class VerifyEmailView(APIView):
     On success: marks user verified and returns fresh JWT tokens (auto-login).
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes   = [ScopedRateThrottle]
+    throttle_scope     = 'auth'
 
     def post(self, request):
         serializer = VerifyEmailSerializer(data=request.data)
@@ -264,6 +272,8 @@ class GoogleSocialAuthView(APIView):
     a User and return a JWT pair identical in shape to the email-login response.
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes   = [ScopedRateThrottle]
+    throttle_scope     = 'auth'
 
     def post(self, request):
         access_token = request.data.get('access_token')

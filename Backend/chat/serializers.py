@@ -4,7 +4,7 @@ from .models import (
     ResearchSession, ResearchSource,
     VideoSearchSession, VideoSearchSource,
 )
-from videos.serializers import UserVideoSerializer
+from videos.serializers import UserVideoSerializer, UserVideoDetailSerializer
 
 
 
@@ -55,8 +55,14 @@ class ChatSessionDetailSerializer(ChatSessionSerializer):
         fields = ChatSessionSerializer.Meta.fields + ('messages', 'videos')
 
     def get_videos(self, obj):
-        user_videos = [sv.user_video for sv in obj.session_videos.select_related('user_video__video').all()]
-        return UserVideoSerializer(user_videos, many=True).data
+        user_videos = [
+            sv.user_video
+            for sv in obj.session_videos
+            .select_related('user_video__video')
+            .prefetch_related('user_video__cuts')
+            .all()
+        ]
+        return UserVideoDetailSerializer(user_videos, many=True).data
 
 
 # ── ResearchSource ─────────────────────────────────────────

@@ -213,6 +213,37 @@ export default function ResearchPage() {
     }
   }, [sessionId, router.isReady, fetchSessions])
 
+  // Auto-poll if current active session is still generating
+  useEffect(() => {
+    if (!sessionId || activeSession?.status !== 'processing') return
+    let cancelled = false
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await apiClient.get(`/research/${sessionId}/`)
+        if (cancelled) return
+        setActiveSession(res.data)
+
+        if (res.data.status === 'completed' || res.data.status === 'failed') {
+          clearInterval(interval)
+          fetchSessions() // refresh sidebar list
+          if (res.data.status === 'completed') {
+            toast.success('Research report ready!')
+          } else if (res.data.status === 'failed') {
+            toast.error('Research generation failed.')
+          }
+        }
+      } catch (err) {
+        console.error('Polling error', err)
+      }
+    }, 4000)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [sessionId, activeSession?.status, fetchSessions, toast])
+
   const handleExport = () => {
     if (!activeSession?.report_content) return
     try {

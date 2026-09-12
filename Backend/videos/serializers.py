@@ -69,17 +69,18 @@ class VideoCutSerializer(serializers.ModelSerializer):
 # ── UserVideo (list / detail) ──────────────────────────────
 class UserVideoSerializer(serializers.ModelSerializer):
     video = VideoSerializer(read_only=True)
+    cuts  = VideoCutSerializer(many=True, read_only=True)
     youtube_id  = serializers.CharField(write_only=True, help_text='YouTube video ID to save')
 
     class Meta:
         model  = UserVideo
         fields = (
-            'id', 'video', 'youtube_id', 'transcription_mode',
+            'id', 'video', 'cuts', 'youtube_id', 'transcription_mode',
             'storage_type', 'file_url',
             'processing_status', 'processing_stage', 'saved_at', 'last_accessed_at',
         )
         read_only_fields = (
-            'id', 'video', 'file_url',
+            'id', 'video', 'cuts', 'file_url',
             'processing_status', 'processing_stage', 'saved_at', 'last_accessed_at',
         )
 
@@ -134,8 +135,7 @@ class UserVideoSerializer(serializers.ModelSerializer):
 
 # ── UserVideo detail (includes cuts + transcription) ──────
 class UserVideoDetailSerializer(UserVideoSerializer):
-    cuts         = VideoCutSerializer(many=True, read_only=True)
     transcription = TranscriptionSerializer(read_only=True)
 
     class Meta(UserVideoSerializer.Meta):
-        fields = UserVideoSerializer.Meta.fields + ('cuts', 'transcription')
+        fields = UserVideoSerializer.Meta.fields + ('transcription',)

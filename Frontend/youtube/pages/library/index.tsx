@@ -344,34 +344,21 @@ const LibraryPage: NextPageWithLayout = () => {
         const researchRes = await apiClient.get('/research/')
         const research: ResearchSession[] = researchRes.data.results || researchRes.data || []
 
-        const projectList: VideoProject[] = await Promise.all(
-          userVideos.map(async (uv) => {
-            try {
-              const detailRes = await apiClient.get(`/videos/${uv.id}/`)
-              const detail = detailRes.data
-              const videoChats = chats.filter((c: any) =>
-                c.video_ids?.includes(uv.id)
-              )
-              const videoResearch = research.filter((r) => {
-                const rUvId = typeof r.user_video === 'object' && r.user_video !== null ? r.user_video.id : r.user_video
-                return rUvId === uv.id
-              })
-              return {
-                userVideo: detail,
-                cuts: detail.cuts || [],
-                chats: videoChats,
-                research: videoResearch,
-              }
-            } catch (err) {
-              return {
-                userVideo: uv,
-                cuts: [],
-                chats: [],
-                research: [],
-              }
-            }
+        const projectList: VideoProject[] = userVideos.map((uv) => {
+          const videoChats = chats.filter((c: any) =>
+            c.video_ids?.includes(uv.id)
+          )
+          const videoResearch = research.filter((r) => {
+            const rUvId = typeof r.user_video === 'object' && r.user_video !== null ? r.user_video.id : r.user_video
+            return rUvId === uv.id
           })
-        )
+          return {
+            userVideo: uv,
+            cuts: uv.cuts || [],
+            chats: videoChats,
+            research: videoResearch,
+          }
+        })
         setProjects(projectList)
       } catch (err) {
         toast.error('Failed to load library projects.')

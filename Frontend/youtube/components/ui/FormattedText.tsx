@@ -13,17 +13,19 @@ export interface FormattedTextProps {
   content: string
   className?: string
   textSize?: 'xs' | 'sm' | 'base' | 'lg'
+  onSeek?: (seconds: number) => void
 }
 
-/** Render inline tokens: **bold**, *italic*, `code`, [N] citations, [title](url) links */
-export function renderInlineMarkdown(text: string): React.ReactNode {
+/** Render inline tokens: **bold**, *italic*, `code`, [N] citations, [MM:SS] timestamps, [title](url) links */
+export function renderInlineMarkdown(text: string, onSeek?: (seconds: number) => void): React.ReactNode {
   // Regex matches:
   // 1. **bold** or __bold__
   // 2. *italic* or _italic_
   // 3. `code`
   // 4. [N] citations
-  // 5. [link text](url)
-  const pattern = /(\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|`[^`]+`|\[\d+\]|\[([^\]]+)\]\((https?:\/\/[^)]+)\))/g
+  // 5. [MM:SS] or [HH:MM:SS] timestamps
+  // 6. [link text](url)
+  const pattern = /(\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|`[^`]+`|\[\d+\]|\[\d{1,2}:\d{2}(?::\d{2})?\]|\[([^\]]+)\]\((https?:\/\/[^)]+)\))/g
 
   const parts: React.ReactNode[] = []
   let lastIndex = 0
@@ -79,6 +81,22 @@ export function renderInlineMarkdown(text: string): React.ReactNode {
           </span>
         </sup>
       )
+    } else if (/^\[\d{1,2}:\d{2}(?::\d{2})?\]$/.test(token)) {
+      const ts = token.slice(1, -1)
+      const p = ts.split(':').map(Number)
+      const seconds = p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1]
+      parts.push(
+        <button
+          key={keyCounter++}
+          type="button"
+          onClick={() => onSeek?.(seconds)}
+          title={`Jump to ${ts}`}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded text-[11px] font-mono font-semibold bg-primary-50 text-primary-700 hover:bg-primary-100 hover:text-primary-900 border border-primary-200 transition-colors cursor-pointer align-baseline"
+        >
+          <span className="text-[9px]">▶</span>
+          <span>{ts}</span>
+        </button>
+      )
     } else if (match[2] && match[3]) {
       // Markdown link [title](url)
       parts.push(
@@ -109,8 +127,11 @@ export const FormattedText: React.FC<FormattedTextProps> = ({
   content,
   className,
   textSize = 'sm',
+  onSeek,
 }) => {
   if (!content) return null
+
+  const renderInline = (t: string) => renderInlineMarkdown(t, onSeek)
 
   const lines = content.split('\n')
   const nodes: React.ReactNode[] = []
@@ -182,7 +203,7 @@ export const FormattedText: React.FC<FormattedTextProps> = ({
       flushList(`flush-${idx}`)
       nodes.push(
         <h1 key={`h1-${idx}`} className="text-heading-lg font-bold text-[var(--color-text-primary)] mt-5 mb-2.5 tracking-tight border-b border-[var(--color-border-tertiary)] pb-1.5">
-          {renderInlineMarkdown(line.slice(2))}
+          {renderInline(line.slice(2))}
         </h1>
       )
       return
@@ -192,7 +213,7 @@ export const FormattedText: React.FC<FormattedTextProps> = ({
       flushList(`flush-${idx}`)
       nodes.push(
         <h2 key={`h2-${idx}`} className="text-heading-md font-semibold text-[var(--color-text-primary)] mt-4 mb-2 tracking-tight">
-          {renderInlineMarkdown(line.slice(3))}
+          {renderInline(line.slice(3))}
         </h2>
       )
       return
@@ -202,7 +223,7 @@ export const FormattedText: React.FC<FormattedTextProps> = ({
       flushList(`flush-${idx}`)
       nodes.push(
         <h3 key={`h3-${idx}`} className="text-heading-sm font-medium text-[var(--color-text-primary)] mt-3 mb-1.5">
-          {renderInlineMarkdown(line.slice(4))}
+          {renderInline(line.slice(4))}
         </h3>
       )
       return
@@ -212,7 +233,7 @@ export const FormattedText: React.FC<FormattedTextProps> = ({
       flushList(`flush-${idx}`)
       nodes.push(
         <h4 key={`h4-${idx}`} className="text-body-sm font-semibold text-[var(--color-text-secondary)] mt-2.5 mb-1 uppercase tracking-wider">
-          {renderInlineMarkdown(line.slice(5))}
+          {renderInline(line.slice(5))}
         </h4>
       )
       return
@@ -227,7 +248,7 @@ export const FormattedText: React.FC<FormattedTextProps> = ({
       const itemText = line.replace(/^\s*[-*•]\s+/, '')
       listItems.push(
         <li key={`li-${idx}`} className="text-body-sm text-[var(--color-text-secondary)] leading-relaxed">
-          {renderInlineMarkdown(itemText)}
+          {renderInline(itemText)}
         </li>
       )
       return
@@ -242,7 +263,7 @@ export const FormattedText: React.FC<FormattedTextProps> = ({
       const itemText = line.replace(/^\s*\d+\.\s+/, '')
       listItems.push(
         <li key={`li-${idx}`} className="text-body-sm text-[var(--color-text-secondary)] leading-relaxed">
-          {renderInlineMarkdown(itemText)}
+          {renderInline(itemText)}
         </li>
       )
       return
@@ -265,7 +286,7 @@ export const FormattedText: React.FC<FormattedTextProps> = ({
     // ── Normal Paragraph ──────────────────────────────────────
     nodes.push(
       <p key={`p-${idx}`} className="text-body-sm text-[var(--color-text-secondary)] leading-relaxed mb-2.5">
-        {renderInlineMarkdown(line)}
+        {renderInline(line)}
       </p>
     )
   })
