@@ -118,6 +118,12 @@ class UserVideo(models.Model):
                 name="unique_user_video",
             ),
         ]
+        indexes = [
+            # Most common query: list all videos for a user sorted newest first
+            models.Index(fields=["user", "-saved_at"], name="idx_uv_user_saved"),
+            # Pipeline self-heal: find stuck PENDING/PROCESSING jobs
+            models.Index(fields=["processing_status"], name="idx_uv_processing_status"),
+        ]
 
     def __str__(self):
         return f"{self.user.email} — {self.video.title}"
@@ -164,6 +170,14 @@ class VideoCut(models.Model):
     class Meta:
         db_table = "video_cut"
         ordering = ["cut_order"]
+        indexes = [
+            # Fetch all cuts for a user_video (most common query in workspace load)
+            models.Index(fields=["user_video", "cut_order"], name="idx_vc_uv_order"),
+            # Cut refresh: filter unapproved fallback cuts quickly
+            models.Index(fields=["user_video", "user_approved"], name="idx_vc_uv_approved"),
+            # Download status polling
+            models.Index(fields=["download_status"], name="idx_vc_download_status"),
+        ]
 
     def __str__(self):
         return f"Cut #{self.cut_order}: {self.start_seconds}s–{self.end_seconds}s"
@@ -258,6 +272,10 @@ class TranscriptSegment(models.Model):
     class Meta:
         db_table = "transcript_segment"
         ordering = ["segment_order"]
+        indexes = [
+            # Load all segments for a transcription in order
+            models.Index(fields=["transcription", "segment_order"], name="idx_ts_transcription_order"),
+        ]
 
     def __str__(self):
         return f"Segment #{self.segment_order}: {self.text[:50]}"

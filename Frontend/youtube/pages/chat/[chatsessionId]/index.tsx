@@ -174,17 +174,27 @@ export default function ChatPage() {
     }
   }, [sessionId, preVideoId, router.isReady, fetchSessions])
 
+  const handleSeek = useCallback((seconds: number) => {
+    const primaryVideo = activeSession?.videos?.[0]
+    if (primaryVideo?.id && !primaryVideo.id.startsWith('uv_')) {
+      window.open(`/workspace/${primaryVideo.id}?t=${Math.floor(seconds)}`, '_blank')
+    }
+  }, [activeSession])
+
   const handleAddVideo = useCallback(async (video: UserVideo) => {
     if (!sessionId) return
     try {
-      // 1. Create or get the UserVideo record on the backend to get a real UUID
-      const videoRes = await apiClient.post('/videos/', {
-        youtube_id: video.video.youtube_id,
-        storage_type: 'reference'
-      })
-      
-      const realUserVideoId = videoRes.data.id
+      let realUserVideoId = video.id
 
+      // 1. Only create a new UserVideo record if it's from a raw URL input (starts with uv_)
+      if (video.id.startsWith('uv_')) {
+        const videoRes = await apiClient.post('/videos/', {
+          youtube_id: video.video.youtube_id,
+          storage_type: 'reference'
+        })
+        realUserVideoId = videoRes.data.id
+      }
+      
       // 2. Add the real UUID to the chat session
       await apiClient.post(`/chat/sessions/${sessionId}/videos/`, {
         user_video_id: realUserVideoId,
@@ -338,6 +348,7 @@ export default function ChatPage() {
             onSendMessage={handleSendMessage}
             onAddVideo={() => setShowAddVideo(true)}
             onRemoveVideo={handleRemoveVideo}
+            onSeek={handleSeek}
             className="h-full"
           />
         ) : (

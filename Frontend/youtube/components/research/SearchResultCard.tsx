@@ -197,19 +197,20 @@ interface SearchResultCardProps {
 
 export function SearchResultCard({ result, onFollowUp, className }: SearchResultCardProps) {
   const [sourcesExpanded, setSourcesExpanded] = useState(false)
-  const visibleSources = sourcesExpanded ? result.sources : result.sources.slice(0, 4)
+  const sources = result?.sources ?? []
+  const visibleSources = sourcesExpanded ? sources : sources.slice(0, 4)
 
   return (
     <div className={cn('flex flex-col gap-4', className)}>
 
       {/* ── Sources strip ───────────────────────────── */}
-      {result.sources.length > 0 && (
+      {sources.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wide">
               Sources
             </span>
-            {result.sources.length > 4 && (
+            {sources.length > 4 && (
               <button
                 onClick={() => setSourcesExpanded(p => !p)}
                 className="flex items-center gap-1 text-[10px] text-primary-400 hover:text-primary-300 transition-colors"

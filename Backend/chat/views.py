@@ -248,7 +248,7 @@ class ResearchSessionListCreateView(generics.ListCreateAPIView):
         return []   # GET list: governed by the 'user' 1000/hour baseline only
 
     def get_queryset(self):
-        return ResearchSession.objects.filter(user=self.request.user)
+        return ResearchSession.objects.filter(user=self.request.user).prefetch_related('sources')
 
     def get_serializer_class(self):
         return ResearchSessionSerializer

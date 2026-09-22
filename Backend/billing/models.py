@@ -94,6 +94,13 @@ class Subscription(models.Model):
 
     class Meta:
         db_table = "subscription"
+        indexes = [
+            # is_premium() check: find active subscriptions for a user
+            # This is called on almost every authenticated request (before cache)
+            models.Index(fields=["user", "status"], name="idx_sub_user_status"),
+            # Expiry check: find subscriptions ending soon
+            models.Index(fields=["current_period_end"], name="idx_sub_period_end"),
+        ]
 
     def __str__(self):
         return f"{self.user.email} — {self.plan.name} ({self.status})"

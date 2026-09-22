@@ -187,6 +187,7 @@ export default function SearchPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [errorState, setErrorState] = useState<'network' | 'limit' | 'auth' | 'not_found' | 'generic' | null>(null)
+  const [limit, setLimit] = useState<25 | 10 | 50>(25)
   const hasResults = results.length > 0
 
   useEffect(() => {
@@ -222,6 +223,7 @@ export default function SearchPage() {
             q: query,
             order: sortMap[filters.sort] || 'relevance',
             duration: filters.duration,
+            limit,
           }
         })
         const mapped = (res.data.results || []).map((v: any, index: number) => ({
@@ -288,7 +290,7 @@ export default function SearchPage() {
     }
 
     performFetch()
-  }, [query, filters.sort, filters.duration, filters.category])
+  }, [query, filters.sort, filters.duration, filters.category, limit])
 
   const handleUnifiedSearch = (q: string, cat: CategoryFilter, dur: string, ord: string) => {
     setQuery(q)
@@ -366,20 +368,37 @@ export default function SearchPage() {
 
       {/* ── Results header ── */}
       {query && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-heading-md text-[var(--color-text-primary)]">
               Results for <span className="text-primary-600">"{query}"</span>
             </h1>
             {hasResults && (
               <p className="text-caption text-[var(--color-text-tertiary)] mt-0.5">
-                {results.length} videos found
+                {results.length} video{results.length !== 1 ? 's' : ''} found
               </p>
             )}
           </div>
-          {hasResults && (
-            <Badge variant="primary" size="sm">YouTube Search</Badge>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Per-page selector */}
+            {hasResults && (
+              <div className="flex items-center gap-2">
+                <span className="text-caption text-[var(--color-text-tertiary)] whitespace-nowrap">Show</span>
+                <select
+                  value={limit}
+                  onChange={(e) => setLimit(Number(e.target.value) as 10 | 25 | 50)}
+                  className="text-caption bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] rounded-lg px-2 py-1 text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-primary-400 cursor-pointer"
+                  aria-label="Results per page"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+                <span className="text-caption text-[var(--color-text-tertiary)] whitespace-nowrap">results</span>
+              </div>
+            )}
+            {hasResults && <Badge variant="primary" size="sm">YouTube Search</Badge>}
+          </div>
         </div>
       )}
 

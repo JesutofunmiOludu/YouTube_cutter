@@ -96,7 +96,7 @@ function ResearchItem({ session, isActive, onSelect, onDelete }: {
         <p className="text-caption text-[var(--color-text-tertiary)] flex items-center gap-1">
           <Clock className="w-3 h-3" aria-hidden="true" />
           {session.completed_at ? relativeDate(session.completed_at) : 'Processing…'}
-          <span className="ml-1">{session.sources.length} sources</span>
+          <span className="ml-1">{(session.sources?.length ?? 0)} sources</span>
         </p>
       </div>
       <IconButton

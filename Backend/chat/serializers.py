@@ -75,19 +75,20 @@ class ResearchSourceSerializer(serializers.ModelSerializer):
 
 # ── ResearchSession (list) ─────────────────────────────────
 class ResearchSessionSerializer(serializers.ModelSerializer):
+    sources    = ResearchSourceSerializer(many=True, read_only=True)
+
     class Meta:
         model  = ResearchSession
-        fields = ('id', 'user_video', 'title', 'status', 'created_at', 'updated_at')
-        read_only_fields = ('id', 'user_video', 'status', 'created_at', 'updated_at')
+        fields = ('id', 'user_video', 'title', 'status', 'completed_at', 'created_at', 'updated_at', 'sources')
+        read_only_fields = ('id', 'user_video', 'status', 'completed_at', 'created_at', 'updated_at')
 
 
 # ── ResearchSession (detail — includes report + sources) ───
 class ResearchSessionDetailSerializer(ResearchSessionSerializer):
-    sources    = ResearchSourceSerializer(many=True, read_only=True)
     user_video = UserVideoSerializer(read_only=True)
 
     class Meta(ResearchSessionSerializer.Meta):
-        fields = ResearchSessionSerializer.Meta.fields + ('report_content', 'completed_at', 'sources')
+        fields = ResearchSessionSerializer.Meta.fields + ('report_content',)
 
 
 # ── VideoSearchSource ──────────────────────────────────────

@@ -342,7 +342,7 @@ class VideoSearchView(APIView):
 
     def get(self, request):
         query    = request.query_params.get('q', '').strip()
-        max_res  = min(int(request.query_params.get('limit', 10)), 50)
+        max_res  = min(int(request.query_params.get('limit', 25)), 50)
         order    = request.query_params.get('order', 'relevance').strip()
         duration = request.query_params.get('duration', 'any').strip()
 

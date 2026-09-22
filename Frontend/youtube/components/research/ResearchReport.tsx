@@ -319,7 +319,7 @@ const ResearchReport: React.FC<ResearchReportProps> = ({
           </Badge>
           <div className="flex items-center gap-1 text-caption text-[var(--color-text-tertiary)]">
             <Sparkles className="w-3 h-3" aria-hidden="true" />
-            <span>Based on: {session.user_video.video.title}</span>
+            <span>Based on: {session.user_video?.video?.title ?? 'Video topic'}</span>
           </div>
           {session.completed_at && (
             <div className="flex items-center gap-1 text-caption text-[var(--color-text-tertiary)]">
@@ -339,13 +339,14 @@ const ResearchReport: React.FC<ResearchReportProps> = ({
         </div>
 
         {/* Sources */}
-        {session.sources.length > 0 && (
+        {(session.sources?.length ?? 0) > 0 && (
           <div className="px-5 pb-6 border-t border-[var(--color-border-tertiary)] pt-5">
             <h2 className="text-heading-md text-[var(--color-text-primary)] mb-3">
-              Sources ({session.sources.length})
+              Sources ({session.sources?.length ?? 0})
             </h2>
             <div className="flex flex-col gap-2">
-              {session.sources
+              {(session.sources ?? [])
+                .slice()
                 .sort((a, b) => a.relevance_rank - b.relevance_rank)
                 .map((source) => (
                   <SourceCard 

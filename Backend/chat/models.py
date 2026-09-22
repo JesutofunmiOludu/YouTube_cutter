@@ -26,6 +26,10 @@ class ChatSession(models.Model):
     class Meta:
         db_table = "chat_session"
         ordering = ["-updated_at"]
+        indexes = [
+            # List all sessions for a user, newest activity first
+            models.Index(fields=["user", "-updated_at"], name="idx_cs_user_updated"),
+        ]
 
     def __str__(self):
         return self.title or f"Chat {self.id}"
@@ -99,6 +103,10 @@ class ChatMessage(models.Model):
     class Meta:
         db_table = "chat_message"
         ordering = ["created_at"]
+        indexes = [
+            # Load all messages in a session chronologically
+            models.Index(fields=["chat_session", "created_at"], name="idx_cm_session_created"),
+        ]
 
     def __str__(self):
         return f"[{self.role}] {self.content[:50]}"
@@ -147,6 +155,12 @@ class ResearchSession(models.Model):
     class Meta:
         db_table = "research_session"
         ordering = ["-created_at"]
+        indexes = [
+            # List research sessions per user, newest first
+            models.Index(fields=["user", "-created_at"], name="idx_rs_user_created"),
+            # Filter by status (e.g. find all pending sessions)
+            models.Index(fields=["status"], name="idx_rs_status"),
+        ]
 
     def __str__(self):
         return self.title or f"Research {self.id}"
@@ -268,6 +282,10 @@ class VideoSearchSession(models.Model):
     class Meta:
         db_table = "video_search_session"
         ordering = ["-created_at"]
+        indexes = [
+            # List search history per user, newest first
+            models.Index(fields=["user", "-created_at"], name="idx_vss_user_created"),
+        ]
 
     def __str__(self):
         return f"Search: {self.query[:60]}"
