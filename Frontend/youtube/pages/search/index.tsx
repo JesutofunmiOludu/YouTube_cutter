@@ -292,6 +292,8 @@ export default function SearchPage() {
     performFetch()
   }, [query, filters.sort, filters.duration, filters.category, limit])
 
+  const fromParam = (router.query.from as string) || ''
+
   const handleUnifiedSearch = (q: string, cat: CategoryFilter, dur: string, ord: string) => {
     setQuery(q)
     setFilters({
@@ -299,11 +301,13 @@ export default function SearchPage() {
       duration: dur as DurationFilter,
       sort: (ord === 'viewCount' || ord === 'views') ? 'views' : ord === 'date' ? 'date' : 'relevance',
     })
-    router.push(`/search?q=${encodeURIComponent(q)}`)
+    const fromSuffix = fromParam ? `&from=${encodeURIComponent(fromParam)}` : ''
+    router.push(`/search?q=${encodeURIComponent(q)}${fromSuffix}`)
   }
 
   const handleProcess = (video: Video) => {
-    router.push(`/workspace/new?url=https://youtube.com/watch?v=${video.youtube_id}&title=${encodeURIComponent(video.title)}`)
+    const fromSuffix = fromParam ? `&from=${encodeURIComponent(fromParam)}` : ''
+    router.push(`/workspace/new?url=https://youtube.com/watch?v=${video.youtube_id}&title=${encodeURIComponent(video.title)}${fromSuffix}`)
   }
 
   return (
@@ -319,7 +323,8 @@ export default function SearchPage() {
           initialQuery={query}
           onSearch={handleUnifiedSearch}
           onProcess={(ytId, engine) => {
-            router.push(`/workspace/new?url=https://youtube.com/watch?v=${ytId}&engine=${engine}`)
+            const fromSuffix = fromParam ? `&from=${encodeURIComponent(fromParam)}` : ''
+            router.push(`/workspace/new?url=https://youtube.com/watch?v=${ytId}&engine=${engine}${fromSuffix}`)
           }}
         />
       </div>

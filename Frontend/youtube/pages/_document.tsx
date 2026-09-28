@@ -2,7 +2,7 @@ import { Html, Head, Main, NextScript } from "next/document";
 
 export default function Document() {
   return (
-    <Html lang="en">
+    <Html lang="en" data-scroll-behavior="smooth">
       <Head>
         {/* ── Google Fonts ─────────────────────────────── */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -59,29 +59,72 @@ export default function Document() {
           name="twitter:description"
           content="Stop watching. Start understanding."
         />
-        {/* ── Suppress MetaMask / browser-extension noise ───────────────
-            MetaMask injects window.ethereum into every page and throws
-            "Failed to connect" promise rejections that pollute the
-            Next.js dev error overlay. This inline script runs before
-            React hydrates and silences those rejections globally.       */}
+        {/* ── Suppress MetaMask / Phantom / crypto extension errors ──
+            Web3 wallet extensions (Phantom, MetaMask, Rabby) inject
+            window.ethereum into every tab and conflict with each other by
+            trying to redefine window.ethereum, or throw connection errors.
+            This inline script runs before React hydrates and safely guards
+            Object.defineProperty and silences extension error events.       */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
 (function () {
+  // 1. Guard Object.defineProperty for 'ethereum' so conflicting wallet extensions don't crash
+  var origDefineProperty = Object.defineProperty;
+  Object.defineProperty = function (obj, prop, descriptor) {
+    try {
+      if (prop === 'ethereum') {
+        try {
+          return origDefineProperty.call(Object, obj, prop, Object.assign({}, descriptor, { configurable: true }));
+        } catch (e) {
+          return obj;
+        }
+      }
+      return origDefineProperty.apply(Object, arguments);
+    } catch (e) {
+      if (prop === 'ethereum' || (e && e.message && e.message.includes('ethereum'))) {
+        return obj;
+      }
+      throw e;
+    }
+  };
+
+  // 2. Suppress extension console.error from being forwarded to the Next.js dev terminal
+  var origConsoleError = console.error;
+  console.error = function () {
+    var args = Array.prototype.slice.call(arguments);
+    var firstArg = args[0] ? String(args[0].message || args[0].stack || args[0]) : '';
+    if (
+      firstArg.includes('ethereum') ||
+      firstArg.includes('evmAsk.js') ||
+      firstArg.includes('chrome-extension://') ||
+      firstArg.includes('inpage.js') ||
+      firstArg.includes('MetaMask')
+    ) {
+      return;
+    }
+    return origConsoleError.apply(console, arguments);
+  };
+
+  // 3. Suppress extension error events and unhandled rejections from triggering the Next.js dev overlay
   var _origAddEventListener = window.addEventListener.bind(window);
   window.addEventListener = function (type, listener, options) {
-    if (type === 'unhandledrejection') {
+    if (type === 'unhandledrejection' || type === 'error') {
       var wrapped = function (event) {
-        var reason = event && (event.reason || {});
-        var msg = String(reason.stack || reason.message || reason || '');
+        var err = event && (event.error || event.reason || {});
+        var msg = String(event.message || err.message || err.stack || err || '');
+        var file = String(event.filename || err.fileName || '');
         if (
           msg.includes('chrome-extension://') ||
           msg.includes('inpage.js') ||
           msg.includes('MetaMask') ||
-          msg.includes('Failed to connect to MetaMask')
+          msg.includes('Failed to connect to MetaMask') ||
+          msg.includes('Cannot redefine property: ethereum') ||
+          file.includes('chrome-extension://') ||
+          file.includes('evmAsk.js')
         ) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
+          if (event.preventDefault) event.preventDefault();
+          if (event.stopImmediatePropagation) event.stopImmediatePropagation();
           return;
         }
         listener(event);

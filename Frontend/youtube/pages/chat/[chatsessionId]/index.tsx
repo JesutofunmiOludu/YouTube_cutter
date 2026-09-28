@@ -298,6 +298,7 @@ export default function ChatPage() {
       {/* Add Video Modal */}
       {showAddVideo && (
         <AddVideoModal
+          currentVideo={activeSession?.videos?.[0]}
           onAdd={handleAddVideo}
           onClose={() => setShowAddVideo(false)}
         />

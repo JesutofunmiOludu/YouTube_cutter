@@ -90,10 +90,11 @@ function ErrorScreen({ error, onReset }: { error: string; onReset: () => void })
 
 export default function WorkspaceNewPage() {
   const router = useRouter()
-  const { url, title: titleParam, engine: engineParam } = router.query as {
+  const { url, title: titleParam, engine: engineParam, from } = router.query as {
     url?: string
     title?: string
     engine?: TranscriptionEngine
+    from?: string
   }
 
   const { user, deductCredits } = useAuthStore()
@@ -219,15 +220,28 @@ export default function WorkspaceNewPage() {
 
       await new Promise((res) => setTimeout(res, 400))
       if (!cancelled) {
-        toast.success('Workspace is ready!')
-        router.push(`/workspace/${userVideoId}`)
+        if (from === 'research') {
+          toast.success('Video ready! Launching research…')
+          try {
+            const researchRes = await apiClient.post('/research/', { user_video_id: userVideoId })
+            router.push(`/research/${researchRes.data.id}`)
+          } catch {
+            router.push(`/research?videoId=${userVideoId}`)
+          }
+        } else if (from === 'chat') {
+          toast.success('Video ready! Launching chat…')
+          router.push(`/chat?videoId=${userVideoId}`)
+        } else {
+          toast.success('Workspace is ready!')
+          router.push(`/workspace/${userVideoId}`)
+        }
       }
     }
 
     runSteps()
 
     return () => { cancelled = true }
-  }, [videoId, selectedEngine, error, router])
+  }, [videoId, selectedEngine, error, router, from])
 
   // ── No URL provided -> Render Unified Command Bar Entry Page ──
   if (!url && router.isReady) {
