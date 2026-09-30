@@ -39,6 +39,8 @@ import { AppShell } from '@/components/layout/AppShell'
 import { apiClient } from '@/utils/apiClient'
 import { Spinner } from '@/components/ui/Spinner'
 import { AddVideoModal } from '@/components/chat'
+import { VideoIngestionHero } from '@/components/workspace/VideoIngestionHero'
+import type { TranscriptionEngine } from '@/components/workspace/UnifiedIngestionBar'
 import {
   ResearchReport,
   SearchResultCard,
@@ -279,6 +281,8 @@ export default function ResearchPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showAddVideo, setShowAddVideo] = useState(false)
+  const [libraryVideos, setLibraryVideos] = useState<UserVideo[]>([])
+  const [isIngesting, setIsIngesting] = useState(false)
 
   // Conversational Inquiry & Search State
   const [query, setQuery] = useState('')
@@ -345,6 +349,17 @@ export default function ResearchPage() {
     }
   }, [toast])
 
+  // Fetch library videos for quick selection on the start canvas
+  useEffect(() => {
+    apiClient
+      .get('/videos/')
+      .then((res) => {
+        const list = res.data.results || res.data || []
+        setLibraryVideos(list)
+      })
+      .catch(() => {})
+  }, [])
+
   // Initial load
   useEffect(() => {
     if (!router.isReady) return
@@ -369,14 +384,14 @@ export default function ResearchPage() {
           }
         }
 
-        if (!sessionId && list.length > 0) {
-          router.replace(`/research/${list[0].id}`)
-        } else if (sessionId) {
+        if (sessionId) {
           await fetchSessionDetail(sessionId)
           if (!cancelled) {
             setIsLoading(false)
           }
         } else {
+          setActiveSession(null)
+          setSessionCuts([])
           setIsLoading(false)
         }
       } catch (err) {
@@ -469,7 +484,54 @@ export default function ResearchPage() {
     toast,
   ])
 
-  // Handle adding video to start a new deep research session
+  const handleProcessFromBar = async (youtubeId: string, engine: TranscriptionEngine) => {
+    try {
+      setIsIngesting(true)
+      toast.info('Ingesting video for deep research…')
+      const videoRes = await apiClient.post('/videos/', {
+        youtube_id: youtubeId,
+        transcription_mode: engine,
+        storage_type: 'reference',
+      })
+      const userVideoId = videoRes.data.id
+      const researchRes = await apiClient.post('/research/', {
+        user_video_id: userVideoId,
+      })
+      await fetchSessions()
+      router.push(`/research/${researchRes.data.id}`)
+      toast.success('Research session initialized!')
+    } catch (err: any) {
+      console.error('Failed to create research session from URL', err)
+      const msg = err.response?.data?.error?.message || 'Failed to start research with video.'
+      toast.error(msg)
+    } finally {
+      setIsIngesting(false)
+    }
+  }
+
+  const handleSearchFromBar = (query: string) => {
+    router.push(`/search?q=${encodeURIComponent(query)}&from=research`)
+  }
+
+  const handleSelectLibraryVideo = async (video: UserVideo) => {
+    try {
+      setIsIngesting(true)
+      toast.info('Starting deep research session…')
+      const researchRes = await apiClient.post('/research/', {
+        user_video_id: video.id,
+      })
+      await fetchSessions()
+      router.push(`/research/${researchRes.data.id}`)
+      toast.success('Research session initialized!')
+    } catch (err: any) {
+      console.error('Failed to start research with library video', err)
+      toast.error('Failed to start research with video.')
+    } finally {
+      setIsIngesting(false)
+    }
+  }
+
+  // Handle adding video to start a new deep research session (from modal)
   const handleAddVideoToResearch = useCallback(
     async (video: UserVideo) => {
       try {
@@ -665,7 +727,14 @@ export default function ResearchPage() {
                 variant="primary"
                 size="sm"
                 leftIcon={<Plus className="w-3.5 h-3.5" />}
-                onClick={() => setShowAddVideo(true)}
+                onClick={() => {
+                  if (sessionId) {
+                    router.push('/research')
+                  } else {
+                    setActiveSession(null)
+                    setSessionCuts([])
+                  }
+                }}
                 className="text-[12px] h-7 px-2.5 shadow-xs"
               >
                 New
@@ -886,25 +955,17 @@ export default function ResearchPage() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center flex-1 gap-4 p-6 text-center">
-            <Globe className="w-12 h-12 text-[var(--color-text-tertiary)]" aria-hidden="true" />
-            <div>
-              <h2 className="text-heading-md text-[var(--color-text-primary)] mb-1 font-bold">
-                No Research Report Selected
-              </h2>
-              <p className="text-body-sm text-[var(--color-text-secondary)]">
-                Select a research report from the sidebar or start a new one from any video.
-              </p>
-            </div>
-            <Button
-              variant="primary"
-              size="md"
-              leftIcon={<Plus className="w-4 h-4" />}
-              onClick={() => setShowAddVideo(true)}
-            >
-              Start Research
-            </Button>
-          </div>
+          <VideoIngestionHero
+            badgeText="VidMind Deep Research"
+            title="Research Any YouTube Video or Topic"
+            subtitle="Paste a YouTube link or search video topics to extract chapters, explore web citations, and generate comprehensive research reports."
+            onProcess={handleProcessFromBar}
+            onSearch={handleSearchFromBar}
+            onSelectLibraryVideo={handleSelectLibraryVideo}
+            libraryVideos={libraryVideos}
+            isProcessing={isIngesting}
+            actionButtonLabel="Start Research"
+          />
         )}
       </main>
 

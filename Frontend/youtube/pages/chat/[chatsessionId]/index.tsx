@@ -14,6 +14,8 @@ import { useToast }     from '@/components/ui/Toast'
 import { useAuthStore } from '@/store/auth.store'
 import { AppShell }     from '@/components/layout/AppShell'
 import { ChatWindow, AddVideoModal } from '@/components/chat'
+import { VideoIngestionHero } from '@/components/workspace/VideoIngestionHero'
+import type { TranscriptionEngine } from '@/components/workspace/UnifiedIngestionBar'
 import { apiClient }    from '@/utils/apiClient'
 import { Spinner }      from '@/components/ui/Spinner'
 import type { ChatSession, ChatMessage, UserVideo } from '@/types'
@@ -108,6 +110,8 @@ export default function ChatPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [showAddVideo, setShowAddVideo] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [libraryVideos, setLibraryVideos] = useState<UserVideo[]>([])
+  const [isIngesting, setIsIngesting] = useState(false)
 
   const sessionId     = (router.query.chatsessionId as string) ?? null
   const preVideoId    = (router.query.videoId as string) ?? null
@@ -124,7 +128,18 @@ export default function ChatPage() {
     }
   }, [])
 
-  // Auto-select first session or handle redirecting with pre-attached video
+  // Fetch library videos for quick selection on the start canvas
+  useEffect(() => {
+    apiClient
+      .get('/videos/')
+      .then((res) => {
+        const list = res.data.results || res.data || []
+        setLibraryVideos(list)
+      })
+      .catch(() => {})
+  }, [])
+
+  // Auto-select session only if videoId provided or sessionId is in URL
   useEffect(() => {
     if (!router.isReady) return
     let cancelled = false
@@ -146,8 +161,6 @@ export default function ChatPage() {
           if (!cancelled) {
             router.replace(`/chat/${createRes.data.id}`)
           }
-        } else if (!sessionId && list.length > 0) {
-          router.replace(`/chat/${list[0].id}`)
         } else if (sessionId) {
           const detailRes = await apiClient.get(`/chat/sessions/${sessionId}/`)
           if (!cancelled) {
@@ -156,6 +169,8 @@ export default function ChatPage() {
             setIsLoading(false)
           }
         } else {
+          setActiveSession(null)
+          setMessages([])
           setIsLoading(false)
         }
       } catch (err) {
@@ -231,16 +246,64 @@ export default function ChatPage() {
     }
   }, [sessionId, fetchSessions])
 
-  const handleNewChat = async () => {
+  const handleNewChat = () => {
+    if (sessionId) {
+      router.push('/chat')
+    } else {
+      setActiveSession(null)
+      setMessages([])
+    }
+  }
+
+  const handleProcessFromBar = async (youtubeId: string, engine: TranscriptionEngine) => {
     try {
-      const createRes = await apiClient.post('/chat/sessions/', {
-        title: 'New chat',
+      setIsIngesting(true)
+      toast.info('Ingesting video for chat…')
+      const videoRes = await apiClient.post('/videos/', {
+        youtube_id: youtubeId,
+        transcription_mode: engine,
+        storage_type: 'reference',
       })
-      fetchSessions()
+      const uv = videoRes.data
+      const createRes = await apiClient.post('/chat/sessions/', {
+        title: `Chat - ${uv.video?.title || 'Video'}`,
+      })
+      await apiClient.post(`/chat/sessions/${createRes.data.id}/videos/`, {
+        user_video_id: uv.id,
+      })
+      await fetchSessions()
       router.push(`/chat/${createRes.data.id}`)
-    } catch (err) {
-      console.error('Failed to create new chat', err)
-      toast.error('Failed to create a new chat session.')
+      toast.success('Chat workspace ready!')
+    } catch (err: any) {
+      console.error('Failed to create chat from URL', err)
+      const msg = err.response?.data?.error?.message || 'Failed to initialize chat from video.'
+      toast.error(msg)
+    } finally {
+      setIsIngesting(false)
+    }
+  }
+
+  const handleSearchFromBar = (query: string) => {
+    router.push(`/search?q=${encodeURIComponent(query)}&from=chat`)
+  }
+
+  const handleSelectLibraryVideo = async (video: UserVideo) => {
+    try {
+      setIsIngesting(true)
+      const createRes = await apiClient.post('/chat/sessions/', {
+        title: `Chat - ${video.video.title}`,
+      })
+      await apiClient.post(`/chat/sessions/${createRes.data.id}/videos/`, {
+        user_video_id: video.id,
+      })
+      await fetchSessions()
+      router.push(`/chat/${createRes.data.id}`)
+      toast.success('Chat workspace ready!')
+    } catch (err: any) {
+      console.error('Failed to start chat with library video', err)
+      toast.error('Failed to start chat with video.')
+    } finally {
+      setIsIngesting(false)
     }
   }
 
@@ -353,18 +416,17 @@ export default function ChatPage() {
             className="h-full"
           />
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
-            <MessageSquare className="w-12 h-12 text-[var(--color-text-tertiary)]" aria-hidden="true" />
-            <div>
-              <h2 className="text-heading-md text-[var(--color-text-primary)] mb-1">No chat selected</h2>
-              <p className="text-body-sm text-[var(--color-text-secondary)]">
-                Select a chat from the sidebar or start a new one.
-              </p>
-            </div>
-            <Button variant="primary" size="md" leftIcon={<Plus className="w-4 h-4" />} onClick={handleNewChat}>
-              Start new chat
-            </Button>
-          </div>
+          <VideoIngestionHero
+            badgeText="Multimodal Video AI"
+            title="Chat With Any YouTube Video"
+            subtitle="Paste a YouTube link or search video topics to chat interactively with full transcript context and chapter jumps."
+            onProcess={handleProcessFromBar}
+            onSearch={handleSearchFromBar}
+            onSelectLibraryVideo={handleSelectLibraryVideo}
+            libraryVideos={libraryVideos}
+            isProcessing={isIngesting}
+            actionButtonLabel="Start Chat"
+          />
         )}
       </div>
 
