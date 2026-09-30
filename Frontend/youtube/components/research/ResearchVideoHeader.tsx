@@ -20,6 +20,7 @@ import {
   Check,
   ExternalLink,
   Sparkles,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
@@ -31,6 +32,8 @@ export interface ResearchVideoHeaderProps {
   cutsCount?: number
   sourcesCount?: number
   isSynthesized?: boolean
+  isResearchProcessing?: boolean
+  isVideoProcessing?: boolean
   onTogglePlayer?: () => void
   isPlayerOpen?: boolean
   onExport?: () => void
@@ -50,9 +53,11 @@ function formatDuration(seconds: number): string {
 
 export const ResearchVideoHeader: React.FC<ResearchVideoHeaderProps> = ({
   userVideo,
-  cutsCount = 3,
+  cutsCount = 0,
   sourcesCount = 0,
   isSynthesized = true,
+  isResearchProcessing = false,
+  isVideoProcessing = false,
   onTogglePlayer,
   isPlayerOpen = false,
   onExport,
@@ -130,10 +135,22 @@ export const ResearchVideoHeader: React.FC<ResearchVideoHeaderProps> = ({
           <div className="flex-1 min-w-0">
             {/* Status pills row */}
             <div className="flex items-center gap-2 flex-wrap mb-1.5">
-              {isSynthesized && (
+              {isResearchProcessing && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
+                  Deep Research In Progress
+                </span>
+              )}
+              {isSynthesized && !isResearchProcessing && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   AI Synthesis Complete
+                </span>
+              )}
+              {isVideoProcessing && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-500/20">
+                  <Loader2 className="w-3 h-3 animate-spin text-primary-500" />
+                  Mapping Video Topics…
                 </span>
               )}
               {cutsCount > 0 && (

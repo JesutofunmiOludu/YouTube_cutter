@@ -276,7 +276,16 @@ class ResearchSessionListCreateView(generics.ListCreateAPIView):
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        session = serializer.save(user=request.user, user_video=user_video)
+
+        session_title = request.data.get('title')
+        if not session_title and user_video.video and user_video.video.title:
+            session_title = user_video.video.title
+
+        session = serializer.save(
+            user=request.user,
+            user_video=user_video,
+            title=session_title or 'Research report',
+        )
 
         # Trigger Gemini research generation asynchronously in a background thread
         import threading
@@ -366,7 +375,12 @@ def _run_research(session: ResearchSession) -> None:
                 session.report_content = report_md
                 session.status         = ResearchSession.Status.COMPLETED
                 session.completed_at   = timezone.now()
-                session.save(update_fields=['report_content', 'status', 'completed_at'])
+                update_fields = ['report_content', 'status', 'completed_at']
+                if not session.title or session.title == 'Research report':
+                    if session.user_video and session.user_video.video and session.user_video.video.title:
+                        session.title = session.user_video.video.title
+                        update_fields.append('title')
+                session.save(update_fields=update_fields)
 
                 ResearchSource.objects.filter(research_session=session).delete()
                 for source_data in (raw_sources or []):
@@ -406,7 +420,12 @@ def _run_research(session: ResearchSession) -> None:
                 session.report_content = report_md
                 session.status         = ResearchSession.Status.COMPLETED
                 session.completed_at   = timezone.now()
-                session.save(update_fields=['report_content', 'status', 'completed_at'])
+                update_fields = ['report_content', 'status', 'completed_at']
+                if not session.title or session.title == 'Research report':
+                    if session.user_video and session.user_video.video and session.user_video.video.title:
+                        session.title = session.user_video.video.title
+                        update_fields.append('title')
+                session.save(update_fields=update_fields)
 
                 ResearchSource.objects.filter(research_session=session).delete()
                 for source_data in (raw_sources or []):

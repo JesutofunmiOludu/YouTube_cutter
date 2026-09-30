@@ -185,13 +185,22 @@ function ResearchSessionItem({
             isActive ? 'text-primary-700 dark:text-primary-300' : 'text-[var(--color-text-primary)]'
           )}
         >
-          {session.title || 'Research report'}
+          {session.title || session.user_video?.video?.title || 'Research report'}
         </p>
         <p className="text-[11px] text-[var(--color-text-tertiary)] flex items-center gap-1.5 font-mono">
-          <Clock className="w-3 h-3 text-[var(--color-text-tertiary)] shrink-0" />
-          <span>{session.completed_at ? relativeDate(session.completed_at) : 'In progress…'}</span>
-          <span>•</span>
-          <span>{(session.sources?.length ?? 0)} sources</span>
+          {session.status === 'processing' || !session.completed_at ? (
+            <span className="flex items-center gap-1 text-primary-600 dark:text-primary-400 font-medium">
+              <Loader2 className="w-3 h-3 animate-spin text-primary-500" />
+              In progress…
+            </span>
+          ) : (
+            <>
+              <Clock className="w-3 h-3 text-[var(--color-text-tertiary)] shrink-0" />
+              <span>{relativeDate(session.completed_at)}</span>
+              <span>•</span>
+              <span>{(session.sources?.length ?? 0)} sources</span>
+            </>
+          )}
         </p>
       </div>
 
@@ -303,6 +312,39 @@ export default function ResearchPage() {
     }
   }, [isPremium])
 
+  // Fetch single session detail and real video cuts (no mock fallback!)
+  const fetchSessionDetail = useCallback(async (id: string) => {
+    try {
+      const detailRes = await apiClient.get(`/research/${id}/`)
+      const sess: ResearchSession = detailRes.data
+      setActiveSession(sess)
+
+      // Extract real cuts only — NEVER fall back to mock data
+      const cuts = sess.user_video?.cuts || []
+      if (cuts.length > 0) {
+        setSessionCuts(cuts)
+      } else if (sess.user_video?.id) {
+        try {
+          const uvRes = await apiClient.get(`/videos/${sess.user_video.id}/`)
+          if (uvRes.data?.cuts && uvRes.data.cuts.length > 0) {
+            setSessionCuts(uvRes.data.cuts)
+          } else {
+            setSessionCuts([])
+          }
+        } catch {
+          setSessionCuts([])
+        }
+      } else {
+        setSessionCuts([])
+      }
+      return sess
+    } catch (err) {
+      console.error('Failed to load research report', err)
+      toast.error('Failed to load research report.')
+      return null
+    }
+  }, [toast])
+
   // Initial load
   useEffect(() => {
     if (!router.isReady) return
@@ -330,30 +372,8 @@ export default function ResearchPage() {
         if (!sessionId && list.length > 0) {
           router.replace(`/research/${list[0].id}`)
         } else if (sessionId) {
-          const detailRes = await apiClient.get(`/research/${sessionId}/`)
+          await fetchSessionDetail(sessionId)
           if (!cancelled) {
-            const sess: ResearchSession = detailRes.data
-            setActiveSession(sess)
-
-            // Extract cuts or fallback to mock video cuts if none available
-            const cuts = sess.user_video?.cuts || []
-            if (cuts.length > 0) {
-              setSessionCuts(cuts)
-            } else if (sess.user_video?.id) {
-              // Fetch cuts from user video detail
-              try {
-                const uvRes = await apiClient.get(`/videos/${sess.user_video.id}/`)
-                if (uvRes.data?.cuts?.length > 0) {
-                  setSessionCuts(uvRes.data.cuts)
-                } else {
-                  setSessionCuts(MOCK_USER_VIDEO.cuts || [])
-                }
-              } catch {
-                setSessionCuts(MOCK_USER_VIDEO.cuts || [])
-              }
-            } else {
-              setSessionCuts(MOCK_USER_VIDEO.cuts || [])
-            }
             setIsLoading(false)
           }
         } else {
@@ -372,7 +392,82 @@ export default function ResearchPage() {
     return () => {
       cancelled = true
     }
-  }, [sessionId, preVideoId, router.isReady, fetchSessions, toast])
+  }, [sessionId, preVideoId, router.isReady, fetchSessions, fetchSessionDetail, toast])
+
+  // Active status flags
+  const isResearchProcessing = activeSession?.status === 'processing'
+  const isVideoProcessing =
+    activeSession?.user_video?.processing_status === 'processing' ||
+    activeSession?.user_video?.processing_status === 'pending'
+
+  // Live polling: automatically refreshes when research or video pipeline is in progress
+  useEffect(() => {
+    if (!sessionId || (!isResearchProcessing && !isVideoProcessing && sessionCuts.length > 0)) return
+
+    let cancelled = false
+    const pollInterval = setInterval(async () => {
+      try {
+        // 1. Poll research report if currently processing
+        if (isResearchProcessing) {
+          const res = await apiClient.get(`/research/${sessionId}/`)
+          if (cancelled) return
+          const updated: ResearchSession = res.data
+
+          if (updated.status !== 'processing') {
+            setActiveSession(updated)
+            fetchSessions() // Updates sidebar list title, timestamp & sources count
+            if (updated.status === 'completed') {
+              toast.success('Deep research report ready!')
+            } else if (updated.status === 'failed') {
+              toast.error('Research generation encountered an issue.')
+            }
+          }
+        }
+
+        // 2. Poll video cuts if video is still processing or cuts are not yet available
+        if (activeSession?.user_video?.id && (isVideoProcessing || sessionCuts.length === 0)) {
+          const uvRes = await apiClient.get(`/videos/${activeSession.user_video.id}/`)
+          if (cancelled) return
+          if (uvRes.data?.cuts && uvRes.data.cuts.length > 0) {
+            setSessionCuts(uvRes.data.cuts)
+          }
+          if (
+            uvRes.data?.processing_status &&
+            uvRes.data.processing_status !== activeSession.user_video.processing_status
+          ) {
+            setActiveSession((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    user_video: {
+                      ...prev.user_video!,
+                      processing_status: uvRes.data.processing_status,
+                      cuts: uvRes.data.cuts || prev.user_video?.cuts || [],
+                    },
+                  }
+                : null
+            )
+          }
+        }
+      } catch (err) {
+        console.error('Polling status failed:', err)
+      }
+    }, 3000)
+
+    return () => {
+      cancelled = true
+      clearInterval(pollInterval)
+    }
+  }, [
+    sessionId,
+    isResearchProcessing,
+    isVideoProcessing,
+    activeSession?.user_video?.id,
+    activeSession?.user_video?.processing_status,
+    sessionCuts.length,
+    fetchSessions,
+    toast,
+  ])
 
   // Handle adding video to start a new deep research session
   const handleAddVideoToResearch = useCallback(
@@ -625,7 +720,13 @@ export default function ResearchPage() {
                 key={session.id}
                 session={session}
                 isActive={session.id === sessionId}
-                onSelect={() => router.push(`/research/${session.id}`)}
+                onSelect={() => {
+                  if (session.id === sessionId) {
+                    fetchSessionDetail(session.id)
+                  } else {
+                    router.push(`/research/${session.id}`)
+                  }
+                }}
                 onDelete={() => setDeleteTarget(session.id)}
               />
             ))
@@ -661,6 +762,8 @@ export default function ResearchPage() {
                 cutsCount={sessionCuts.length}
                 sourcesCount={activeSession.sources?.length || 0}
                 isSynthesized={activeSession.status === 'completed'}
+                isResearchProcessing={isResearchProcessing}
+                isVideoProcessing={isVideoProcessing}
                 isPlayerOpen={isPlayerOpen}
                 onTogglePlayer={() => setIsPlayerOpen((prev) => !prev)}
                 onExport={handleExport}
@@ -672,6 +775,8 @@ export default function ResearchPage() {
                 selectedTopicTitle={selectedTopicTitle}
                 onSelectTopic={handleSelectTopic}
                 onSeekTimestamp={handleSeekTimestamp}
+                isLoading={isLoading}
+                isVideoProcessing={isVideoProcessing && sessionCuts.length === 0}
               />
 
               {/* 3. Conversational Feed & Results Stream */}
@@ -712,6 +817,40 @@ export default function ResearchPage() {
                         ? 'Autonomous agent exploring web sources and generating deep cited report…'
                         : 'Searching the web and extracting citations…'}
                     </p>
+                  </div>
+                )}
+
+                {/* In-Progress Deep Research Banner */}
+                {isResearchProcessing && !activeSession.report_content && (
+                  <div className="bg-gradient-to-br from-primary-500/5 via-[var(--color-bg-secondary)] to-amber-500/5 border border-primary-500/20 rounded-2xl p-6 sm:p-8 shadow-xs space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary-500/10 border border-primary-500/25 flex items-center justify-center text-primary-600">
+                        <Sparkles className="w-5 h-5 animate-pulse text-primary-500" />
+                      </div>
+                      <div>
+                        <h3 className="text-body-md sm:text-heading-sm font-semibold text-[var(--color-text-primary)]">
+                          Synthesizing Deep Research Report
+                        </h3>
+                        <p className="text-[12px] text-[var(--color-text-secondary)]">
+                          Autonomous agent is currently exploring web sources, cross-referencing video concepts, and compiling cited findings.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                      <div className="p-3 rounded-xl bg-[var(--color-bg-tertiary)]/70 border border-[var(--color-border-tertiary)] flex items-center gap-2.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[12px] font-medium text-[var(--color-text-primary)]">1. Video Key Themes</span>
+                      </div>
+                      <div className="p-3 rounded-xl bg-[var(--color-bg-tertiary)]/70 border border-primary-500/30 flex items-center gap-2.5">
+                        <Loader2 className="w-3.5 h-3.5 text-primary-500 animate-spin" />
+                        <span className="text-[12px] font-medium text-primary-600 dark:text-primary-400">2. Autonomous Search</span>
+                      </div>
+                      <div className="p-3 rounded-xl bg-[var(--color-bg-tertiary)]/40 border border-[var(--color-border-tertiary)] flex items-center gap-2.5 opacity-60">
+                        <span className="w-2 h-2 rounded-full bg-[var(--color-text-tertiary)]" />
+                        <span className="text-[12px] text-[var(--color-text-tertiary)]">3. Cited Report Formulation</span>
+                      </div>
+                    </div>
                   </div>
                 )}
 
