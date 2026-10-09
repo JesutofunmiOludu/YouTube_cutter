@@ -233,6 +233,10 @@ class VideoRecommendation(models.Model):
         blank=True,
         help_text="0.0000 to 1.0000",
     )
+    recommended_channel_name = models.CharField(max_length=255, blank=True, default="")
+    recommended_duration_seconds = models.IntegerField(null=True, blank=True, default=0)
+    recommended_view_count = models.BigIntegerField(null=True, blank=True)
+    recommended_published_at = models.CharField(max_length=50, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

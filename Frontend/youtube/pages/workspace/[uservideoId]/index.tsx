@@ -26,6 +26,8 @@ import Link                     from 'next/link'
 import {
   ChevronLeft,
   Scissors,
+  Sparkles,
+  AlertCircle,
   Plus,
   Clock,
   Download,
@@ -1832,6 +1834,7 @@ export default function WorkspacePage() {
   const [userVideo, setUserVideo] = useState<UserVideo | null>(null)
   const [cuts,      setCuts]      = useState<VideoCut[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [chatSession, setChatSession] = useState<ChatSession | null>(null)
   const [chatLoading, setChatLoading] = useState(false)
@@ -1946,8 +1949,13 @@ export default function WorkspacePage() {
         } catch (searchErr) {
           console.error('Failed to load search history', searchErr)
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load workspace data', err)
+        const msg =
+          err.response?.status === 404
+            ? "Video not found. This video may not exist or belongs to another user account. Make sure you are logged into the right account."
+            : err.response?.data?.detail || err.response?.data?.error?.message || 'Failed to load workspace data.'
+        setLoadError(msg)
       } finally {
         if (active) setIsLoading(false)
       }
@@ -2468,6 +2476,37 @@ export default function WorkspacePage() {
     (c) => currentTime >= c.start_seconds && currentTime < c.end_seconds
   )?.id ?? null
 
+  // Error state (e.g. 404 Not Found or forbidden)
+  if (loadError) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[var(--color-bg-primary)] p-6 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-4 text-rose-500">
+          <AlertCircle className="w-7 h-7" />
+        </div>
+        <h1 className="text-heading-md font-bold text-[var(--color-text-primary)] mb-2">
+          Workspace Not Accessible
+        </h1>
+        <p className="text-body-sm text-[var(--color-text-secondary)] max-w-md mb-6">
+          {loadError}
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-body-sm font-semibold transition-colors"
+          >
+            Go to Dashboard
+          </button>
+          <button
+            onClick={() => router.push('/auth/login')}
+            className="px-4 py-2 rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] text-body-sm font-medium transition-colors"
+          >
+            Switch Account
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // Loading spinner
   if (isLoading || !userVideo) {
     return (
@@ -2601,13 +2640,24 @@ export default function WorkspacePage() {
           Video Editor
         </h1>
 
-        <button
-          onClick={() => router.push('/settings')}
-          className="w-8 h-8 rounded-full border border-[var(--color-border-secondary)] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-          aria-label="Account settings"
-        >
-          <User className="w-4 h-4" aria-hidden="true" />
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/workspace/${userVideoId}/canvas?format=mindmap`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-sm transition-all"
+            title="Switch to Radial Knowledge Canvas (Mindmap, Cheatsheet, Blueprint)"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Knowledge Canvas</span>
+          </Link>
+
+          <button
+            onClick={() => router.push('/settings')}
+            className="w-8 h-8 rounded-full border border-[var(--color-border-secondary)] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+            aria-label="Account settings"
+          >
+            <User className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
       </header>
 
       {/* ── Mobile Tab Switcher ── */}

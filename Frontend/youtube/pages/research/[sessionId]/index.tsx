@@ -49,8 +49,9 @@ import {
   ResearchCommandDock,
   ResearchVideoPlayer,
 } from '@/components/research'
+import { RelatedVideosSection } from '@/components/video/RelatedVideosSection'
 import type { SearchMode } from '@/components/research'
-import type { ResearchSession, UserVideo, VideoCut, SearchResult } from '@/types'
+import type { ResearchSession, UserVideo, VideoCut, SearchResult, VideoRecommendation, KnowledgeFormatType } from '@/types'
 
 // ── Mock data for fallback / initial states ────────────────
 const MOCK_USER_VIDEO: UserVideo = {
@@ -484,7 +485,19 @@ export default function ResearchPage() {
     toast,
   ])
 
-  const handleProcessFromBar = async (youtubeId: string, engine: TranscriptionEngine) => {
+  const handleProcessFromBar = async (
+    youtubeId: string,
+    engine: TranscriptionEngine,
+    format?: KnowledgeFormatType
+  ) => {
+    // If user selected a visual knowledge format (mindmap, cheatsheet, etc.), route directly
+    if (format && format !== 'standard') {
+      router.push(
+        `/workspace/new?url=https://youtube.com/watch?v=${youtubeId}&engine=${engine}&format=${format}`
+      )
+      return
+    }
+
     try {
       setIsIngesting(true)
       toast.info('Ingesting video for deep research…')
@@ -564,6 +577,33 @@ export default function ResearchPage() {
         } else {
           toast.error('Failed to start research on this video.')
         }
+      }
+    },
+    [fetchSessions, router, toast]
+  )
+
+  // Handle 1-click addition from underground RelatedVideosSection
+  const handleAddRelatedVideoToResearch = useCallback(
+    async (rec: VideoRecommendation) => {
+      try {
+        toast.info(`Ingesting "${rec.title}" for deep research…`)
+        const videoRes = await apiClient.post('/videos/', {
+          youtube_id: rec.youtube_id,
+          storage_type: 'reference',
+        })
+        const realUserVideoId = videoRes.data.id
+
+        const researchRes = await apiClient.post('/research/', {
+          user_video_id: realUserVideoId,
+        })
+
+        await fetchSessions()
+        router.push(`/research/${researchRes.data.id}`)
+        toast.success('Research session initialized!')
+      } catch (err: any) {
+        console.error('Failed to start research with related video', err)
+        const msg = err.response?.data?.error?.message || 'Failed to start research with video.'
+        toast.error(msg)
       }
     },
     [fetchSessions, router, toast]

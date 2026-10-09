@@ -545,16 +545,39 @@ def _safe_parse_audio_response(raw: str) -> dict:
     return {}
 
 
-def _build_transcript(user_video: 'UserVideo') -> str:
-    """Build a timestamped transcript string from DB segments."""
+def _build_transcript(user_video: 'UserVideo', max_chars: int = 80_000) -> str:
+    """
+    Build a timestamped transcript string from DB segments.
+    For ultra-long videos (e.g. 2+ hours), samples segments evenly so
+    the token count stays safely within Gemini free-tier limits (250k TPM)
+    while providing full chronological coverage across the entire video.
+    """
     try:
         transcription = user_video.transcription
-        segments = transcription.segments.order_by('segment_order')
-        if not segments.exists():
+        segments = list(transcription.segments.order_by('segment_order'))
+        if not segments:
             return ''
-        return '\n'.join(
+
+        total_segs = len(segments)
+        full_text = '\n'.join(
             f'[{int(seg.start_seconds)}s] {seg.text}'
             for seg in segments
+        )
+        if len(full_text) <= max_chars:
+            return full_text
+
+        # For ultra-long videos, sample segments evenly across the duration
+        avg_len = max(len(full_text) / total_segs, 25)
+        target_count = max(int(max_chars / avg_len), 100)
+        step = max(int(total_segs / target_count), 2)
+
+        sampled = segments[::step]
+        if segments[-1] not in sampled:
+            sampled.append(segments[-1])
+
+        return '\n'.join(
+            f'[{int(seg.start_seconds)}s] {seg.text}'
+            for seg in sampled
         )
     except Exception:  # noqa: BLE001
         return ''
@@ -679,3 +702,322 @@ def _stub_cuts(user_video: 'UserVideo') -> list[dict]:
         }
         for i in range(segment_count)
     ]
+
+
+# ─────────────────────────────────────────────────────────────
+# Multimodal Knowledge Canvas Formats & Segment Chat
+# ─────────────────────────────────────────────────────────────
+
+FORMAT_COLORS = [
+    '#6366f1',  # Indigo
+    '#ec4899',  # Pink
+    '#10b981',  # Emerald
+    '#f59e0b',  # Amber
+    '#8b5cf6',  # Violet
+    '#06b6d4',  # Cyan
+    '#3b82f6',  # Blue
+    '#f97316',  # Orange
+]
+
+
+def _build_fallback_knowledge_format(user_video: 'UserVideo', format_type: str) -> dict:
+    """
+    Builds a resilient, structured knowledge format payload using existing
+    VideoCut records or video metadata when Gemini is unavailable.
+    """
+    video = user_video.video
+    cuts = list(user_video.cuts.all().order_by('cut_order'))
+    if not cuts:
+        cuts_data = _stub_cuts(user_video)
+        from videos.models import VideoCut
+        cuts = [
+            VideoCut(
+                user_video=user_video,
+                cut_order=i + 1,
+                start_seconds=c['start_seconds'],
+                end_seconds=c['end_seconds'],
+                title=c['title'],
+                ai_rationale=c.get('rationale', ''),
+            )
+            for i, c in enumerate(cuts_data)
+        ]
+
+    central_theme = f"Core Insights & Structure: {video.title}"
+    nodes = []
+
+    for idx, cut in enumerate(cuts):
+        color = FORMAT_COLORS[idx % len(FORMAT_COLORS)]
+        node_id = f"node-{idx + 1}"
+        target_id = f"node-{(idx + 1) % len(cuts) + 1}" if len(cuts) > 1 else None
+
+        # Build format-specific attributes
+        if format_type == 'mindmap':
+            sub_points = [
+                f"Core idea from {cut.title or 'section'}",
+                cut.ai_rationale[:90] if cut.ai_rationale else "Key point analyzed from this segment",
+                f"Actionable insight @ {int(cut.start_seconds // 60)}m {int(cut.start_seconds % 60)}s",
+            ]
+            relations = []
+            category = f"Branch 0{idx + 1}"
+        elif format_type == 'concept_map':
+            sub_points = ["Definition & Core Concept", "Application in Context"]
+            relations = [{"target_id": target_id, "label": "builds upon" if idx > 0 else "leads to"}] if target_id else []
+            category = "Key Entity"
+        elif format_type == 'blueprint':
+            sub_points = [
+                f"Prerequisite: Review segment {idx}",
+                f"Deliverable: {cut.title or 'Milestone'}",
+                "Specification: Standard practice",
+            ]
+            relations = [{"target_id": target_id, "label": "next phase"}] if target_id else []
+            category = f"Phase 0{idx + 1}"
+        elif format_type == 'timeline':
+            sub_points = [
+                f"Milestone reached at {int(cut.start_seconds // 60)}:{int(cut.start_seconds % 60):02d}",
+                cut.ai_rationale[:80] if cut.ai_rationale else "Sequential development",
+            ]
+            relations = [{"target_id": target_id, "label": "progresses to"}] if target_id else []
+            category = f"Milestone {idx + 1}"
+        else:  # cheatsheet
+            sub_points = [
+                f"Rule: Pay attention to {cut.title}",
+                cut.ai_rationale[:100] if cut.ai_rationale else "Essential takeaway to remember",
+                "Quick tip: Re-watch key timestamp",
+            ]
+            relations = []
+            category = "Quick Reference"
+
+        nodes.append({
+            'id': node_id,
+            'order': idx + 1,
+            'title': cut.title or f"Segment {idx + 1}",
+            'summary': cut.ai_rationale or f"Key coverage during {int(cut.start_seconds)}s – {int(cut.end_seconds)}s.",
+            'start_seconds': int(cut.start_seconds),
+            'end_seconds': int(cut.end_seconds),
+            'category': category,
+            'sub_points': sub_points,
+            'relations': relations,
+            'color': color,
+        })
+
+    return {
+        'format_type': format_type,
+        'central_theme': central_theme,
+        'video_title': video.title,
+        'nodes': nodes,
+        'takeaways': [
+            f"Central theme: {video.title}",
+            f"{len(nodes)} interconnected knowledge nodes mapped to exact video timestamps.",
+            "Click any node on the radial canvas to focus the video and open the segment interaction modal.",
+        ],
+        'metadata': {
+            'channel_name': video.channel_name,
+            'duration_seconds': video.duration_seconds,
+            'is_fallback': True,
+        },
+    }
+
+
+def generate_video_knowledge_format(user_video: 'UserVideo', format_type: str) -> dict:
+    """
+    Generates a specialized visual knowledge structure (Mindmap, Cheatsheet,
+    Concept Map, Blueprint, Timeline) tailored to the video's transcript and cuts.
+    """
+    client = _get_client()
+    if client is None:
+        return _build_fallback_knowledge_format(user_video, format_type)
+
+    video = user_video.video
+    cuts = list(user_video.cuts.all().order_by('cut_order'))
+    transcript = _build_transcript(user_video)
+
+    cuts_summary = "\n".join([
+        f"- #{c.cut_order}: [{int(c.start_seconds)}s - {int(c.end_seconds)}s] {c.title} -> {c.ai_rationale}"
+        for c in cuts
+    ])
+
+    format_instructions = {
+        'mindmap': (
+            "Format: MINDMAP. Organize into central theme and radial thematic branches with 2-3 specific sub-ideas per node. "
+            "Category should be thematic branches (e.g. 'Foundations', 'Implementation', 'Critical Objections')."
+        ),
+        'cheatsheet': (
+            "Format: CHEATSHEET. Organize into high-density reference cards with actionable rules, essential definitions, "
+            "and memorable principles per segment. sub_points should be concise, high-value bullet points."
+        ),
+        'concept_map': (
+            "Format: CONCEPT MAP. Focus on core entities, theories, or mechanisms. Each node should connect to other nodes "
+            "via relations: [{'target_id': 'node-X', 'label': 'leads to' | 'contradicts' | 'proves' | 'builds upon'}]."
+        ),
+        'blueprint': (
+            "Format: BLUEPRINT. Organize into sequential architectural or execution phases. Category should be 'Phase 01', 'Phase 02', etc. "
+            "sub_points should contain prerequisites, deliverables, and technical execution details."
+        ),
+        'timeline': (
+            "Format: TIMELINE. Focus on chronological narrative, logical progression, or temporal milestones. Category should be "
+            "'Milestone 1', 'Milestone 2', etc., and sub_points should highlight temporal pacing and key developments."
+        ),
+    }.get(format_type, "Format: MINDMAP.")
+
+    prompt = textwrap.dedent(f"""\
+        You are an elite Knowledge Architect & Multimodal Learning Designer.
+        Transform the following YouTube video content into an interactive **{format_type.upper()}** knowledge canvas.
+
+        **Video Title:** {video.title}
+        **Channel:** {video.channel_name}
+        **Duration:** {video.duration_seconds} seconds
+
+        **Video Chapter Cuts:**
+        {cuts_summary if cuts_summary else "No predefined chapters available."}
+
+        **Transcript Excerpt:**
+        {transcript[:3000] if transcript else "Transcript unavailable; derive from chapter cuts and title."}
+
+        **Requirements:**
+        1. **central_theme**: A compelling 1-sentence synthesis of the entire video's core thesis.
+        2. **nodes**: An array of 4 to 8 nodes representing the primary segments/concepts of the video.
+           For each node:
+           - "id": "node-1", "node-2", etc.
+           - "order": integer (1, 2, 3...)
+           - "title": Specific, engaging concept title (max 50 chars).
+           - "summary": 1-2 sentence explanation of what is learned here.
+           - "start_seconds": Integer timestamp where this topic begins.
+           - "end_seconds": Integer timestamp where this topic ends.
+           - "category": Short category or branch name.
+           - "sub_points": Array of 2-3 concise, high-impact bullet points.
+           - "relations": Array of objects {{"target_id": "node-X", "label": "relation label"}} (especially important for concept_map and blueprint).
+        3. **takeaways**: 3 key executive takeaways from the entire video.
+        4. {format_instructions}
+
+        Respond ONLY with a valid JSON object matching this schema:
+        {{
+          "central_theme": "...",
+          "nodes": [
+            {{
+              "id": "node-1",
+              "order": 1,
+              "title": "...",
+              "summary": "...",
+              "start_seconds": 0,
+              "end_seconds": 120,
+              "category": "...",
+              "sub_points": ["...", "..."],
+              "relations": [{{"target_id": "node-2", "label": "..."}}]
+            }}
+          ],
+          "takeaways": ["...", "...", "..."]
+        }}
+    """).strip()
+
+    try:
+        response = _generate_content_with_fallback(
+            client=client,
+            model=CUT_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.4,
+                response_mime_type='application/json',
+            ),
+        )
+        data = json.loads(response.text.strip())
+        raw_nodes = data.get('nodes', [])
+        if not raw_nodes:
+            return _build_fallback_knowledge_format(user_video, format_type)
+
+        processed_nodes = []
+        for idx, n in enumerate(raw_nodes):
+            color = FORMAT_COLORS[idx % len(FORMAT_COLORS)]
+            processed_nodes.append({
+                'id': str(n.get('id', f'node-{idx + 1}')),
+                'order': int(n.get('order', idx + 1)),
+                'title': str(n.get('title', f'Section {idx + 1}'))[:100],
+                'summary': str(n.get('summary', ''))[:300],
+                'start_seconds': int(n.get('start_seconds', 0)),
+                'end_seconds': int(n.get('end_seconds', 0)),
+                'category': str(n.get('category', f'Part {idx + 1}')),
+                'sub_points': [str(p)[:120] for p in n.get('sub_points', []) if p],
+                'relations': n.get('relations', []),
+                'color': color,
+            })
+
+        return {
+            'format_type': format_type,
+            'central_theme': str(data.get('central_theme', video.title)),
+            'video_title': video.title,
+            'nodes': processed_nodes,
+            'takeaways': [str(t) for t in data.get('takeaways', []) if t],
+            'metadata': {
+                'channel_name': video.channel_name,
+                'duration_seconds': video.duration_seconds,
+                'is_fallback': False,
+            },
+        }
+
+    except Exception as exc:
+        logger.error('generate_video_knowledge_format failed for %s: %s', format_type, exc)
+        return _build_fallback_knowledge_format(user_video, format_type)
+
+
+def chat_about_video_segment(
+    user_video: 'UserVideo',
+    start_seconds: int,
+    end_seconds: int,
+    query: str,
+    history: list | None = None,
+) -> str:
+    """
+    Contextual AI chat grounded specifically within a video segment window.
+    """
+    client = _get_client()
+    video = user_video.video
+    excerpt = _build_transcript_excerpt(user_video, start_seconds, end_seconds)
+
+    if client is None:
+        return (
+            f"Based on this segment of **{video.title}** ({start_seconds}s to {end_seconds}s): "
+            f"The speaker focuses on this topic. To enable full AI conversational responses, "
+            f"please configure the Gemini API key in your server environment."
+        )
+
+    # Format recent history if provided
+    history_lines = ""
+    if history:
+        for msg in history[-4:]:
+            role = "User" if msg.get("role") == "user" else "Assistant"
+            history_lines += f"{role}: {msg.get('text', '')}\n"
+
+    prompt = textwrap.dedent(f"""\
+        You are a smart AI study partner and video analyst.
+        The user is currently studying a SPECIFIC segment of a YouTube video:
+        
+        **Video Title:** {video.title}
+        **Channel:** {video.channel_name}
+        **Current Timestamp Window:** {start_seconds}s to {end_seconds}s ({end_seconds - start_seconds} seconds)
+
+        **Verbatim Transcript for this Specific Segment:**
+        \"\"\"{excerpt if excerpt.strip() else "Verbatim transcript excerpt is unavailable; ground your answers in the segment context and general video topic."}\"\"\"
+
+        {f"**Recent Conversation:**\n{history_lines}" if history_lines else ""}
+        **User Question:** {query}
+
+        Instructions:
+        1. Answer directly, accurately, and engagingly.
+        2. Ground your explanation primarily in what occurred or was spoken during this specific point in the video.
+        3. If appropriate, reference key phrases, timestamp milestones within the segment, or give actionable examples.
+        4. Keep your formatting clean with markdown (bullet points, bold text).
+    """).strip()
+
+    try:
+        response = _generate_content_with_fallback(
+            client=client,
+            model=CUT_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.6,
+            ),
+        )
+        return response.text.strip()
+    except Exception as exc:
+        logger.error('chat_about_video_segment failed: %s', exc)
+        return f"I encountered an error answering your question about this segment: {exc}"
+

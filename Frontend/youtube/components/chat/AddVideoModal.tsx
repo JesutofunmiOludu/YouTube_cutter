@@ -113,16 +113,43 @@ export default function AddVideoModal({
     }
   }, [currentVideo])
 
-  // Fetch related YouTube videos
-  const fetchRelatedVideos = useCallback(async (query: string) => {
+  // Fetch related YouTube videos (prefers underground cached recommendations for instant 0ms load)
+  const fetchRelatedVideos = useCallback(async (query: string, useUndergroundIfAvailable = false) => {
     const trimmed = query.trim()
     if (!trimmed) {
       setRelatedResults([])
       setLoadingRelated(false)
       return
     }
+
     try {
       setLoadingRelated(true)
+
+      // 1. Try underground pre-computed recommendations if querying base video title
+      if (useUndergroundIfAvailable && currentVideo?.id) {
+        try {
+          const recRes = await apiClient.get(`/videos/${currentVideo.id}/recommendations/`)
+          const recList = recRes.data.results || []
+          if (recList.length > 0) {
+            const mapped: YouTubeSearchResult[] = recList.map((r: any) => ({
+              youtube_id: r.youtube_id,
+              title: r.title,
+              thumbnail_url: r.thumbnail_url,
+              duration_seconds: r.duration_seconds || 0,
+              channel_name: r.channel_name || 'YouTube',
+              published_at: r.published_at,
+              view_count: r.view_count,
+            }))
+            setRelatedResults(mapped)
+            setLoadingRelated(false)
+            return
+          }
+        } catch {
+          // Fall back to live search below
+        }
+      }
+
+      // 2. Fall back to live YouTube search
       const res = await apiClient.get('/videos/search/', {
         params: {
           q: trimmed,
@@ -142,9 +169,9 @@ export default function AddVideoModal({
     } finally {
       setLoadingRelated(false)
     }
-  }, [currentVideo?.video?.youtube_id])
+  }, [currentVideo?.id, currentVideo?.video?.youtube_id])
 
-  // Trigger related search on mount or when query changes (with debounce)
+  // Trigger related search on query changes (with debounce)
   useEffect(() => {
     if (activeTab !== 'related') return
 
@@ -158,21 +185,24 @@ export default function AddVideoModal({
       return
     }
 
+    // If query matches initial title query, allow underground cache; otherwise live search
+    const isInitial = relatedQuery.trim() === initialRelatedQuery.trim()
+
     searchTimeoutRef.current = setTimeout(() => {
-      fetchRelatedVideos(relatedQuery)
-    }, 400)
+      fetchRelatedVideos(relatedQuery, isInitial)
+    }, isInitial ? 0 : 400)
 
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current)
       }
     }
-  }, [relatedQuery, activeTab, fetchRelatedVideos])
+  }, [relatedQuery, activeTab, initialRelatedQuery, fetchRelatedVideos])
 
   // Initial fetch on mount if query is pre-filled
   useEffect(() => {
     if (initialRelatedQuery && activeTab === 'related') {
-      fetchRelatedVideos(initialRelatedQuery)
+      fetchRelatedVideos(initialRelatedQuery, true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

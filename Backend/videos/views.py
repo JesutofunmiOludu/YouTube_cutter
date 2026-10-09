@@ -6,7 +6,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 import requests
 
-from .models import UserVideo, VideoCut, Transcription
+from .models import UserVideo, VideoCut, Transcription, VideoKnowledgeFormat
 from .serializers import (
     UserVideoSerializer,
     UserVideoDetailSerializer,
@@ -466,6 +466,33 @@ class VideoSearchView(APIView):
         return Response({'results': results, 'cached': False})
 
 
+# ── GET /api/videos/<video_pk>/recommendations/ ──────────
+class VideoRecommendationsView(APIView):
+    """
+    Returns AI-discovered related video recommendations for a given UserVideo.
+    Uses pre-computed recommendations stored underground during processing.
+    If none exist yet, automatically discovers and caches them.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, video_pk):
+        try:
+            user_video = UserVideo.objects.select_related('video').get(
+                pk=video_pk,
+                user=request.user,
+            )
+        except UserVideo.DoesNotExist:
+            return Response(
+                {'error': {'code': 'not_found', 'message': 'Video not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        from videos.recommendation_service import get_or_discover_recommendations
+        limit = min(int(request.query_params.get('limit', 8)), 20)
+        recs = get_or_discover_recommendations(user_video, limit=limit)
+        return Response({'results': recs})
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Background worker for video cutting
 # ─────────────────────────────────────────────────────────────────────────────
@@ -706,3 +733,170 @@ class VideoCutFileDownloadView(APIView):
             filename=download_filename,
         )
         return response
+
+
+# ── GET/POST /api/videos/<video_pk>/formats/<format_type>/ ──
+class VideoKnowledgeFormatView(APIView):
+    """
+    Retrieves or generates structured multimodal knowledge canvas representations
+    (mindmap, cheatsheet, concept_map, blueprint, timeline) for a video.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, video_pk, format_type):
+        valid_formats = VideoKnowledgeFormat.FormatType.values
+        if format_type not in valid_formats:
+            return Response(
+                {
+                    'error': {
+                        'code': 'invalid_format',
+                        'message': f"Invalid format '{format_type}'. Must be one of: {', '.join(valid_formats)}",
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user_video = UserVideo.objects.select_related('video').prefetch_related('cuts').get(
+                pk=video_pk,
+                user=request.user,
+            )
+        except UserVideo.DoesNotExist:
+            return Response(
+                {'error': {'code': 'not_found', 'message': 'Video not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        refresh = request.query_params.get('refresh', '').lower() in ('1', 'true', 'yes')
+
+        if not refresh:
+            cached_format = VideoKnowledgeFormat.objects.filter(
+                user_video=user_video,
+                format_type=format_type,
+            ).first()
+            if cached_format and cached_format.data:
+                raw_data = cached_format.data if isinstance(cached_format.data, dict) else {}
+                return Response({
+                    'status': 'cached',
+                    'format_type': format_type,
+                    'central_theme': cached_format.central_theme,
+                    'video_title': raw_data.get('video_title', user_video.video.title),
+                    'nodes': raw_data.get('nodes', []),
+                    'takeaways': raw_data.get('takeaways', []),
+                    'metadata': raw_data.get('metadata', {}),
+                    'data': cached_format.data,
+                    'updated_at': cached_format.updated_at,
+                })
+
+        from .ai_service import generate_video_knowledge_format
+        generated_data = generate_video_knowledge_format(user_video, format_type)
+        central_theme = generated_data.get('central_theme', user_video.video.title)
+
+        format_record, _ = VideoKnowledgeFormat.objects.update_or_create(
+            user_video=user_video,
+            format_type=format_type,
+            defaults={
+                'central_theme': central_theme,
+                'data': generated_data,
+            },
+        )
+
+        raw_data = format_record.data if isinstance(format_record.data, dict) else {}
+        return Response({
+            'status': 'generated',
+            'format_type': format_type,
+            'central_theme': format_record.central_theme,
+            'video_title': raw_data.get('video_title', user_video.video.title),
+            'nodes': raw_data.get('nodes', []),
+            'takeaways': raw_data.get('takeaways', []),
+            'metadata': raw_data.get('metadata', {}),
+            'data': format_record.data,
+            'updated_at': format_record.updated_at,
+        })
+
+    def post(self, request, video_pk, format_type):
+        """Force-regenerate the format."""
+        try:
+            user_video = UserVideo.objects.select_related('video').prefetch_related('cuts').get(
+                pk=video_pk,
+                user=request.user,
+            )
+        except UserVideo.DoesNotExist:
+            return Response(
+                {'error': {'code': 'not_found', 'message': 'Video not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        from .ai_service import generate_video_knowledge_format
+        generated_data = generate_video_knowledge_format(user_video, format_type)
+        central_theme = generated_data.get('central_theme', user_video.video.title)
+
+        format_record, _ = VideoKnowledgeFormat.objects.update_or_create(
+            user_video=user_video,
+            format_type=format_type,
+            defaults={
+                'central_theme': central_theme,
+                'data': generated_data,
+            },
+        )
+
+        raw_data = format_record.data if isinstance(format_record.data, dict) else {}
+        return Response({
+            'status': 'regenerated',
+            'format_type': format_type,
+            'central_theme': format_record.central_theme,
+            'video_title': raw_data.get('video_title', user_video.video.title),
+            'nodes': raw_data.get('nodes', []),
+            'takeaways': raw_data.get('takeaways', []),
+            'metadata': raw_data.get('metadata', {}),
+            'data': format_record.data,
+            'updated_at': format_record.updated_at,
+        })
+
+
+# ── POST /api/videos/<video_pk>/segment-chat/ ───────────────
+class SegmentChatView(APIView):
+    """
+    Grounded conversational AI assistant focused exclusively on a single
+    video segment / timestamp window.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, video_pk):
+        try:
+            user_video = UserVideo.objects.select_related('video').get(
+                pk=video_pk,
+                user=request.user,
+            )
+        except UserVideo.DoesNotExist:
+            return Response(
+                {'error': {'code': 'not_found', 'message': 'Video not found.'}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        start_seconds = int(request.data.get('start_seconds', 0))
+        end_seconds = int(request.data.get('end_seconds', 0))
+        message = str(request.data.get('message') or request.data.get('query') or '').strip()
+        history = request.data.get('history', [])
+
+        if not message:
+            return Response(
+                {'error': {'code': 'bad_request', 'message': 'Message is required.'}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from .ai_service import chat_about_video_segment
+        reply = chat_about_video_segment(
+            user_video=user_video,
+            start_seconds=start_seconds,
+            end_seconds=end_seconds,
+            query=message,
+            history=history,
+        )
+
+        return Response({
+            'reply': reply,
+            'start_seconds': start_seconds,
+            'end_seconds': end_seconds,
+        })
+

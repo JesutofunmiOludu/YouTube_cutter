@@ -11,6 +11,9 @@ from .views import (
     VideoCutProcessView,
     VideoCutStatusView,
     VideoCutFileDownloadView,
+    VideoRecommendationsView,
+    VideoKnowledgeFormatView,
+    SegmentChatView,
 )
 
 urlpatterns = [
@@ -35,6 +38,13 @@ urlpatterns = [
 
     # Force-download the cut clip (.mp4) — bypasses cross-origin download restriction
     path('<uuid:video_pk>/cuts/<uuid:cut_pk>/file/',    VideoCutFileDownloadView.as_view(),       name='videocut-file'),
+
+    # Recommendations (AI underground discovery)
+    path('<uuid:video_pk>/recommendations/',             VideoRecommendationsView.as_view(),      name='uservideo-recommendations'),
+
+    # Multimodal Knowledge Canvas Formats & Segment Chat
+    path('<uuid:video_pk>/formats/<str:format_type>/',   VideoKnowledgeFormatView.as_view(),      name='video-format-detail'),
+    path('<uuid:video_pk>/segment-chat/',                SegmentChatView.as_view(),               name='video-segment-chat'),
 
     # Transcription
     path('<uuid:video_pk>/transcription/',               TranscriptionView.as_view(),             name='transcription-detail'),

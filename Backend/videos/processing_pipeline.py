@@ -151,7 +151,7 @@ def run_video_setup(user_video: 'UserVideo') -> None:
                                 text=seg['text'],
                             )
                         )
-                    TranscriptSegment.objects.bulk_create(segs_to_create)
+                    TranscriptSegment.objects.bulk_create(segs_to_create, batch_size=1000)
                     transcription.full_text = ' '.join(full_text_parts)
                     transcription.status = Transcription.Status.COMPLETED
                     transcription.completed_at = timezone.now()
@@ -191,14 +191,21 @@ def run_video_setup(user_video: 'UserVideo') -> None:
                     user_approved=False,
                 )
             )
-        VideoCut.objects.bulk_create(cuts_to_create)
+        VideoCut.objects.bulk_create(cuts_to_create, batch_size=500)
 
         logger.info(
             'Created %d cut(s) for UserVideo %s (is_fallback=%s).',
             len(cuts_to_create), user_video.id, cuts_to_create[0].is_fallback if cuts_to_create else False,
         )
 
-        # ── 5. Mark complete ─────────────────────────────────
+        # ── 5. Trigger underground related video discovery ───
+        try:
+            from videos.recommendation_service import trigger_underground_recommendations
+            trigger_underground_recommendations(user_video)
+        except Exception as rec_err:
+            logger.warning('Failed to trigger underground recommendations: %s', rec_err)
+
+        # ── 6. Mark complete ─────────────────────────────────
         _update(UV.ProcessingStatus.COMPLETED, UV.ProcessingStage.COMPLETED)
 
     except Exception as exc:  # noqa: BLE001

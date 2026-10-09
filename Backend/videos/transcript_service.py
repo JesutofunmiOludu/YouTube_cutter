@@ -153,7 +153,7 @@ def fetch_and_save_transcript(user_video: 'UserVideo') -> tuple[bool, str | None
             _mark_failed(transcription)
             return False, None
 
-        TranscriptSegment.objects.bulk_create(segments_to_create)
+        TranscriptSegment.objects.bulk_create(segments_to_create, batch_size=1000)
 
         # ── Update the Transcription header ──────────────────
         transcription.full_text   = ' '.join(full_text_parts)

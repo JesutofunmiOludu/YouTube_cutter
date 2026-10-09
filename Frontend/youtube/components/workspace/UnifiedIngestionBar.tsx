@@ -64,6 +64,17 @@ export function extractYouTubeId(url: string): string | null {
   }
 }
 
+import type { KnowledgeFormatType } from '@/types'
+
+export const FORMAT_OPTIONS: { id: KnowledgeFormatType; label: string; icon: string; badge: string; desc: string }[] = [
+  { id: 'standard',    label: 'Standard',    icon: '💻', badge: 'Workspace', desc: 'Direct 3-column video cutter & editor' },
+  { id: 'mindmap',     label: 'Mindmap',     icon: '🧠', badge: 'Radial',    desc: 'Radial branch breakdown of key concepts' },
+  { id: 'cheatsheet',  label: 'Cheatsheet',  icon: '📑', badge: 'Fast',      desc: 'Quick-reference rules, quotes & formulas' },
+  { id: 'concept_map', label: 'Concept Map', icon: '🕸️', badge: 'Graph',     desc: 'Connected ideas, causes & relationships' },
+  { id: 'blueprint',   label: 'Blueprint',   icon: '📐', badge: 'Phased',    desc: 'Technical architecture & execution phases' },
+  { id: 'timeline',    label: 'Timeline',    icon: '⏳', badge: 'Journey',   desc: 'Chronological milestones around video hub' },
+]
+
 export type TranscriptionEngine = 'standard' | 'extended'
 
 export type CategoryFilter = 'all' | 'tutorial' | 'course' | 'short' | 'talk' | 'interview'
@@ -79,13 +90,15 @@ const CATEGORIES: { id: CategoryFilter; label: string }[] = [
 
 interface UnifiedIngestionBarProps {
   initialQuery?: string
+  initialFormat?: KnowledgeFormatType
   onSearch?: (query: string, category: CategoryFilter, duration: string, order: string) => void
-  onProcess?: (youtubeId: string, engine: TranscriptionEngine) => void
+  onProcess?: (youtubeId: string, engine: TranscriptionEngine, format?: KnowledgeFormatType) => void
   className?: string
 }
 
 export function UnifiedIngestionBar({
   initialQuery = '',
+  initialFormat = 'standard',
   onSearch,
   onProcess,
   className,
@@ -97,6 +110,8 @@ export function UnifiedIngestionBar({
   const [inputVal, setInputVal] = useState(initialQuery)
   const [engine, setEngine] = useState<TranscriptionEngine>('standard')
   const [engineOpen, setEngineOpen] = useState(false)
+  const [format, setFormat] = useState<KnowledgeFormatType>(initialFormat)
+  const [formatOpen, setFormatOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [category, setCategory] = useState<CategoryFilter>('all')
   const [duration, setDuration] = useState('any')
@@ -107,6 +122,7 @@ export function UnifiedIngestionBar({
   const [isProcessing, setIsProcessing] = useState(false)
 
   const engineRef = useRef<HTMLDivElement>(null)
+  const formatRef = useRef<HTMLDivElement>(null)
   const filtersRef = useRef<HTMLDivElement>(null)
 
   // Detect YouTube ID from inputVal
@@ -121,6 +137,9 @@ export function UnifiedIngestionBar({
       if (engineRef.current && !engineRef.current.contains(e.target as Node)) {
         setEngineOpen(false)
       }
+      if (formatRef.current && !formatRef.current.contains(e.target as Node)) {
+        setFormatOpen(false)
+      }
       if (filtersRef.current && !filtersRef.current.contains(e.target as Node)) {
         setFiltersOpen(false)
       }
@@ -130,6 +149,7 @@ export function UnifiedIngestionBar({
   }, [])
 
   const credits = user?.credits_balance ?? 10
+  const currentFormatOpt = FORMAT_OPTIONS.find((f) => f.id === format) || FORMAT_OPTIONS[0]
 
   const handleAction = () => {
     if (!inputVal.trim()) return
@@ -142,21 +162,22 @@ export function UnifiedIngestionBar({
       }
 
       if (onProcess) {
-        onProcess(detectedYtId, engine)
+        onProcess(detectedYtId, engine, format)
       } else {
+        const formatQuery = format !== 'standard' ? `&format=${format}` : ''
         router.push(
-          `/workspace/new?url=${encodeURIComponent(inputVal.trim())}&engine=${engine}`
+          `/workspace/new?url=https://youtube.com/watch?v=${detectedYtId}&engine=${engine}${formatQuery}`
         )
       }
     } else {
-      // Keyword Search
-      const effectiveQuery = category === 'all' ? inputVal.trim() : `${inputVal.trim()} ${category}`
+      // Search Flow
       if (onSearch) {
-        onSearch(effectiveQuery, category, duration, order)
+        onSearch(inputVal, category, duration, order)
       } else {
-        router.push(
-          `/search?q=${encodeURIComponent(effectiveQuery)}&category=${category}&duration=${duration}&order=${order}`
-        )
+        const catQuery = category !== 'all' ? `&category=${category}` : ''
+        const durQuery = duration !== 'any' ? `&duration=${duration}` : ''
+        const ordQuery = order !== 'relevance' ? `&order=${order}` : ''
+        router.push(`/search?q=${encodeURIComponent(inputVal)}${catQuery}${durQuery}${ordQuery}`)
       }
     }
   }
@@ -170,10 +191,10 @@ export function UnifiedIngestionBar({
   }
 
   return (
-    <div className={cn('w-full max-w-5xl mx-auto flex flex-col gap-3', className)}>
+    <div className={cn('w-full max-w-5xl mx-auto flex flex-col gap-3 relative z-30', className)}>
       
       {/* ── Main Universal Command Box ── */}
-      <div className="relative rounded-2xl bg-[var(--color-bg-primary)]/90 backdrop-blur-xl border border-[var(--color-border-secondary)] shadow-xl p-5 sm:p-7 transition-all duration-300 focus-within:border-primary-500/80 focus-within:ring-4 focus-within:ring-primary-500/10">
+      <div className="relative z-20 rounded-2xl bg-[var(--color-bg-primary)]/90 backdrop-blur-xl border border-[var(--color-border-secondary)] shadow-xl p-5 sm:p-7 transition-all duration-300 focus-within:border-primary-500/80 focus-within:ring-4 focus-within:ring-primary-500/10">
         
         {/* Upper: URL / Search Input */}
         <div className="relative flex items-center gap-3">
@@ -222,88 +243,145 @@ export function UnifiedIngestionBar({
           </div>
         )}
 
-        {/* Lower Row: Engine Selector + Action Buttons (Process & Filters) */}
-        <div className="mt-5 pt-4 border-t border-[var(--color-border-tertiary)] flex flex-wrap items-center justify-between gap-3">
+        {/* Lower Row: Engine Selector + Format Selector + Action Buttons (Process & Filters) */}
+        <div className="mt-5 pt-4 border-t border-[var(--color-border-tertiary)] flex flex-wrap items-center justify-between gap-3 relative z-20">
           
-          {/* Left: Engine Selector Dropdown */}
-          <div className="relative" ref={engineRef}>
-            <button
-              type="button"
-              onClick={() => setEngineOpen(!engineOpen)}
-              className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-xl border text-body-sm font-medium transition-all',
-                engine === 'extended'
-                  ? 'bg-primary-50/80 dark:bg-primary-950/40 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300 shadow-sm'
-                  : 'bg-[var(--color-bg-secondary)] border-[var(--color-border-secondary)] text-[var(--color-text-primary)] hover:border-[var(--color-border-primary)]'
-              )}
-            >
-              {engine === 'extended' ? (
-                <Sparkles className="w-4 h-4 text-primary-500 animate-pulse" />
-              ) : (
-                <Zap className="w-4 h-4 text-amber-500" />
-              )}
-              <span>
-                {engine === 'extended' ? 'Extended AI Studio' : 'Standard Engine'}
-              </span>
-              <span className={cn(
-                'text-[10px] px-1.5 py-0.5 rounded-full font-semibold',
-                engine === 'extended'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-              )}>
-                {engine === 'extended' ? '1 Credit' : '0 Credits'}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 opacity-60 ml-0.5" />
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Left: Engine Selector Dropdown */}
+            <div className="relative z-30" ref={engineRef}>
+              <button
+                type="button"
+                onClick={() => setEngineOpen(!engineOpen)}
+                className={cn(
+                  'flex items-center gap-2 px-3 py-1.5 rounded-xl border text-body-sm font-medium transition-all',
+                  engine === 'extended'
+                    ? 'bg-primary-50/80 dark:bg-primary-950/40 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'bg-[var(--color-bg-secondary)] border-[var(--color-border-secondary)] text-[var(--color-text-primary)] hover:border-[var(--color-border-primary)]'
+                )}
+              >
+                {engine === 'extended' ? (
+                  <Sparkles className="w-4 h-4 text-primary-500 animate-pulse" />
+                ) : (
+                  <Zap className="w-4 h-4 text-amber-500" />
+                )}
+                <span>
+                  {engine === 'extended' ? 'Extended AI Studio' : 'Standard Engine'}
+                </span>
+                <span className={cn(
+                  'text-[10px] px-1.5 py-0.5 rounded-full font-semibold',
+                  engine === 'extended'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                )}>
+                  {engine === 'extended' ? '1 Credit' : '0 Credits'}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 opacity-60 ml-0.5" />
+              </button>
 
-            {/* Engine Options Menu */}
-            {engineOpen && (
-              <div className="absolute left-0 top-full mt-2 w-72 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                <button
-                  type="button"
-                  onClick={() => { setEngine('standard'); setEngineOpen(false) }}
-                  className={cn(
-                    'w-full flex items-start gap-2.5 p-2.5 rounded-lg text-left transition-colors',
-                    engine === 'standard' ? 'bg-[var(--color-bg-secondary)]' : 'hover:bg-[var(--color-bg-secondary)]/50'
-                  )}
-                >
-                  <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-600 shrink-0 mt-0.5">
-                    <Zap className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-body-sm font-semibold text-[var(--color-text-primary)]">Standard Engine</p>
-                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">0 Credits</span>
+              {/* Engine Options Menu */}
+              {engineOpen && (
+                <div className="absolute left-0 top-full mt-2 w-72 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-80 overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => { setEngine('standard'); setEngineOpen(false) }}
+                    className={cn(
+                      'w-full flex items-start gap-2.5 p-2.5 rounded-lg text-left transition-colors',
+                      engine === 'standard' ? 'bg-[var(--color-bg-secondary)]' : 'hover:bg-[var(--color-bg-secondary)]/50'
+                    )}
+                  >
+                    <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-600 shrink-0 mt-0.5">
+                      <Zap className="w-4 h-4" />
                     </div>
-                    <p className="text-caption text-[var(--color-text-tertiary)] mt-0.5">
-                      Fast YouTube native captions. Free & instant setup.
-                    </p>
-                  </div>
-                </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-body-sm font-semibold text-[var(--color-text-primary)]">Standard Engine</p>
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">0 Credits</span>
+                      </div>
+                      <p className="text-caption text-[var(--color-text-tertiary)] mt-0.5">
+                        Fast YouTube native captions. Free & instant setup.
+                      </p>
+                    </div>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => { setEngine('extended'); setEngineOpen(false) }}
-                  className={cn(
-                    'w-full flex items-start gap-2.5 p-2.5 rounded-lg text-left transition-colors mt-1',
-                    engine === 'extended' ? 'bg-[var(--color-bg-secondary)]' : 'hover:bg-[var(--color-bg-secondary)]/50'
-                  )}
-                >
-                  <div className="p-1.5 rounded-md bg-primary-500/10 text-primary-600 shrink-0 mt-0.5">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-body-sm font-semibold text-[var(--color-text-primary)]">Extended AI Studio</p>
-                      <span className="text-[10px] font-bold text-primary-600 bg-primary-500/10 px-1.5 py-0.5 rounded">1 Credit</span>
+                  <button
+                    type="button"
+                    onClick={() => { setEngine('extended'); setEngineOpen(false) }}
+                    className={cn(
+                      'w-full flex items-start gap-2.5 p-2.5 rounded-lg text-left transition-colors mt-1',
+                      engine === 'extended' ? 'bg-[var(--color-bg-secondary)]' : 'hover:bg-[var(--color-bg-secondary)]/50'
+                    )}
+                  >
+                    <div className="p-1.5 rounded-md bg-primary-500/10 text-primary-600 shrink-0 mt-0.5">
+                      <Sparkles className="w-4 h-4" />
                     </div>
-                    <p className="text-caption text-[var(--color-text-tertiary)] mt-0.5">
-                      Gemini multimodal audio STT with speaker tags, pristine punctuation & chapters.
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-body-sm font-semibold text-[var(--color-text-primary)]">Extended AI Studio</p>
+                        <span className="text-[10px] font-bold text-primary-600 bg-primary-500/10 px-1.5 py-0.5 rounded">1 Credit</span>
+                      </div>
+                      <p className="text-caption text-[var(--color-text-tertiary)] mt-0.5">
+                        Gemini multimodal audio STT with speaker tags, pristine punctuation & chapters.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Visual Knowledge Format Selector */}
+            <div className="relative z-30" ref={formatRef}>
+              <button
+                type="button"
+                onClick={() => setFormatOpen(!formatOpen)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-body-sm font-medium transition-all',
+                  format !== 'standard'
+                    ? 'bg-purple-500/10 dark:bg-purple-950/40 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 shadow-sm font-semibold'
+                    : 'bg-[var(--color-bg-secondary)] border-[var(--color-border-secondary)] text-[var(--color-text-primary)] hover:border-[var(--color-border-primary)]'
+                )}
+                title="Select Visual Knowledge Format"
+              >
+                <span>{currentFormatOpt.icon}</span>
+                <span className="hidden sm:inline">{currentFormatOpt.label}</span>
+                <span className={cn(
+                  'text-[10px] px-1.5 py-0.5 rounded-full font-mono font-semibold',
+                  format !== 'standard'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)]'
+                )}>
+                  {currentFormatOpt.badge}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 opacity-60 ml-0.5" />
+              </button>
+
+              {formatOpen && (
+                <div className="absolute left-0 top-full mt-2 w-72 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-80 overflow-y-auto">
+                  <div className="px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider sticky top-0 bg-[var(--color-bg-primary)] z-10 border-b border-[var(--color-border-tertiary)]/40 mb-1">
+                    Transform Video Into
                   </div>
-                </button>
-              </div>
-            )}
+                  {FORMAT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => { setFormat(opt.id); setFormatOpen(false) }}
+                      className={cn(
+                        'w-full flex items-start gap-2.5 p-2 rounded-lg text-left transition-colors',
+                        format === opt.id ? 'bg-[var(--color-bg-secondary)] font-semibold' : 'hover:bg-[var(--color-bg-secondary)]/50'
+                      )}
+                    >
+                      <span className="text-base shrink-0 mt-0.5">{opt.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-body-sm text-[var(--color-text-primary)]">{opt.label}</p>
+                          <span className="text-[10px] font-mono px-1 rounded bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)]">{opt.badge}</span>
+                        </div>
+                        <p className="text-caption text-[var(--color-text-tertiary)] text-[11px] leading-tight mt-0.5">{opt.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right: Credits Balance & Action Buttons */}
@@ -317,7 +395,7 @@ export function UnifiedIngestionBar({
             </div>
 
             {/* Filters Toggle Button */}
-            <div className="relative" ref={filtersRef}>
+            <div className="relative z-30" ref={filtersRef}>
               <button
                 type="button"
                 onClick={() => setFiltersOpen(!filtersOpen)}
@@ -417,7 +495,7 @@ export function UnifiedIngestionBar({
       </div>
 
       {/* ── Category Filter Pills (Bottom bar from sketch) ── */}
-      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-1 px-1 scrollbar-none">
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-1 px-1 scrollbar-none relative z-10">
         {CATEGORIES.map((cat) => (
           <button
             key={cat.id}

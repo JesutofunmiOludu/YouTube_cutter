@@ -279,3 +279,40 @@ class TranscriptSegment(models.Model):
 
     def __str__(self):
         return f"Segment #{self.segment_order}: {self.text[:50]}"
+
+
+# ──────────────────────────────────────────────
+# VideoKnowledgeFormat (Radial Knowledge Canvas)
+# ──────────────────────────────────────────────
+class VideoKnowledgeFormat(models.Model):
+    """
+    Stores AI-generated visual knowledge structures (Mindmap, Cheatsheet,
+    Concept Map, Blueprint, Timeline) derived from a UserVideo and its chapters.
+    """
+
+    class FormatType(models.TextChoices):
+        MINDMAP     = "mindmap",     "Mindmap"
+        CHEATSHEET  = "cheatsheet",  "Cheatsheet"
+        CONCEPT_MAP = "concept_map", "Concept Map"
+        BLUEPRINT   = "blueprint",   "Blueprint"
+        TIMELINE    = "timeline",    "Timeline"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user_video = models.ForeignKey(
+        UserVideo,
+        on_delete=models.CASCADE,
+        related_name="knowledge_formats",
+    )
+    format_type = models.CharField(max_length=30, choices=FormatType.choices)
+    central_theme = models.CharField(max_length=500, blank=True, default="")
+    data = models.JSONField(help_text="Structured nodes, connections, and format-specific metadata")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "video_knowledge_format"
+        unique_together = [("user_video", "format_type")]
+
+    def __str__(self):
+        return f"{self.user_video.video.title[:40]} [{self.format_type}]"
+

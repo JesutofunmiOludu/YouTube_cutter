@@ -1,29 +1,26 @@
-'use client'
-
 // pages/workspace/new.tsx
 // Unified workspace creation & video ingestion page.
 // Matches user's sketch layout with UnifiedIngestionBar and progress stages.
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
+import type { GetServerSideProps } from 'next'
+import Head from 'next/head'
 import {
   Scissors,
   CheckCircle,
   AlertCircle,
   Loader2,
   Play,
-  FileText,
   Zap,
   Sparkles,
-  Link,
-  ArrowRight,
-  ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { apiClient } from '@/utils/apiClient'
 import { useToast } from '@/components/ui/Toast'
 import { useAuthStore } from '@/store/auth.store'
 import { UnifiedIngestionBar, extractYouTubeId, TranscriptionEngine } from '@/components/workspace/UnifiedIngestionBar'
+import type { KnowledgeFormatType } from '@/types'
 
 // ── Processing step type ──────────────────────────────────
 
@@ -86,42 +83,95 @@ function ErrorScreen({ error, onReset }: { error: string; onReset: () => void })
   )
 }
 
+// ── Server-Side Props for query handling without SSR hydration mismatches ──
+
+interface WorkspaceNewPageProps {
+  initialUrl?: string | null
+  initialTitle?: string | null
+  initialEngine?: TranscriptionEngine | null
+  initialFormat?: KnowledgeFormatType | null
+  initialFrom?: string | null
+}
+
+export const getServerSideProps: GetServerSideProps<WorkspaceNewPageProps> = async (context) => {
+  return {
+    props: {
+      initialUrl: typeof context.query.url === 'string' ? context.query.url : null,
+      initialTitle: typeof context.query.title === 'string' ? context.query.title : null,
+      initialEngine: typeof context.query.engine === 'string' ? (context.query.engine as TranscriptionEngine) : null,
+      initialFormat: typeof context.query.format === 'string' ? (context.query.format as KnowledgeFormatType) : null,
+      initialFrom: typeof context.query.from === 'string' ? context.query.from : null,
+    },
+  }
+}
+
 // ── Main Page ─────────────────────────────────────────────
 
-export default function WorkspaceNewPage() {
+export default function WorkspaceNewPage({
+  initialUrl = null,
+  initialTitle = null,
+  initialEngine = null,
+  initialFormat = null,
+  initialFrom = null,
+}: WorkspaceNewPageProps) {
   const router = useRouter()
-  const { url, title: titleParam, engine: engineParam, from } = router.query as {
-    url?: string
-    title?: string
-    engine?: TranscriptionEngine
-    from?: string
-  }
+  const [mounted, setMounted] = useState(false)
 
-  const { user, deductCredits } = useAuthStore()
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // In Next.js SSR and client initial hydration, rely on initial props.
+  // After mount, use router.query if defined so client navigations update properly.
+  const effectiveUrl = mounted && router.isReady
+    ? (router.query.url as string | undefined)
+    : (initialUrl ?? undefined)
+  const effectiveTitle = mounted && router.isReady
+    ? (router.query.title as string | undefined)
+    : (initialTitle ?? undefined)
+  const effectiveEngine = mounted && router.isReady
+    ? (router.query.engine as TranscriptionEngine | undefined)
+    : (initialEngine ?? undefined)
+  const effectiveFormat = mounted && router.isReady
+    ? (router.query.format as KnowledgeFormatType | undefined)
+    : (initialFormat ?? undefined)
+  const effectiveFrom = mounted && router.isReady
+    ? (router.query.from as string | undefined)
+    : (initialFrom ?? undefined)
+
+  const { deductCredits } = useAuthStore()
   const { toast } = useToast()
 
   const [steps, setSteps] = useState<ProcessingStep[]>(INITIAL_STEPS)
   const [error, setError] = useState<string | null>(null)
-  const [videoId, setVideoId] = useState<string | null>(null)
-  const [videoTitle, setVideoTitle] = useState<string>('')
+  const [videoId, setVideoId] = useState<string | null>(() => {
+    return initialUrl ? extractYouTubeId(initialUrl) : null
+  })
+  const [videoTitle, setVideoTitle] = useState<string>(() => {
+    return initialTitle ? decodeURIComponent(initialTitle) : 'YouTube Video'
+  })
   const [selectedEngine, setSelectedEngine] = useState<TranscriptionEngine>(
-    engineParam === 'extended' ? 'extended' : 'standard'
+    initialEngine === 'extended' ? 'extended' : 'standard'
   )
 
   // Derive YouTube ID from URL
   useEffect(() => {
-    if (!url) return
-    const ytId = extractYouTubeId(url)
+    if (!effectiveUrl) {
+      setVideoId(null)
+      setVideoTitle('')
+      return
+    }
+    const ytId = extractYouTubeId(effectiveUrl)
     if (ytId) {
       setVideoId(ytId)
-      setVideoTitle(titleParam ? decodeURIComponent(titleParam) : 'YouTube Video')
-      if (engineParam) {
-        setSelectedEngine(engineParam)
+      setVideoTitle(effectiveTitle ? decodeURIComponent(effectiveTitle) : 'YouTube Video')
+      if (effectiveEngine) {
+        setSelectedEngine(effectiveEngine)
       }
     } else {
       setError('Invalid YouTube URL. Please paste a valid youtube.com or youtu.be link.')
     }
-  }, [url, titleParam, engineParam])
+  }, [effectiveUrl, effectiveTitle, effectiveEngine])
 
   // Processing pipeline
   useEffect(() => {
@@ -220,7 +270,10 @@ export default function WorkspaceNewPage() {
 
       await new Promise((res) => setTimeout(res, 400))
       if (!cancelled) {
-        if (from === 'research') {
+        if (effectiveFormat && effectiveFormat !== 'standard') {
+          toast.success(`Video ready! Launching ${effectiveFormat.toUpperCase()} canvas…`)
+          router.push(`/workspace/${userVideoId}/canvas?format=${effectiveFormat}`)
+        } else if (effectiveFrom === 'research') {
           toast.success('Video ready! Launching research…')
           try {
             const researchRes = await apiClient.post('/research/', { user_video_id: userVideoId })
@@ -228,7 +281,7 @@ export default function WorkspaceNewPage() {
           } catch {
             router.push(`/research?videoId=${userVideoId}`)
           }
-        } else if (from === 'chat') {
+        } else if (effectiveFrom === 'chat') {
           toast.success('Video ready! Launching chat…')
           router.push(`/chat?videoId=${userVideoId}`)
         } else {
@@ -241,12 +294,15 @@ export default function WorkspaceNewPage() {
     runSteps()
 
     return () => { cancelled = true }
-  }, [videoId, selectedEngine, error, router, from])
+  }, [videoId, selectedEngine, error, router, effectiveFrom, effectiveFormat, deductCredits, toast])
 
   // ── No URL provided -> Render Unified Command Bar Entry Page ──
-  if (!url && router.isReady) {
+  if (!effectiveUrl) {
     return (
       <div className="min-h-[85vh] flex flex-col items-center justify-center p-6">
+        <Head>
+          <title>New Project — ClipMide</title>
+        </Head>
         <div className="max-w-4xl w-full flex flex-col items-center gap-8 text-center">
           
           {/* Header Badge & Title */}
@@ -263,7 +319,7 @@ export default function WorkspaceNewPage() {
             </p>
           </div>
 
-          {/* Unified Command Bar (From User Sketch) */}
+          {/* Unified Command Bar */}
           <UnifiedIngestionBar />
 
           {/* Feature Highlights Grid */}
@@ -315,6 +371,9 @@ export default function WorkspaceNewPage() {
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-tertiary)] flex items-center justify-center p-6">
+      <Head>
+        <title>{allDone ? 'Workspace Ready' : 'Setting up Workspace'} — ClipMide</title>
+      </Head>
       <div className="max-w-lg w-full flex flex-col gap-6">
 
         {/* Header */}

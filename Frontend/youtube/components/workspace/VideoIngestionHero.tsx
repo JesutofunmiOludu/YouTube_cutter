@@ -15,13 +15,13 @@ import {
   TranscriptionEngine,
   CategoryFilter,
 } from './UnifiedIngestionBar'
-import type { UserVideo } from '@/types'
+import type { UserVideo, KnowledgeFormatType } from '@/types'
 
 export interface VideoIngestionHeroProps {
   badgeText: string
   title: string
   subtitle: string
-  onProcess: (youtubeId: string, engine: TranscriptionEngine) => void | Promise<void>
+  onProcess: (youtubeId: string, engine: TranscriptionEngine, format?: KnowledgeFormatType) => void | Promise<void>
   onSearch: (query: string, category: CategoryFilter, duration: string, order: string) => void
   onSelectLibraryVideo?: (video: UserVideo) => void | Promise<void>
   libraryVideos?: UserVideo[]
@@ -58,14 +58,14 @@ export const VideoIngestionHero: React.FC<VideoIngestionHeroProps> = ({
   return (
     <div
       className={cn(
-        'flex-1 flex flex-col items-center justify-start min-h-0 overflow-y-auto px-4 py-8 sm:py-12',
+        'flex-1 flex flex-col items-center justify-start min-h-0 overflow-y-auto px-4 py-5 sm:py-8',
         className
       )}
     >
-      <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-7">
+      <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-5 sm:gap-6">
         
         {/* ── Top Hero Header ── */}
-        <div className="flex flex-col items-center text-center gap-3 max-w-2xl">
+        <div className="flex flex-col items-center text-center gap-2 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400 text-caption font-semibold border border-primary-500/20 shadow-2xs">
             <Sparkles className="w-3.5 h-3.5" />
             <span>{badgeText}</span>
@@ -81,7 +81,7 @@ export const VideoIngestionHero: React.FC<VideoIngestionHeroProps> = ({
         </div>
 
         {/* ── Main Unified Ingestion Bar ── */}
-        <div className="w-full relative">
+        <div className="w-full relative z-30">
           {isProcessing && (
             <div className="absolute inset-0 z-20 bg-[var(--color-bg-primary)]/70 backdrop-blur-xs rounded-2xl flex flex-col items-center justify-center gap-3">
               <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
@@ -99,7 +99,7 @@ export const VideoIngestionHero: React.FC<VideoIngestionHeroProps> = ({
 
         {/* ── Saved Library Videos Quick Pick ── */}
         {libraryVideos.length > 0 && onSelectLibraryVideo && (
-          <div className="w-full space-y-3.5 pt-4">
+          <div className="w-full space-y-3 pt-2 relative z-10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
                 <FolderOpen className="w-4 h-4 text-primary-500" />
@@ -116,10 +116,11 @@ export const VideoIngestionHero: React.FC<VideoIngestionHeroProps> = ({
               {libraryVideos.slice(0, 6).map((uv) => {
                 const vid = uv.video
                 const thumb =
-                  vid?.thumbnail_url ||
-                  (vid?.youtube_id
-                    ? `https://img.youtube.com/vi/${vid.youtube_id}/mqdefault.jpg`
-                    : null)
+                  vid?.thumbnail_url && !vid.thumbnail_url.includes('placeholder')
+                    ? vid.thumbnail_url
+                    : vid?.youtube_id
+                    ? `https://img.youtube.com/vi/${vid.youtube_id}/hqdefault.jpg`
+                    : null
 
                 return (
                   <div
@@ -139,6 +140,11 @@ export const VideoIngestionHero: React.FC<VideoIngestionHeroProps> = ({
                         <img
                           src={thumb}
                           alt={vid?.title || 'Video'}
+                          onError={(e) => {
+                            if (vid?.youtube_id && !(e.target as HTMLImageElement).src.includes('hqdefault')) {
+                              (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${vid.youtube_id}/hqdefault.jpg`
+                            }
+                          }}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (

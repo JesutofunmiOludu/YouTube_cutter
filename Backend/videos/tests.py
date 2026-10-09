@@ -11,7 +11,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from billing.models import UsageSummary
 from billing.services import FREE_LIMITS
-from videos.models import UserVideo, Video
+from videos.models import UserVideo, Video, VideoCut, VideoKnowledgeFormat
 
 User = get_user_model()
 
@@ -166,3 +166,57 @@ class FreemiumCutTest(APITestCase):
             'title': 'Blocked cut',
         }, format='json')
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class VideoKnowledgeFormatTest(APITestCase):
+    """Verify visual knowledge format endpoints (mindmap, cheatsheet, etc.)."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            email='k@k.com', password='pass'
+        )
+        auth_client(self.client, self.user)
+        self.video = Video.objects.create(
+            youtube_id='fmt123', title='Knowledge Video', duration_seconds=600
+        )
+        self.user_video = UserVideo.objects.create(
+            user=self.user, video=self.video
+        )
+        # Create a sample cut
+        VideoCut.objects.create(
+            user_video=self.user_video,
+            cut_order=1,
+            start_seconds=0,
+            end_seconds=120,
+            title='Intro & Foundations',
+            ai_rationale='Foundational opening',
+        )
+
+    def test_get_mindmap_format_returns_200(self):
+        url = f'/api/videos/{self.user_video.id}/formats/mindmap/'
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data.get('format_type'), 'mindmap')
+        self.assertIn('nodes', res.data)
+        self.assertTrue(len(res.data['nodes']) > 0)
+        self.assertTrue(VideoKnowledgeFormat.objects.filter(
+            user_video=self.user_video, format_type='mindmap'
+        ).exists())
+
+    def test_invalid_format_returns_400(self):
+        url = f'/api/videos/{self.user_video.id}/formats/invalid_format/'
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_segment_chat_returns_200(self):
+        url = f'/api/videos/{self.user_video.id}/segment-chat/'
+        res = self.client.post(url, {
+            'start_seconds': 0,
+            'end_seconds': 120,
+            'query': 'What is discussed in this segment?',
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn('reply', res.data)
+        self.assertTrue(len(res.data['reply']) > 0)
+

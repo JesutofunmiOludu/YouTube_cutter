@@ -161,6 +161,63 @@ export interface UserVideo {
   cuts?:             VideoCut[]
 }
 
+export interface VideoRecommendation {
+  id:               string
+  youtube_id:       string
+  title:            string
+  thumbnail_url:    string
+  channel_name:     string
+  duration_seconds: number
+  view_count?:      Nullable<number>
+  published_at?:    string
+  relevance_score:  number
+}
+
+// ------------------------------------------------------------
+// KNOWLEDGE CANVAS FORMAT TYPES
+// ------------------------------------------------------------
+
+export type KnowledgeFormatType =
+  | 'standard'
+  | 'mindmap'
+  | 'cheatsheet'
+  | 'concept_map'
+  | 'blueprint'
+  | 'timeline'
+
+export interface KnowledgeNodeRelation {
+  target_id: string
+  label:     string
+}
+
+export interface KnowledgeNode {
+  id:            string
+  order:         number
+  title:         string
+  summary:       string
+  start_seconds: number
+  end_seconds:   number
+  category:      string
+  sub_points?:   string[]
+  relations?:    KnowledgeNodeRelation[]
+  color?:        string
+}
+
+export interface KnowledgeFormatPayload {
+  format_type:   KnowledgeFormatType
+  central_theme: string
+  video_title:   string
+  nodes:         KnowledgeNode[]
+  takeaways?:    string[]
+  metadata?: {
+    channel_name?:     string
+    duration_seconds?: number
+    is_fallback?:      boolean
+    [key: string]:     any
+  }
+  updated_at?:   string
+}
+
 
 // ------------------------------------------------------------
 // VIDEO CUT TYPES

@@ -18,7 +18,7 @@ import { VideoIngestionHero } from '@/components/workspace/VideoIngestionHero'
 import type { TranscriptionEngine } from '@/components/workspace/UnifiedIngestionBar'
 import { apiClient }    from '@/utils/apiClient'
 import { Spinner }      from '@/components/ui/Spinner'
-import type { ChatSession, ChatMessage, UserVideo } from '@/types'
+import type { ChatSession, ChatMessage, UserVideo, KnowledgeFormatType } from '@/types'
 
 // ── Mock data ─────────────────────────────────────────────
 
@@ -255,7 +255,19 @@ export default function ChatPage() {
     }
   }
 
-  const handleProcessFromBar = async (youtubeId: string, engine: TranscriptionEngine) => {
+  const handleProcessFromBar = async (
+    youtubeId: string,
+    engine: TranscriptionEngine,
+    format?: KnowledgeFormatType
+  ) => {
+    // If user selected a visual knowledge format (mindmap, cheatsheet, etc.), route directly
+    if (format && format !== 'standard') {
+      router.push(
+        `/workspace/new?url=https://youtube.com/watch?v=${youtubeId}&engine=${engine}&format=${format}`
+      )
+      return
+    }
+
     try {
       setIsIngesting(true)
       toast.info('Ingesting video for chat…')

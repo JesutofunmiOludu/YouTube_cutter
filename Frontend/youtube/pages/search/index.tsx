@@ -322,9 +322,10 @@ export default function SearchPage() {
         <UnifiedIngestionBar
           initialQuery={query}
           onSearch={handleUnifiedSearch}
-          onProcess={(ytId, engine) => {
+          onProcess={(ytId, engine, format) => {
             const fromSuffix = fromParam ? `&from=${encodeURIComponent(fromParam)}` : ''
-            router.push(`/workspace/new?url=https://youtube.com/watch?v=${ytId}&engine=${engine}${fromSuffix}`)
+            const formatSuffix = format && format !== 'standard' ? `&format=${format}` : ''
+            router.push(`/workspace/new?url=https://youtube.com/watch?v=${ytId}&engine=${engine}${formatSuffix}${fromSuffix}`)
           }}
         />
       </div>
