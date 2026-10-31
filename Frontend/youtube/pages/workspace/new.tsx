@@ -189,6 +189,7 @@ export default function WorkspaceNewPage({
         const res = await apiClient.post('/videos/', {
           youtube_id: videoId,
           transcription_mode: selectedEngine,
+          preferred_format: effectiveFormat || 'standard',
         })
         const uv = res.data
         userVideoId = uv.id

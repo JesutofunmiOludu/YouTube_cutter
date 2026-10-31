@@ -107,6 +107,21 @@ class UserVideo(models.Model):
         default=TranscriptionMode.STANDARD,
         help_text="Engine used to transcribe this video",
     )
+
+    class PreferredFormat(models.TextChoices):
+        STANDARD    = "standard",    "Standard Video Editor"
+        MINDMAP     = "mindmap",     "Mindmap"
+        CHEATSHEET  = "cheatsheet",  "Cheatsheet"
+        CONCEPT_MAP = "concept_map", "Concept Map"
+        BLUEPRINT   = "blueprint",   "Blueprint"
+        TIMELINE    = "timeline",    "Timeline"
+
+    preferred_format = models.CharField(
+        max_length=30,
+        choices=PreferredFormat.choices,
+        default=PreferredFormat.STANDARD,
+        help_text="Preferred visualization/transformation format for this video project",
+    )
     saved_at = models.DateTimeField(auto_now_add=True)
     last_accessed_at = models.DateTimeField(null=True, blank=True)
 

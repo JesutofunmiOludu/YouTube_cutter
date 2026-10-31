@@ -6,7 +6,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 import requests
 
-from .models import UserVideo, VideoCut, Transcription, VideoKnowledgeFormat
+from .models import UserVideo, VideoCut, Transcription, VideoKnowledgeFormat, Video, TranscriptSegment
 from .serializers import (
     UserVideoSerializer,
     UserVideoDetailSerializer,
@@ -53,6 +53,141 @@ class UserVideoDetailView(generics.RetrieveUpdateDestroyAPIView):
             .select_related('video')
             .prefetch_related('cuts', 'transcription__segments')
         )
+
+    def get_object(self):
+        pk = self.kwargs.get('pk')
+        user = self.request.user
+
+        # 1. Direct match for authenticated user (if UUID)
+        uv = None
+        try:
+            import uuid
+            pk_uuid = uuid.UUID(str(pk))
+            uv = (
+                UserVideo.objects
+                .filter(pk=pk_uuid, user=user)
+                .select_related('video')
+                .prefetch_related('cuts', 'transcription__segments')
+                .first()
+            )
+        except (ValueError, TypeError, AttributeError):
+            pass
+
+        if uv:
+            return uv
+
+        # 2. Check if pk is a UserVideo belonging to another user (e.g. multi-account switch after restart)
+        other_uv = None
+        try:
+            import uuid
+            pk_uuid = uuid.UUID(str(pk))
+            other_uv = (
+                UserVideo.objects
+                .filter(pk=pk_uuid)
+                .select_related('video')
+                .prefetch_related('cuts', 'transcription__segments', 'knowledge_formats')
+                .first()
+            )
+        except (ValueError, TypeError, AttributeError):
+            pass
+
+        # 3. Check if pk is a shared Video UUID or YouTube ID
+        target_video = None
+        if other_uv:
+            target_video = other_uv.video
+        else:
+            try:
+                import uuid
+                pk_uuid = uuid.UUID(str(pk))
+                target_video = Video.objects.filter(pk=pk_uuid).first()
+            except (ValueError, TypeError, AttributeError):
+                pass
+            if not target_video:
+                target_video = Video.objects.filter(youtube_id=str(pk)).first()
+
+        if target_video:
+            # Check if current user already has a UserVideo for this video
+            existing_uv = (
+                UserVideo.objects
+                .filter(user=user, video=target_video)
+                .select_related('video')
+                .prefetch_related('cuts', 'transcription__segments')
+                .first()
+            )
+            if existing_uv:
+                return existing_uv
+
+            # If not, adopt/create a UserVideo for current user with existing cuts & transcript
+            new_uv = UserVideo.objects.create(
+                user=user,
+                video=target_video,
+                storage_type=other_uv.storage_type if other_uv else UserVideo.StorageType.REFERENCE,
+                processing_status=other_uv.processing_status if other_uv else UserVideo.ProcessingStatus.COMPLETED,
+                processing_stage=other_uv.processing_stage if other_uv else UserVideo.ProcessingStage.CUTS,
+                preferred_format=other_uv.preferred_format if other_uv else "standard",
+            )
+
+            # Copy cuts
+            if other_uv:
+                for c in other_uv.cuts.all():
+                    VideoCut.objects.create(
+                        user_video=new_uv,
+                        cut_order=c.cut_order,
+                        start_seconds=c.start_seconds,
+                        end_seconds=c.end_seconds,
+                        title=c.title,
+                        ai_suggested=c.ai_suggested,
+                        ai_rationale=c.ai_rationale,
+                        user_approved=c.user_approved,
+                        duration_seconds=c.duration_seconds,
+                    )
+
+                # Copy knowledge formats
+                for kf in other_uv.knowledge_formats.all():
+                    VideoKnowledgeFormat.objects.create(
+                        user_video=new_uv,
+                        format_type=kf.format_type,
+                        central_theme=kf.central_theme,
+                        data=kf.data,
+                    )
+
+            # Copy transcription if available
+            src_t = None
+            if other_uv and hasattr(other_uv, 'transcriptions'):
+                src_t = other_uv.transcriptions.first()
+            elif hasattr(target_video, 'user_videos'):
+                for uv_cand in target_video.user_videos.all():
+                    if hasattr(uv_cand, 'transcriptions') and uv_cand.transcriptions.exists():
+                        src_t = uv_cand.transcriptions.first()
+                        break
+
+            if src_t:
+                new_t = Transcription.objects.create(
+                    user_video=new_uv,
+                    full_text=src_t.full_text,
+                    status=src_t.status,
+                    completed_at=src_t.completed_at,
+                )
+                for seg in src_t.segments.all():
+                    TranscriptSegment.objects.create(
+                        transcription=new_t,
+                        segment_order=seg.segment_order,
+                        start_seconds=seg.start_seconds,
+                        end_seconds=seg.end_seconds,
+                        text=seg.text,
+                        confidence_score=seg.confidence_score,
+                    )
+
+            return (
+                UserVideo.objects
+                .filter(pk=new_uv.pk)
+                .select_related('video')
+                .prefetch_related('cuts', 'transcription__segments')
+                .first()
+            )
+
+        from django.http import Http404
+        raise Http404("Video not found.")
 
     # Update last_accessed_at only when touch=true and heal stuck processes
     def retrieve(self, request, *args, **kwargs):
@@ -781,6 +916,7 @@ class VideoKnowledgeFormatView(APIView):
                     'format_type': format_type,
                     'central_theme': cached_format.central_theme,
                     'video_title': raw_data.get('video_title', user_video.video.title),
+                    'groups': raw_data.get('groups', []),
                     'nodes': raw_data.get('nodes', []),
                     'takeaways': raw_data.get('takeaways', []),
                     'metadata': raw_data.get('metadata', {}),
@@ -807,6 +943,7 @@ class VideoKnowledgeFormatView(APIView):
             'format_type': format_type,
             'central_theme': format_record.central_theme,
             'video_title': raw_data.get('video_title', user_video.video.title),
+            'groups': raw_data.get('groups', []),
             'nodes': raw_data.get('nodes', []),
             'takeaways': raw_data.get('takeaways', []),
             'metadata': raw_data.get('metadata', {}),
@@ -846,6 +983,7 @@ class VideoKnowledgeFormatView(APIView):
             'format_type': format_type,
             'central_theme': format_record.central_theme,
             'video_title': raw_data.get('video_title', user_video.video.title),
+            'groups': raw_data.get('groups', []),
             'nodes': raw_data.get('nodes', []),
             'takeaways': raw_data.get('takeaways', []),
             'metadata': raw_data.get('metadata', {}),

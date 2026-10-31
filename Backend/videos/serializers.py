@@ -76,7 +76,7 @@ class UserVideoSerializer(serializers.ModelSerializer):
         model  = UserVideo
         fields = (
             'id', 'video', 'cuts', 'youtube_id', 'transcription_mode',
-            'storage_type', 'file_url',
+            'preferred_format', 'storage_type', 'file_url',
             'processing_status', 'processing_stage', 'saved_at', 'last_accessed_at',
         )
         read_only_fields = (
@@ -95,6 +95,7 @@ class UserVideoSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         youtube_id         = validated_data.pop('youtube_id')
         transcription_mode = validated_data.get('transcription_mode', UserVideo.TranscriptionMode.STANDARD)
+        preferred_format   = validated_data.get('preferred_format', UserVideo.PreferredFormat.STANDARD)
         user               = self.context['request'].user
 
         # If user requested Extended (Gemini Studio) transcription, deduct 1 credit
@@ -123,8 +124,13 @@ class UserVideoSerializer(serializers.ModelSerializer):
             defaults={
                 'storage_type': validated_data.get('storage_type', UserVideo.StorageType.REFERENCE),
                 'transcription_mode': transcription_mode,
+                'preferred_format': preferred_format,
             },
         )
+
+        if not created and 'preferred_format' in validated_data:
+            user_video.preferred_format = validated_data['preferred_format']
+            user_video.save(update_fields=['preferred_format'])
 
         if created:
             from .processing_pipeline import trigger_processing_if_needed

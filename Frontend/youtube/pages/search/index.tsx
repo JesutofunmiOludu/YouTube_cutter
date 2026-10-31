@@ -5,7 +5,13 @@ import { useState, useCallback, useTransition, useEffect } from 'react'
 import { useRouter }                            from 'next/router'
 import {
   Clock,
-  Play, ArrowRight,
+  Play,
+  ArrowRight,
+  Sparkles,
+  History,
+  ChevronRight,
+  BookOpen,
+  Layers,
 } from 'lucide-react'
 import { cn }              from '@/utils/cn'
 import { Button }          from '@/components/ui/Button'
@@ -44,6 +50,51 @@ const MOCK_VIDEOS: Video[] = [
 ]
 
 const CATEGORIES = ['All', 'Tutorial', 'Course', 'Short', 'Talk', 'Interview']
+
+export const CURATED_WORKSPACES = [
+  {
+    id: 'curated-1',
+    youtubeId: 'nTeuhbP7wdE',
+    title: 'Next.js 15 Full Architecture & Server Actions Deep Dive',
+    channel: 'Fireship',
+    duration: '24 min',
+    views: '128K views',
+    nodes: 38,
+    format: 'mindmap',
+    formatLabel: 'Radial Mindmap',
+    formatIcon: '🧠',
+    description: 'Deconstruct App Router, streaming SSR, Server Components boundary, and caching architecture.',
+    tags: ['React 19', 'Next.js 15', 'Full-Stack'],
+  },
+  {
+    id: 'curated-2',
+    youtubeId: 'VMj-3S1tku0',
+    title: 'Building Neural Networks from Scratch with Python & Math',
+    channel: 'Andrej Karpathy',
+    duration: '2h 15m',
+    views: '850K views',
+    nodes: 64,
+    format: 'cheatsheet',
+    formatLabel: 'Cheatsheet & Equations',
+    formatIcon: '📑',
+    description: 'Backpropagation calculus, micrograd scalar engine, gradient descent, and cross-entropy loss functions.',
+    tags: ['Deep Learning', 'PyTorch', 'Mathematics'],
+  },
+  {
+    id: 'curated-3',
+    youtubeId: 'iuqZvajTOyA',
+    title: 'System Design Interview: Distributed Cache & CDN Architecture',
+    channel: 'ByteByteGo',
+    duration: '35 min',
+    views: '450K views',
+    nodes: 52,
+    format: 'blueprint',
+    formatLabel: 'System Blueprint',
+    formatIcon: '📐',
+    description: 'Cache eviction policies (LRU/LFU), write-through vs write-back, Redis clustering, and latency budgets.',
+    tags: ['System Design', 'Redis', 'High Availability'],
+  },
+]
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -189,6 +240,20 @@ export default function SearchPage() {
   const [errorState, setErrorState] = useState<'network' | 'limit' | 'auth' | 'not_found' | 'generic' | null>(null)
   const [limit, setLimit] = useState<25 | 10 | 50>(25)
   const hasResults = results.length > 0
+  const [recentProjects, setRecentProjects] = useState<any[]>([])
+
+  // Load user's recent video projects for the resume bar
+  useEffect(() => {
+    let active = true
+    apiClient.get('/videos/')
+      .then((res) => {
+        if (!active) return
+        const list = res.data.results || res.data || []
+        setRecentProjects(list.slice(0, 4))
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [])
 
   useEffect(() => {
     // If the URL has a search query, update the search input and query state
@@ -535,6 +600,167 @@ export default function SearchPage() {
           action={{ label: 'Clear search', onClick: () => { setInput(''); setQuery('') } }}
           minHeight="300px"
         />
+      )}
+
+      {/* ── Curated Educational Workspaces & Discovery Hub (When no search query) ── */}
+      {!query && !isLoading && !searchError && (
+        <div className="flex flex-col gap-10 mt-2 animate-fade-in pb-12">
+          {/* Curated Grid */}
+          <div>
+            <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-600 border border-purple-500/20">
+                    <Sparkles className="w-3 h-3" /> Featured Workspaces
+                  </span>
+                  <span className="text-caption text-[var(--color-text-tertiary)]">
+                    Instant 1-Click Exploration
+                  </span>
+                </div>
+                <h2 className="text-heading-md font-bold text-[var(--color-text-primary)]">
+                  Curated Multi-Format Knowledge Graphs
+                </h2>
+                <p className="text-body-sm text-[var(--color-text-secondary)] mt-0.5">
+                  Pre-analyzed educational videos ready with radial mindmaps, cheatsheets, and architecture blueprints.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {CURATED_WORKSPACES.map((cw) => (
+                <div
+                  key={cw.id}
+                  className="group bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] hover:border-purple-500/50 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 flex flex-col justify-between"
+                >
+                  {/* Thumbnail Banner */}
+                  <div className="relative w-full aspect-video bg-black/80 overflow-hidden">
+                    <img
+                      src={`https://img.youtube.com/vi/${cw.youtubeId}/mqdefault.jpg`}
+                      alt={cw.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-slow"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    
+                    {/* Duration badge */}
+                    <span className="absolute bottom-2.5 right-2.5 bg-black/80 text-white text-[10px] font-mono font-medium px-2 py-0.5 rounded-md backdrop-blur-sm">
+                      {cw.duration}
+                    </span>
+
+                    {/* Format Pill */}
+                    <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/90 dark:bg-black/80 text-neutral-900 dark:text-white backdrop-blur-md shadow-md">
+                      <span>{cw.formatIcon}</span>
+                      <span>{cw.formatLabel}</span>
+                    </span>
+
+                    {/* Nodes Badge */}
+                    <span className="absolute bottom-2.5 left-2.5 text-[11px] font-semibold text-white/90 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      {cw.nodes} Graph Nodes
+                    </span>
+                  </div>
+
+                  {/* Body Content */}
+                  <div className="p-4 flex flex-col flex-1 justify-between gap-3">
+                    <div>
+                      <div className="flex items-center justify-between text-caption text-[var(--color-text-tertiary)] mb-1">
+                        <span className="font-medium text-primary-600 dark:text-primary-400">{cw.channel}</span>
+                        <span>{cw.views}</span>
+                      </div>
+                      <h3 className="text-body-md font-bold text-[var(--color-text-primary)] line-clamp-2 leading-snug group-hover:text-purple-600 transition-colors">
+                        {cw.title}
+                      </h3>
+                      <p className="text-caption text-[var(--color-text-secondary)] mt-1.5 line-clamp-2 leading-relaxed">
+                        {cw.description}
+                      </p>
+                    </div>
+
+                    {/* Tags & Action */}
+                    <div className="pt-3 border-t border-[var(--color-border-tertiary)] flex flex-col gap-2.5">
+                      <div className="flex flex-wrap gap-1.5">
+                        {cw.tags.map((t) => (
+                          <span key={t} className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)]">
+                            #{t}
+                          </span>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={() => router.push(`/workspace/new?url=https://youtube.com/watch?v=${cw.youtubeId}&format=${cw.format}`)}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-body-sm font-semibold bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white dark:bg-purple-950/40 dark:text-purple-300 dark:hover:bg-purple-600 dark:hover:text-white border border-purple-200/80 dark:border-purple-800 transition-all shadow-2xs group-hover:bg-purple-600 group-hover:text-white"
+                      >
+                        <span>Explore {cw.formatLabel}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Recent Ingestions Bar (7.5) */}
+          {recentProjects.length > 0 && (
+            <div className="p-5 rounded-2xl bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary-500/10 text-primary-600 flex items-center justify-center">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-body-md font-bold text-[var(--color-text-primary)]">
+                      Recent Workspace Ingestions
+                    </h3>
+                    <p className="text-caption text-[var(--color-text-tertiary)]">
+                      Pick up right where you left off
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/projects"
+                  className="text-caption font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 transition-colors"
+                >
+                  <span>View All Projects</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {recentProjects.map((proj) => {
+                  const targetFormat = proj.preferred_format && proj.preferred_format !== 'standard' ? proj.preferred_format : null
+                  const targetUrl = targetFormat ? `/workspace/${proj.id}/canvas?format=${targetFormat}` : `/workspace/${proj.id}`
+
+                  return (
+                    <button
+                      key={proj.id}
+                      onClick={() => router.push(targetUrl)}
+                      className="flex items-center gap-3 p-2.5 rounded-xl border border-[var(--color-border-tertiary)] hover:border-primary-400 bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-tertiary)] text-left transition-all group"
+                    >
+                      <div className="relative w-14 aspect-video rounded-md overflow-hidden bg-black shrink-0">
+                        <img
+                          src={proj.video?.thumbnail_url || `https://img.youtube.com/vi/${proj.video?.youtube_id}/mqdefault.jpg`}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Play className="w-3 h-3 text-white fill-current" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-body-xs font-semibold text-[var(--color-text-primary)] truncate">
+                          {proj.video?.title || 'Untitled Video'}
+                        </p>
+                        <p className="text-[11px] text-[var(--color-text-tertiary)] truncate">
+                          {proj.video?.channel_name || 'YouTube Video'}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-[var(--color-text-tertiary)] group-hover:text-primary-600 shrink-0 transition-colors" />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
 

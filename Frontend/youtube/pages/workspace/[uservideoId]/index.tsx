@@ -53,6 +53,7 @@ import {
   ChevronDown,
   ArrowRight,
   Mic,
+  Share2,
 } from 'lucide-react'
 import { cn }              from '@/utils/cn'
 import { Spinner }         from '@/components/ui/Spinner'
@@ -485,11 +486,12 @@ function CutCard({
                 </span>
               </button>
 
-              {/* AI rationale / subtitle */}
+              {/* AI rationale / subtitle pill */}
               {cut.ai_rationale && (
-                <p className="text-caption text-[var(--color-text-tertiary)] italic mt-1 leading-relaxed">
-                  {cut.ai_rationale}
-                </p>
+                <div className="flex items-start gap-1.5 mt-2 px-2.5 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-300">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0 mt-0.5" />
+                  <span className="text-[11px] leading-relaxed font-normal">{cut.ai_rationale}</span>
+                </div>
               )}
             </>
           )}
@@ -523,28 +525,28 @@ function CutCard({
               onClick={() => onCut(cut.id)}
               disabled={isProcessing}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium border transition-colors',
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-semibold border transition-all duration-fast shadow-2xs',
                 isProcessing
-                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200 cursor-wait'
+                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200 cursor-wait dark:bg-indigo-950/40 dark:border-indigo-800'
                   : isReady
-                    ? 'bg-success-50 text-success-800 border-success-200 hover:bg-success-200'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700'
                     : isFailed
-                      ? 'bg-danger-50 text-danger-700 border-danger-200 hover:bg-danger-100'
+                      ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300'
                       : cut.user_approved
-                        ? 'bg-success-50 text-success-800 border-success-200 hover:bg-success-200'
-                        : 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)]',
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700'
+                        : 'bg-primary-50 text-primary-700 border-primary-300 hover:bg-primary-100 dark:bg-primary-950/40 dark:text-primary-300 dark:border-primary-800',
               )}
             >
               {isProcessing ? (
                 <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Cutting…</>
               ) : isReady ? (
-                <><Check className="w-3.5 h-3.5" /> Cut & Ready</>
+                <><Check className="w-3.5 h-3.5 text-emerald-600" /> Cut & Ready</>
               ) : isFailed ? (
                 <><Scissors className="w-3.5 h-3.5" /> Retry Cut</>
               ) : cut.user_approved ? (
-                <><Check className="w-3.5 h-3.5" /> Cut</>
+                <><Check className="w-3.5 h-3.5 text-emerald-600" /> Approved Cut</>
               ) : (
-                <><Scissors className="w-3.5 h-3.5" /> Cut</>
+                <><Scissors className="w-3.5 h-3.5 text-primary-600" /> Approve Cut</>
               )}
             </button>
 
@@ -603,6 +605,9 @@ function CutClipsPanel({
   // Track which cut IDs are currently downloading
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set())
   const approved = cuts.filter((c) => c.user_approved)
+  const totalApprovedSec = useMemo(() => {
+    return approved.reduce((acc, c) => acc + Math.max(0, c.end_seconds - c.start_seconds), 0)
+  }, [approved])
 
   async function handleDownloadCut(cut: VideoCut) {
     setDownloadingIds((prev) => new Set(prev).add(cut.id))
@@ -615,9 +620,21 @@ function CutClipsPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-4 py-4 border-b border-[var(--color-border-tertiary)] shrink-0">
-        <h2 className="text-heading-lg text-[var(--color-text-primary)]">Cut Clips</h2>
+      {/* Header with count and total duration */}
+      <div className="px-4 py-3.5 border-b border-[var(--color-border-tertiary)] shrink-0 flex items-center justify-between">
+        <div>
+          <h2 className="text-body-sm font-bold text-[var(--color-text-primary)]">
+            Approved Clips ({approved.length})
+          </h2>
+          <p className="text-[11px] text-[var(--color-text-tertiary)] tabular-nums mt-0.5">
+            Total duration: {formatDuration(totalApprovedSec)}
+          </p>
+        </div>
+        {approved.length > 0 && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+            <Check className="w-2.5 h-2.5" /> Ready
+          </span>
+        )}
       </div>
 
       {/* List */}
@@ -719,30 +736,26 @@ function CutClipsPanel({
             onClick={onDownloadAll}
             disabled={approved.length === 0}
             className={cn(
-              'w-full flex items-center justify-center gap-2 h-11 rounded-xl text-body-sm font-medium transition-colors',
-              'border border-[var(--color-border-secondary)] bg-[var(--color-bg-secondary)]',
-              'text-[var(--color-text-primary)]',
+              'w-full flex items-center justify-center gap-2 h-11 rounded-xl text-body-sm font-semibold transition-all duration-fast shadow-2xs',
               approved.length > 0
-                ? 'hover:bg-[var(--color-bg-tertiary)] hover:border-[var(--color-border-primary)]'
-                : 'opacity-40 cursor-not-allowed',
+                ? 'bg-primary-600 text-white hover:bg-primary-700 shadow-primary-500/20'
+                : 'bg-[var(--color-bg-secondary)] border border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)] opacity-40 cursor-not-allowed',
             )}
           >
-            Download All
-            <div className="w-6 h-6 rounded-full border border-current flex items-center justify-center">
-              <Download className="w-3 h-3" aria-hidden="true" />
-            </div>
+            <Download className="w-4 h-4" aria-hidden="true" />
+            <span>Export All Approved (.ZIP)</span>
           </button>
         ) : (
           <button
             onClick={() => setShowUpgrade(true)}
             className={cn(
-              'w-full flex items-center justify-center gap-2 h-11 rounded-xl text-body-sm font-medium transition-colors',
+              'w-full flex items-center justify-center gap-2 h-11 rounded-xl text-body-sm font-semibold transition-colors',
               'border border-amber-200 bg-amber-50 text-amber-700',
               'hover:bg-amber-100 hover:border-amber-300',
             )}
           >
             <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-            Download All
+            <span>Export All Approved (.ZIP)</span>
             <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 ml-1">
               Premium
             </span>
@@ -1280,6 +1293,58 @@ function LeftPanel({
     return transcript[0]?.id ?? null
   })()
 
+  // Transcript search state
+  const [transcriptSearch, setTranscriptSearch] = useState('')
+
+  // Intelligent paragraph grouping:
+  // Groups contiguous 2-3s caption fragments into natural thought blocks (~15-25s or punctuation-ended)
+  interface TranscriptParagraph {
+    id: string
+    start_seconds: number
+    end_seconds: number
+    segments: TranscriptSegment[]
+  }
+
+  const paragraphs = useMemo<TranscriptParagraph[]>(() => {
+    if (!transcript || transcript.length === 0) return []
+    const result: TranscriptParagraph[] = []
+    let currentSegs: TranscriptSegment[] = []
+    let currentStart = transcript[0]!.start_seconds
+
+    for (let i = 0; i < transcript.length; i++) {
+      const seg = transcript[i]!
+      currentSegs.push(seg)
+
+      const durationSoFar = seg.end_seconds - currentStart
+      const endsWithPunctuation = /[.!?]$/.test(seg.text.trim()) && currentSegs.length >= 2
+      const isLongEnough = durationSoFar >= 20
+      const isNextDistant = i < transcript.length - 1 && (transcript[i + 1]!.start_seconds - seg.end_seconds > 3)
+
+      if (endsWithPunctuation || isLongEnough || isNextDistant || i === transcript.length - 1) {
+        result.push({
+          id: `p-${currentSegs[0]!.id}`,
+          start_seconds: currentStart,
+          end_seconds: seg.end_seconds,
+          segments: [...currentSegs],
+        })
+        currentSegs = []
+        if (i < transcript.length - 1) {
+          currentStart = transcript[i + 1]!.start_seconds
+        }
+      }
+    }
+    return result
+  }, [transcript])
+
+  // Filtered paragraphs if searching
+  const filteredParagraphs = useMemo(() => {
+    if (!transcriptSearch.trim()) return paragraphs
+    const q = transcriptSearch.toLowerCase().trim()
+    return paragraphs.filter((p) =>
+      p.segments.some((s) => s.text.toLowerCase().includes(q))
+    )
+  }, [paragraphs, transcriptSearch])
+
   // ── Transcript auto-scroll ──────────────────────────────
   // Scroll the active segment into view whenever it changes so the
   // highlight follows playback even when the list is long.
@@ -1330,40 +1395,96 @@ function LeftPanel({
 
           {/* Transcripts */}
           {activeTab === 'transcripts' && (
-            <div ref={transcriptScrollRef} className="flex flex-col flex-1 overflow-y-auto">
-              {transcript.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-2 text-center px-4">
-                  <FileText className="w-8 h-8 text-[var(--color-text-tertiary)]" aria-hidden="true" />
-                  <p className="text-body-sm text-[var(--color-text-secondary)]">Transcript will appear here once processing completes.</p>
-                </div>
-              ) : (
-                transcript.map((seg) => {
-                  const isActive = seg.id === activeSegId
-                  return (
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              {/* Transcript Search bar */}
+              <div className="p-2.5 border-b border-[var(--color-border-tertiary)] bg-[var(--color-bg-secondary)] shrink-0">
+                <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-bg-primary)] focus-within:border-primary-400 focus-within:ring-1 focus-within:ring-primary-100 transition-all">
+                  <Search className="w-3.5 h-3.5 text-[var(--color-text-tertiary)] shrink-0" />
+                  <input
+                    type="text"
+                    value={transcriptSearch}
+                    onChange={(e) => setTranscriptSearch(e.target.value)}
+                    placeholder="Search spoken keywords in transcript…"
+                    className="w-full bg-transparent text-xs text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] outline-none"
+                  />
+                  {transcriptSearch && (
                     <button
-                      key={seg.id}
-                      data-seg-id={seg.id}
-                      onClick={() => onSeek(seg.start_seconds)}
-                      className={cn(
-                        'flex gap-3 px-4 py-3 text-left w-full transition-colors',
-                        isActive
-                          ? 'bg-primary-50/60 border-l-2 border-primary-600'
-                          : 'hover:bg-[var(--color-bg-secondary)] border-l-2 border-transparent',
-                      )}
+                      onClick={() => setTranscriptSearch('')}
+                      className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
                     >
-                      <span className="text-caption tabular-nums text-primary-600 shrink-0 mt-0.5 w-10">
-                        {formatTime(seg.start_seconds)}
-                      </span>
-                      <p className={cn(
-                        'text-body-sm leading-relaxed',
-                        isActive ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]',
-                      )}>
-                        {seg.text}
-                      </p>
+                      <X className="w-3 h-3" />
                     </button>
-                  )
-                })
-              )}
+                  )}
+                </div>
+              </div>
+
+              {/* Transcript paragraphs feed */}
+              <div ref={transcriptScrollRef} className="flex-1 overflow-y-auto divide-y divide-[var(--color-border-tertiary)] p-2">
+                {transcript.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-2 text-center px-4">
+                    <FileText className="w-8 h-8 text-[var(--color-text-tertiary)]" aria-hidden="true" />
+                    <p className="text-body-sm text-[var(--color-text-secondary)]">Transcript will appear here once processing completes.</p>
+                  </div>
+                ) : filteredParagraphs.length === 0 ? (
+                  <div className="py-8 text-center px-4">
+                    <p className="text-caption text-[var(--color-text-tertiary)]">No spoken phrases matching "{transcriptSearch}"</p>
+                  </div>
+                ) : (
+                  filteredParagraphs.map((para) => {
+                    const isParaActive = currentTime >= para.start_seconds && currentTime <= para.end_seconds
+
+                    return (
+                      <div
+                        key={para.id}
+                        data-seg-id={para.segments[0]?.id}
+                        className={cn(
+                          'p-3 rounded-xl transition-all duration-fast my-1',
+                          isParaActive
+                            ? 'bg-primary-50/70 border border-primary-200 dark:bg-primary-950/40 dark:border-primary-800/80 shadow-2xs'
+                            : 'hover:bg-[var(--color-bg-secondary)] border border-transparent'
+                        )}
+                      >
+                        {/* Header: Timestamp pill + Speaker tag */}
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <button
+                            onClick={() => onSeek(para.start_seconds)}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold tabular-nums bg-[var(--color-bg-tertiary)] text-primary-600 hover:bg-primary-100 hover:text-primary-800 transition-colors"
+                            title={`Seek to ${formatTime(para.start_seconds)}`}
+                          >
+                            <Play className="w-2.5 h-2.5 fill-current" />
+                            {formatTime(para.start_seconds)}
+                          </button>
+                          <span className="text-[10px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider">
+                            {isParaActive ? '● Now Playing' : 'Speaker'}
+                          </span>
+                        </div>
+
+                        {/* Paragraph text with interactive word segments */}
+                        <p className="text-body-sm leading-relaxed text-[var(--color-text-primary)]">
+                          {para.segments.map((seg) => {
+                            const isSegActive = currentTime >= seg.start_seconds && currentTime < seg.end_seconds
+                            return (
+                              <span
+                                key={seg.id}
+                                onClick={() => onSeek(seg.start_seconds)}
+                                title={`Jump to ${formatTime(seg.start_seconds)}`}
+                                className={cn(
+                                  'cursor-pointer transition-colors rounded px-0.5 inline',
+                                  isSegActive
+                                    ? 'bg-primary-600 text-white font-medium shadow-2xs'
+                                    : 'hover:bg-primary-100/60 hover:text-primary-800'
+                                )}
+                              >
+                                {seg.text}{' '}
+                              </span>
+                            )
+                          })}
+                        </p>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
             </div>
           )}
 
@@ -1470,47 +1591,49 @@ function LeftPanel({
           )}
         </div>
 
-        {/* Add Video footer */}
-        <div className="shrink-0 p-3 border-t border-[var(--color-border-tertiary)]">
-          {/* Multi-video upgrade modal */}
-          <UpgradeModal
-            open={showMultiUpgrade}
-            onClose={() => setShowMultiUpgrade(false)}
-            feature="multi_video_chat"
-          />
+        {/* Add Video footer - only show on chat tab to maximize transcript and research space */}
+        {activeTab === 'chat' && (
+          <div className="shrink-0 p-3 border-t border-[var(--color-border-tertiary)]">
+            {/* Multi-video upgrade modal */}
+            <UpgradeModal
+              open={showMultiUpgrade}
+              onClose={() => setShowMultiUpgrade(false)}
+              feature="multi_video_chat"
+            />
 
-          {chatSession?.videos && chatSession.videos.length >= 1 && !canUse('multi_video_chat') ? (
-            // Free user, already has 1 video → show upgrade button
-            <button
-              onClick={() => setShowMultiUpgrade(true)}
-              className={cn(
-                'w-full flex items-center justify-center gap-2 h-10 rounded-xl',
-                'text-body-sm font-semibold transition-colors',
-                'border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-300',
-              )}
-            >
-              <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-              Add Video to Chat
-              <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800">
-                Premium
-              </span>
-            </button>
-          ) : (
-            <button
-              onClick={() => setShowAddVideo(true)}
-              className={cn(
-                'w-full flex items-center justify-center gap-2 h-10 rounded-xl',
-                'text-body-sm font-semibold transition-colors',
-                'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)]',
-                'border-2 border-dashed border-[var(--color-border-secondary)]',
-                'hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50/30',
-              )}
-            >
-              <Plus className="w-4 h-4" aria-hidden="true" />
-              Add Video to Chat
-            </button>
-          )}
-        </div>
+            {chatSession?.videos && chatSession.videos.length >= 1 && !canUse('multi_video_chat') ? (
+              // Free user, already has 1 video → show upgrade button
+              <button
+                onClick={() => setShowMultiUpgrade(true)}
+                className={cn(
+                  'w-full flex items-center justify-center gap-2 h-10 rounded-xl',
+                  'text-body-sm font-semibold transition-colors',
+                  'border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-300',
+                )}
+              >
+                <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                Add Video to Chat
+                <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800">
+                  Premium
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowAddVideo(true)}
+                className={cn(
+                  'w-full flex items-center justify-center gap-2 h-10 rounded-xl',
+                  'text-body-sm font-semibold transition-colors',
+                  'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)]',
+                  'border-2 border-dashed border-[var(--color-border-secondary)]',
+                  'hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50/30',
+                )}
+              >
+                <Plus className="w-4 h-4" aria-hidden="true" />
+                Add Video to Chat
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </>
   )
@@ -1848,6 +1971,7 @@ export default function WorkspacePage() {
 
   const [searchHistory, setSearchHistory] = useState<SearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
+  const [isSuggestingCuts, setIsSuggestingCuts] = useState(false)
 
   const [currentTime, setCurrentTime] = useState(0)
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
@@ -1875,14 +1999,40 @@ export default function WorkspacePage() {
     if (!router.isReady || !userVideoId) return
     let active = true
 
+    // If userVideoId is a raw 11-char YouTube ID, forward to new workspace creation/resolution
+    if (/^[a-zA-Z0-9_-]{11}$/.test(userVideoId)) {
+      router.replace(`/workspace/new?url=https://youtube.com/watch?v=${userVideoId}`)
+      return
+    }
+
     const loadData = async () => {
       try {
         setIsLoading(true)
         // 1. Fetch user video details
         const videoRes = await apiClient.get(`/videos/${userVideoId}/?touch=true`)
         if (!active) return
-        setUserVideo(videoRes.data)
-        setCuts(videoRes.data.cuts || [])
+        const uvData = videoRes.data
+
+        // If backend resolved to a different UserVideo ID (e.g. cross-account adoption), update URL silently
+        if (uvData.id && uvData.id !== userVideoId) {
+          router.replace(`/workspace/${uvData.id}${window.location.search}`, undefined, { shallow: true })
+        }
+
+        setUserVideo(uvData)
+        setCuts(uvData.cuts || [])
+
+        // If this video has a preferred transformation format (mindmap, cheatsheet, etc.)
+        // and the user didn't explicitly request the editor (?editor=1 or ?tab=...),
+        // route directly to the appropriate visual knowledge canvas!
+        if (
+          uvData.preferred_format &&
+          uvData.preferred_format !== 'standard' &&
+          !router.query.editor &&
+          !router.query.tab
+        ) {
+          router.replace(`/workspace/${userVideoId}/canvas?format=${uvData.preferred_format}`)
+          return
+        }
 
         // Map tab from query parameter if present
         const queryTab = router.query.tab as string | undefined
@@ -2194,7 +2344,33 @@ export default function WorkspacePage() {
     }
   }
 
-  // (handleAddCutPoint now inlined into the button — calls handleSplitAtTime directly)
+  const handleAddClipAtPlayhead = async () => {
+    const start = Math.round(currentTime)
+    const end = Math.min(Math.round(duration || start + 30), start + 30)
+    if (end <= start) return
+    await handleAddCutRange(start, end)
+  }
+
+  const handleAiSuggestCuts = async () => {
+    if (!userVideoId) return
+    setIsSuggestingCuts(true)
+    try {
+      const res = await apiClient.post(`/videos/${userVideoId}/suggest-cuts/`)
+      toast.success('AI Cut Suggestions generated successfully!')
+      if (res.data?.cuts) {
+        setCuts(res.data.cuts)
+      } else {
+        const videoRes = await apiClient.get(`/videos/${userVideoId}/`)
+        setCuts(videoRes.data.cuts || [])
+      }
+    } catch (err: any) {
+      console.error('Failed to generate AI cuts', err)
+      const msg = err.response?.data?.error?.message || err.response?.data?.detail || 'Failed to generate AI cut suggestions.'
+      toast.error(msg)
+    } finally {
+      setIsSuggestingCuts(false)
+    }
+  }
 
   // ── Download helpers ───────────────────────────────────────────
   /**
@@ -2627,28 +2803,102 @@ export default function WorkspacePage() {
     >
 
       {/* ── Global topbar ── */}
-      <header className="flex items-center justify-between px-4 h-12 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-tertiary)] shrink-0">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-body-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors focus-visible:outline-none focus-visible:underline"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Back
-        </button>
-
-        <h1 className="text-heading-sm text-[var(--color-text-primary)] absolute left-1/2 -translate-x-1/2">
-          Video Editor
-        </h1>
-
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/workspace/${userVideoId}/canvas?format=mindmap`}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-sm transition-all"
-            title="Switch to Radial Knowledge Canvas (Mindmap, Cheatsheet, Blueprint)"
+      <header className="flex items-center justify-between px-3 md:px-4 h-14 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-tertiary)] shrink-0 gap-3 z-20">
+        {/* Left: Back + Video Metadata */}
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={() => router.push('/projects')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-body-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors focus-visible:outline-none shrink-0"
+            title="Back to Projects"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Knowledge Canvas</span>
+            <ChevronLeft className="w-4 h-4" />
+            <span className="hidden sm:inline font-medium">Projects</span>
+          </button>
+
+          <div className="w-px h-5 bg-[var(--color-border-tertiary)] hidden sm:block shrink-0" />
+
+          <div className="flex items-center gap-2 min-w-0">
+            <h1
+              className="text-body-sm md:text-heading-xs font-semibold text-[var(--color-text-primary)] truncate max-w-[140px] sm:max-w-[220px] md:max-w-xs xl:max-w-md"
+              title={userVideo.video.title}
+            >
+              {userVideo.video.title}
+            </h1>
+
+            {userVideo.video.channel_name && (
+              <span className="hidden lg:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)] border border-[var(--color-border-tertiary)] truncate max-w-[130px]">
+                {userVideo.video.channel_name}
+              </span>
+            )}
+
+            <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-text-tertiary)] tabular-nums shrink-0">
+              <Clock className="w-3 h-3" />
+              {formatDuration(duration || userVideo.video.duration_seconds)}
+            </span>
+
+            <span className="hidden xl:inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Auto-saved
+            </span>
+          </div>
+        </div>
+
+        {/* Center: Segmented View Switcher */}
+        <div className="hidden md:flex items-center bg-[var(--color-bg-secondary)] p-1 rounded-xl border border-[var(--color-border-tertiary)] shadow-2xs shrink-0 text-xs font-semibold">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--color-bg-primary)] text-primary-600 shadow-2xs border border-[var(--color-border-tertiary)]">
+            <Scissors className="w-3.5 h-3.5 text-primary-600" />
+            <span>Video Editor</span>
+          </div>
+          <Link
+            href={`/workspace/${userVideoId}/canvas?format=${userVideo?.preferred_format && userVideo.preferred_format !== 'standard' ? userVideo.preferred_format : 'mindmap'}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+            title="Switch to Knowledge Canvas"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+            <span>Knowledge Canvas</span>
           </Link>
+        </div>
+
+        {/* Right Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Mobile switcher link */}
+          <Link
+            href={`/workspace/${userVideoId}/canvas?format=${userVideo?.preferred_format && userVideo.preferred_format !== 'standard' ? userVideo.preferred_format : 'mindmap'}`}
+            className="flex md:hidden items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+          >
+            <Sparkles className="w-3 h-3 text-purple-600" />
+            <span>Canvas</span>
+          </Link>
+
+          {/* Approved clips panel toggle */}
+          <button
+            onClick={toggleRightCollapse}
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+              rightWidth > 0
+                ? "bg-primary-50 text-primary-700 border-primary-200 dark:bg-primary-950/50 dark:border-primary-800"
+                : "bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-tertiary)] hover:text-[var(--color-text-primary)]"
+            )}
+            title="Toggle Approved Clips Panel"
+          >
+            <Scissors className="w-3.5 h-3.5 text-primary-600" />
+            <span className="hidden sm:inline">Approved ({cuts.filter(c => c.user_approved).length})</span>
+          </button>
+
+          {/* Share project link */}
+          <button
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                navigator.clipboard?.writeText(window.location.href)
+                toast.success('Workspace link copied to clipboard!')
+              }
+            }}
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-[var(--color-border-tertiary)] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+            title="Copy shareable workspace link"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Share</span>
+          </button>
 
           <button
             onClick={() => router.push('/settings')}
@@ -2760,9 +3010,9 @@ export default function WorkspacePage() {
               Cut Suggestions
             </h2>
 
-            {/* Action buttons — context-aware when a range is highlighted */}
-            <div className="flex gap-2 mb-4 flex-wrap">
-              {/* Cut: toggles active cut approval, OR creates a cut for the highlighted range */}
+            {/* Action buttons — refined studio cutting toolbar */}
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              {/* Primary: Cut Selection / Cut Active */}
               <button
                 onClick={() => {
                   if (highlightedRange) {
@@ -2773,35 +3023,66 @@ export default function WorkspacePage() {
                 }}
                 disabled={!highlightedRange && !activeCutId}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-lg text-body-sm font-medium border transition-colors',
+                  'flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-body-sm font-semibold border transition-all duration-fast shadow-2xs',
                   highlightedRange
-                    ? 'bg-primary-600 text-white border-primary-600 hover:bg-primary-700'
+                    ? 'bg-primary-600 text-white border-primary-600 hover:bg-primary-700 shadow-primary-500/20'
                     : activeCutId
-                      ? 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)]'
-                      : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)] border-[var(--color-border-tertiary)] cursor-not-allowed',
+                      ? 'bg-primary-50 text-primary-700 border-primary-200 hover:bg-primary-100 dark:bg-primary-950/40 dark:text-primary-300 dark:border-primary-800'
+                      : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)] border-[var(--color-border-tertiary)] cursor-not-allowed opacity-60',
                 )}
+                title={highlightedRange ? `Cut range from ${formatTime(highlightedRange.start)} to ${formatTime(highlightedRange.end)}` : 'Cut active segment'}
               >
-                <Scissors className="w-4 h-4" aria-hidden="true" />
-                {highlightedRange ? 'Cut Selection' : 'Cut'}
+                <Scissors className="w-3.5 h-3.5" aria-hidden="true" />
+                {highlightedRange ? `Cut Range (${formatTime(highlightedRange.start)}–${formatTime(highlightedRange.end)})` : 'Cut Range'}
               </button>
 
-              {/* Split at Time: splits at current playback time, or at start of a highlighted range */}
+              {/* Split at Playhead */}
               <button
                 onClick={() => handleSplitAtTime(highlightedRange?.start)}
                 title={highlightedRange
                   ? `Split at ${formatTime(highlightedRange.start)}`
-                  : `Split at current time (${formatTime(currentTime)})`}
+                  : `Split at current playhead (${formatTime(currentTime)})`}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-lg text-body-sm font-medium border transition-colors',
+                  'flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-body-sm font-medium border transition-colors',
                   highlightedRange
-                    ? 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100'
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800'
                     : 'bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)]',
                 )}
               >
-                <Clock className="w-4 h-4" aria-hidden="true" />
+                <Clock className="w-3.5 h-3.5" aria-hidden="true" />
                 {highlightedRange
                   ? `Split at ${formatTime(highlightedRange.start)}`
-                  : `Split at ${formatTime(currentTime)}`}
+                  : `Split at Playhead (${formatTime(currentTime)})`}
+              </button>
+
+              {/* Add Custom Clip at Playhead */}
+              <button
+                onClick={handleAddClipAtPlayhead}
+                title={`Add new 30s clip starting at ${formatTime(currentTime)}`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Add Clip</span>
+              </button>
+
+              {/* AI Auto-Cuts with Gemini */}
+              <button
+                onClick={handleAiSuggestCuts}
+                disabled={isSuggestingCuts}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body-sm font-medium border transition-all duration-fast ml-auto',
+                  isSuggestingCuts
+                    ? 'bg-purple-50 text-purple-600 border-purple-200 cursor-wait dark:bg-purple-950/40 dark:text-purple-300'
+                    : 'bg-purple-50 text-purple-700 border-purple-200/80 hover:bg-purple-100 hover:border-purple-300 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800'
+                )}
+                title="Generate AI chapter cuts using Gemini"
+              >
+                {isSuggestingCuts ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                )}
+                <span className="hidden sm:inline">{isSuggestingCuts ? 'Analyzing Video…' : 'AI Cut Suggestions'}</span>
               </button>
             </div>
 

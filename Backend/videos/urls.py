@@ -22,7 +22,7 @@ urlpatterns = [
 
     # UserVideo CRUD
     path('',                                             UserVideoListCreateView.as_view(),       name='uservideo-list'),
-    path('<uuid:pk>/',                                   UserVideoDetailView.as_view(),           name='uservideo-detail'),
+    path('<str:pk>/',                                    UserVideoDetailView.as_view(),           name='uservideo-detail'),
 
     # Cuts (nested under a user video)
     path('<uuid:video_pk>/cuts/',                        VideoCutListCreateView.as_view(),        name='videocut-list'),

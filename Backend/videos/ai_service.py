@@ -724,6 +724,7 @@ def _build_fallback_knowledge_format(user_video: 'UserVideo', format_type: str) 
     """
     Builds a resilient, structured knowledge format payload using existing
     VideoCut records or video metadata when Gemini is unavailable.
+    Clusters nodes into semantic groups when cut count is >= 6.
     """
     video = user_video.video
     cuts = list(user_video.cuts.all().order_by('cut_order'))
@@ -745,7 +746,13 @@ def _build_fallback_knowledge_format(user_video: 'UserVideo', format_type: str) 
     central_theme = f"Core Insights & Structure: {video.title}"
     nodes = []
 
+    # Cluster into groups if >= 6 cuts
+    cluster_size = 4 if len(cuts) >= 12 else 3
+    groups = []
+    
     for idx, cut in enumerate(cuts):
+        group_idx = idx // cluster_size if len(cuts) >= 6 else 0
+        group_id = f"group-{group_idx + 1}" if len(cuts) >= 6 else None
         color = FORMAT_COLORS[idx % len(FORMAT_COLORS)]
         node_id = f"node-{idx + 1}"
         target_id = f"node-{(idx + 1) % len(cuts) + 1}" if len(cuts) > 1 else None
@@ -787,7 +794,7 @@ def _build_fallback_knowledge_format(user_video: 'UserVideo', format_type: str) 
             relations = []
             category = "Quick Reference"
 
-        nodes.append({
+        node_dict = {
             'id': node_id,
             'order': idx + 1,
             'title': cut.title or f"Segment {idx + 1}",
@@ -798,17 +805,43 @@ def _build_fallback_knowledge_format(user_video: 'UserVideo', format_type: str) 
             'sub_points': sub_points,
             'relations': relations,
             'color': color,
-        })
+        }
+        if group_id:
+            node_dict['group_id'] = group_id
+        nodes.append(node_dict)
+
+    if len(cuts) >= 6:
+        num_groups = (len(cuts) + cluster_size - 1) // cluster_size
+        for g_i in range(num_groups):
+            g_nodes = [n for n in nodes if n.get('group_id') == f"group-{g_i + 1}"]
+            if g_nodes:
+                first_title = g_nodes[0]['title']
+                g_label = {
+                    'mindmap': f"Pillar {g_i + 1}: {first_title[:30]}",
+                    'blueprint': f"Stage 0{g_i + 1}: {first_title[:30]}",
+                    'concept_map': f"Domain {g_i + 1}: {first_title[:30]}",
+                    'timeline': f"Era {g_i + 1}: {first_title[:30]}",
+                    'cheatsheet': f"Section {g_i + 1}: {first_title[:30]}",
+                }.get(format_type, f"Cluster {g_i + 1}")
+                groups.append({
+                    'id': f"group-{g_i + 1}",
+                    'order': g_i + 1,
+                    'label': g_label,
+                    'summary': f"Synthesized module containing {len(g_nodes)} key points.",
+                    'node_ids': [n['id'] for n in g_nodes],
+                    'color': FORMAT_COLORS[g_i % len(FORMAT_COLORS)],
+                })
 
     return {
         'format_type': format_type,
         'central_theme': central_theme,
         'video_title': video.title,
+        'groups': groups,
         'nodes': nodes,
         'takeaways': [
             f"Central theme: {video.title}",
             f"{len(nodes)} interconnected knowledge nodes mapped to exact video timestamps.",
-            "Click any node on the radial canvas to focus the video and open the segment interaction modal.",
+            "Click any node or group on the canvas to focus the video and open the segment interaction modal.",
         ],
         'metadata': {
             'channel_name': video.channel_name,
@@ -822,6 +855,8 @@ def generate_video_knowledge_format(user_video: 'UserVideo', format_type: str) -
     """
     Generates a specialized visual knowledge structure (Mindmap, Cheatsheet,
     Concept Map, Blueprint, Timeline) tailored to the video's transcript and cuts.
+    Scales from 4-8 nodes for short clips up to 25-50 nodes organized into semantic
+    thematic groups for long-form lectures and discussions.
     """
     client = _get_client()
     if client is None:
@@ -830,6 +865,25 @@ def generate_video_knowledge_format(user_video: 'UserVideo', format_type: str) -
     video = user_video.video
     cuts = list(user_video.cuts.all().order_by('cut_order'))
     transcript = _build_transcript(user_video)
+    duration = video.duration_seconds or (cuts[-1].end_seconds if cuts else 600)
+
+    # Scale node count & group count according to video duration
+    if duration <= 600:
+        target_nodes = "4 to 8 nodes"
+        target_groups = "1 to 2 thematic groups (or flat if very focused)"
+        target_group_count = 2
+    elif duration <= 1800:
+        target_nodes = "8 to 16 nodes"
+        target_groups = "3 to 5 thematic groups"
+        target_group_count = 4
+    elif duration <= 5400:
+        target_nodes = "16 to 32 nodes"
+        target_groups = "4 to 7 thematic groups"
+        target_group_count = 6
+    else:
+        target_nodes = "25 to 50 nodes"
+        target_groups = "5 to 8 thematic groups"
+        target_group_count = 7
 
     cuts_summary = "\n".join([
         f"- #{c.cut_order}: [{int(c.start_seconds)}s - {int(c.end_seconds)}s] {c.title} -> {c.ai_rationale}"
@@ -838,24 +892,29 @@ def generate_video_knowledge_format(user_video: 'UserVideo', format_type: str) -
 
     format_instructions = {
         'mindmap': (
-            "Format: MINDMAP. Organize into central theme and radial thematic branches with 2-3 specific sub-ideas per node. "
-            "Category should be thematic branches (e.g. 'Foundations', 'Implementation', 'Critical Objections')."
+            "Format: MINDMAP. Organize hierarchically with `groups` acting as the primary radiating pillars/thematic branches "
+            "from the core thesis, and `nodes` as detailed sub-ideas attached to their respective `group_id`. "
+            "Group labels should be clear category pillars (e.g. 'Foundations & Architecture', 'Execution Strategies')."
         ),
         'cheatsheet': (
-            "Format: CHEATSHEET. Organize into high-density reference cards with actionable rules, essential definitions, "
-            "and memorable principles per segment. sub_points should be concise, high-value bullet points."
+            "Format: CHEATSHEET. Organize into scannable reference sections. `groups` represent major reference categories "
+            "(e.g., 'Syntax & Core Commands', 'Best Practices', 'Common Pitfalls & Troubleshooting'). "
+            "`nodes` contain concise, high-value rules, tips, and formulas."
         ),
         'concept_map': (
-            "Format: CONCEPT MAP. Focus on core entities, theories, or mechanisms. Each node should connect to other nodes "
-            "via relations: [{'target_id': 'node-X', 'label': 'leads to' | 'contradicts' | 'proves' | 'builds upon'}]."
+            "Format: CONCEPT MAP. Focus on core entities, theories, or mechanisms. `groups` represent domain clusters or systems. "
+            "`nodes` represent individual entities within each domain, interconnected across groups via "
+            "relations: [{'target_id': 'node-X', 'label': 'leads to' | 'contradicts' | 'proves' | 'builds upon'}]."
         ),
         'blueprint': (
-            "Format: BLUEPRINT. Organize into sequential architectural or execution phases. Category should be 'Phase 01', 'Phase 02', etc. "
-            "sub_points should contain prerequisites, deliverables, and technical execution details."
+            "Format: BLUEPRINT. Organize into sequential architectural or execution stages. `groups` represent high-level stages "
+            "(e.g., 'Stage 01: Setup & Prereqs', 'Stage 02: Core Engine Implementation', 'Stage 03: Deployment & Hardening'). "
+            "`nodes` are modular steps within that stage with execution specifications."
         ),
         'timeline': (
-            "Format: TIMELINE. Focus on chronological narrative, logical progression, or temporal milestones. Category should be "
-            "'Milestone 1', 'Milestone 2', etc., and sub_points should highlight temporal pacing and key developments."
+            "Format: TIMELINE. Focus on chronological narrative, developmental eras, or progressive milestones. "
+            "`groups` represent major chronological eras or video chapters. "
+            "`nodes` represent sequential milestone moments within each era."
         ),
     }.get(format_type, "Format: MINDMAP.")
 
@@ -865,19 +924,27 @@ def generate_video_knowledge_format(user_video: 'UserVideo', format_type: str) -
 
         **Video Title:** {video.title}
         **Channel:** {video.channel_name}
-        **Duration:** {video.duration_seconds} seconds
+        **Duration:** {duration} seconds
 
         **Video Chapter Cuts:**
         {cuts_summary if cuts_summary else "No predefined chapters available."}
 
         **Transcript Excerpt:**
-        {transcript[:3000] if transcript else "Transcript unavailable; derive from chapter cuts and title."}
+        {transcript[:4000] if transcript else "Transcript unavailable; derive from chapter cuts and title."}
 
         **Requirements:**
         1. **central_theme**: A compelling 1-sentence synthesis of the entire video's core thesis.
-        2. **nodes**: An array of 4 to 8 nodes representing the primary segments/concepts of the video.
+        2. **groups**: An array of {target_groups} clustering the topics hierarchically.
+           For each group:
+           - "id": "group-1", "group-2", etc.
+           - "order": integer (1, 2, 3...)
+           - "label": Short, punchy title for this cluster (max 40 chars).
+           - "summary": 1-sentence synthesis of what this cluster covers.
+           - "node_ids": Array of node IDs assigned to this group, e.g. ["node-1", "node-2"].
+        3. **nodes**: An array of {target_nodes} representing the topics/concepts of the video.
            For each node:
            - "id": "node-1", "node-2", etc.
+           - "group_id": The id of the parent group it belongs to (e.g. "group-1").
            - "order": integer (1, 2, 3...)
            - "title": Specific, engaging concept title (max 50 chars).
            - "summary": 1-2 sentence explanation of what is learned here.
@@ -886,15 +953,25 @@ def generate_video_knowledge_format(user_video: 'UserVideo', format_type: str) -
            - "category": Short category or branch name.
            - "sub_points": Array of 2-3 concise, high-impact bullet points.
            - "relations": Array of objects {{"target_id": "node-X", "label": "relation label"}} (especially important for concept_map and blueprint).
-        3. **takeaways**: 3 key executive takeaways from the entire video.
-        4. {format_instructions}
+        4. **takeaways**: 3-5 key executive takeaways from the entire video.
+        5. {format_instructions}
 
         Respond ONLY with a valid JSON object matching this schema:
         {{
           "central_theme": "...",
+          "groups": [
+            {{
+              "id": "group-1",
+              "order": 1,
+              "label": "...",
+              "summary": "...",
+              "node_ids": ["node-1", "node-2"]
+            }}
+          ],
           "nodes": [
             {{
               "id": "node-1",
+              "group_id": "group-1",
               "order": 1,
               "title": "...",
               "summary": "...",
@@ -924,11 +1001,39 @@ def generate_video_knowledge_format(user_video: 'UserVideo', format_type: str) -
         if not raw_nodes:
             return _build_fallback_knowledge_format(user_video, format_type)
 
+        raw_groups = data.get('groups', [])
+
+        # Process and sanitize groups
+        processed_groups = []
+        valid_group_ids = set()
+        for g_idx, g in enumerate(raw_groups):
+            g_id = str(g.get('id', f'group-{g_idx + 1}'))
+            valid_group_ids.add(g_id)
+            g_color = FORMAT_COLORS[g_idx % len(FORMAT_COLORS)]
+            processed_groups.append({
+                'id': g_id,
+                'order': int(g.get('order', g_idx + 1)),
+                'label': str(g.get('label', f'Topic Group {g_idx + 1}'))[:60],
+                'summary': str(g.get('summary', ''))[:250],
+                'node_ids': [str(nid) for nid in g.get('node_ids', [])],
+                'color': g_color,
+            })
+
         processed_nodes = []
         for idx, n in enumerate(raw_nodes):
+            n_id = str(n.get('id', f'node-{idx + 1}'))
+            n_group_id = n.get('group_id')
+            if n_group_id and str(n_group_id) not in valid_group_ids and processed_groups:
+                n_group_id = processed_groups[0]['id']
+            elif not n_group_id and processed_groups:
+                # Assign to a group by index
+                assigned_g = processed_groups[min(idx // max(1, len(raw_nodes) // len(processed_groups)), len(processed_groups) - 1)]
+                n_group_id = assigned_g['id']
+
             color = FORMAT_COLORS[idx % len(FORMAT_COLORS)]
             processed_nodes.append({
-                'id': str(n.get('id', f'node-{idx + 1}')),
+                'id': n_id,
+                'group_id': str(n_group_id) if n_group_id else None,
                 'order': int(n.get('order', idx + 1)),
                 'title': str(n.get('title', f'Section {idx + 1}'))[:100],
                 'summary': str(n.get('summary', ''))[:300],
@@ -940,15 +1045,22 @@ def generate_video_knowledge_format(user_video: 'UserVideo', format_type: str) -
                 'color': color,
             })
 
+        # Ensure group node_ids are populated accurately
+        for grp in processed_groups:
+            matching_ids = [n['id'] for n in processed_nodes if n.get('group_id') == grp['id']]
+            if matching_ids:
+                grp['node_ids'] = matching_ids
+
         return {
             'format_type': format_type,
             'central_theme': str(data.get('central_theme', video.title)),
             'video_title': video.title,
+            'groups': processed_groups,
             'nodes': processed_nodes,
             'takeaways': [str(t) for t in data.get('takeaways', []) if t],
             'metadata': {
                 'channel_name': video.channel_name,
-                'duration_seconds': video.duration_seconds,
+                'duration_seconds': duration,
                 'is_fallback': False,
             },
         }

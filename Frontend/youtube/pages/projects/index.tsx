@@ -14,7 +14,7 @@ import { clientNavigate }       from '@/hooks/useClientPathname'
 import {
   Scissors, MessageSquare, Globe, FileText,
   Play, Download, Plus, Search, ChevronRight, ChevronDown,
-  Crown, Clock, CheckCircle, ExternalLink, Trash2, Loader2,
+  Crown, Clock, CheckCircle, ExternalLink, Trash2, Loader2, Sparkles,
 } from 'lucide-react'
 import { cn }            from '@/utils/cn'
 import { useAuthStore }  from '@/store/auth.store'
@@ -46,6 +46,14 @@ const STATUS_DOT: Record<ProcessingStatus, { bg: string; border: string; title: 
   processing: { bg: 'bg-primary-50',  border: 'border-primary-200',  title: 'Processing' },
   completed:  { bg: 'bg-success-50',  border: 'border-success-200',  title: 'Completed'  },
   failed:     { bg: 'bg-danger-50',   border: 'border-danger-200',   title: 'Failed'     },
+}
+
+const FORMAT_LABELS: Record<string, string> = {
+  mindmap: 'Mindmap',
+  cheatsheet: 'Cheatsheet',
+  concept_map: 'Concept Map',
+  blueprint: 'Blueprint',
+  timeline: 'Timeline',
 }
 
 // ── Thumbnail ─────────────────────────────────────────────
@@ -243,6 +251,12 @@ const DetailPanel: React.FC<{
   const navigate = (to: string) => clientNavigate(to)
   const [tab, setTab] = useState<DetailTab>('cuts')
   const { userVideo, cuts, chats, research } = project
+  const format = userVideo.preferred_format
+  const isCanvas = !!format && format !== 'standard'
+  const formatLabel = (format && FORMAT_LABELS[format]) || format || 'Canvas'
+  const canvasUrl = `/workspace/${userVideo.id}/canvas?format=${format}`
+  const editorUrl = `/workspace/${userVideo.id}?editor=1`
+  const defaultUrl = isCanvas ? canvasUrl : `/workspace/${userVideo.id}`
 
   const TABS: { id: DetailTab; label: string; count?: number }[] = [
     { id: 'cuts',       label: 'Cuts',       count: cuts.length     },
@@ -270,12 +284,26 @@ const DetailPanel: React.FC<{
           </p>
         </div>
         <StatusBadge status={userVideo.processing_status} size="sm" />
+        {isCanvas && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-caption font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+            <Sparkles className="w-3 h-3" />
+            {formatLabel}
+          </span>
+        )}
+        {isCanvas && (
+          <Button
+            variant="secondary" size="sm"
+            onClick={() => navigate(editorUrl)}
+          >
+            Video Editor
+          </Button>
+        )}
         <Button
           variant="primary" size="sm"
           rightIcon={<ExternalLink className="w-3.5 h-3.5" />}
-          onClick={() => navigate(`/workspace/${userVideo.id}`)}
+          onClick={() => navigate(defaultUrl)}
         >
-          Open workspace
+          {isCanvas ? `Open ${formatLabel}` : 'Open workspace'}
         </Button>
       </div>
 
@@ -307,7 +335,7 @@ const DetailPanel: React.FC<{
 
       {/* Tab content */}
       <div className="p-4">
-        {tab === 'cuts' && <CutsTab cuts={cuts} onOpen={() => navigate(`/workspace/${userVideo.id}`)} />}
+        {tab === 'cuts' && <CutsTab cuts={cuts} onOpen={() => navigate(editorUrl)} />}
         {tab === 'chats' && (
           <ChatsTab
             chats={chats} userVideoId={userVideo.id}
@@ -327,8 +355,8 @@ const DetailPanel: React.FC<{
             <FileText className="w-8 h-8 text-[var(--color-text-tertiary)]" aria-hidden="true" />
             <p className="text-heading-sm text-[var(--color-text-primary)]">View full transcript</p>
             <p className="text-body-sm text-[var(--color-text-secondary)]">Open the workspace to view and search the transcript.</p>
-            <Button variant="secondary" size="sm" onClick={() => navigate(`/workspace/${userVideo.id}`)}>
-              Open workspace
+            <Button variant="secondary" size="sm" onClick={() => navigate(editorUrl)}>
+              Open in editor
             </Button>
           </div>
         )}
@@ -348,6 +376,9 @@ const ProjectCard: React.FC<{
   const { userVideo, cuts, chats, research } = project
   const v   = userVideo.video
   const dot = STATUS_DOT[userVideo.processing_status]
+  const format = userVideo.preferred_format
+  const isCanvas = !!format && format !== 'standard'
+  const formatLabel = (format && FORMAT_LABELS[format]) || format || 'Canvas'
 
   return (
     <div
@@ -394,6 +425,12 @@ const ProjectCard: React.FC<{
 
         {/* Pills */}
         <div className="flex flex-wrap gap-1.5 mb-3">
+          {isCanvas && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-caption font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+              <Sparkles className="w-3 h-3" aria-hidden="true" />
+              {formatLabel}
+            </span>
+          )}
           <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-caption font-medium',
             cuts.length > 0 ? 'bg-primary-50 text-primary-800' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)] border border-[var(--color-border-tertiary)]')}>
             <Scissors className="w-3 h-3" aria-hidden="true" />

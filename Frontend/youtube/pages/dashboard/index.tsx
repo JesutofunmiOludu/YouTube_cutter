@@ -15,6 +15,7 @@ import {
   Globe,
   Play,
   Plus,
+  Sparkles,
   Search,
   ChevronRight,
   Crown,
@@ -93,9 +94,23 @@ const RecentProjectRow: React.FC<{ project: VideoProject }> = ({ project }) => {
   const navigate = (to: string) => clientNavigate(to)
   const { userVideo, cuts, chats, research } = project
   const v = userVideo.video
+  const format = userVideo.preferred_format
+  const isCanvas = format && format !== 'standard'
+  const targetUrl = isCanvas
+    ? `/workspace/${userVideo.id}/canvas?format=${format}`
+    : `/workspace/${userVideo.id}`
+
+  const FORMAT_LABELS: Record<string, string> = {
+    mindmap: 'Mindmap',
+    cheatsheet: 'Cheatsheet',
+    concept_map: 'Concept Map',
+    blueprint: 'Blueprint',
+    timeline: 'Timeline',
+  }
+
   return (
     <button
-      onClick={() => navigate(`/workspace/${userVideo.id}`)}
+      onClick={() => navigate(targetUrl)}
       className={cn(
         'flex items-center gap-3 px-3 py-2.5 rounded-xl w-full text-left group',
         'hover:bg-[var(--color-bg-secondary)] transition-colors duration-fast',
@@ -106,6 +121,12 @@ const RecentProjectRow: React.FC<{ project: VideoProject }> = ({ project }) => {
       <div className="flex-1 min-w-0">
         <p className="text-body-sm font-medium text-[var(--color-text-primary)] truncate">{v.title}</p>
         <p className="text-caption text-[var(--color-text-tertiary)] flex items-center gap-2 mt-0.5">
+          {isCanvas && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              <Sparkles className="w-2.5 h-2.5" />
+              {FORMAT_LABELS[format] || format}
+            </span>
+          )}
           <span className="flex items-center gap-1"><Scissors className="w-3 h-3" />{cuts.length} cuts</span>
           <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{chats.length} chats</span>
           {research.length > 0 && <span className="flex items-center gap-1"><Globe className="w-3 h-3" />{research.length}</span>}
@@ -330,49 +351,6 @@ const StatCard: React.FC<{
   )
 }
 
-// ============================================================
-// QUICK SEARCH BAR
-// ============================================================
-
-const QuickSearch: React.FC = () => {
-  const navigate = (to: string) => clientNavigate(to)
-  const [val, setVal] = useState('')
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const t = val.trim()
-    if (!t) return
-    navigate(/youtube\.com|youtu\.be/i.test(t)
-      ? `/workspace/new?url=${encodeURIComponent(t)}`
-      : `/search?q=${encodeURIComponent(t)}`)
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="w-full" role="search">
-      <div className={cn(
-        'flex items-center gap-2 h-11 px-4',
-        'bg-[var(--color-bg-primary)] border border-[var(--color-border-secondary)] rounded-xl',
-        'focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-200',
-        'transition-colors duration-fast',
-      )}>
-        <Search className="w-4 h-4 shrink-0 text-[var(--color-text-tertiary)]" aria-hidden="true" />
-        <input
-          type="text"
-          value={val}
-          onChange={(e) => setVal(e.target.value)}
-          placeholder="Search a topic or paste a YouTube link…"
-          className="flex-1 bg-transparent border-none outline-none text-body-md text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
-          aria-label="Quick search"
-        />
-        {val && (
-          <Button type="submit" variant="primary" size="sm">
-            {/youtube\.com|youtu\.be/i.test(val) ? 'Process' : 'Search'}
-          </Button>
-        )}
-      </div>
-    </form>
-  )
-}
 
 // ============================================================
 // UPGRADE BANNER
@@ -412,13 +390,12 @@ const OnboardingState: React.FC = () => {
           Welcome to ClipMide 🎉
         </h2>
         <p className="text-body-md text-[var(--color-text-secondary)] max-w-md">
-          Paste a YouTube link to create your first video project. AI splits it into
+          Paste a YouTube link or search any topic to create your first video project. AI splits it into
           chapters, transcribes it, and lets you chat and run deep research — all in one place.
         </p>
       </div>
-      <QuickSearch />
-      <Button variant="secondary" size="md" leftIcon={<Search className="w-4 h-4" />} onClick={() => navigate('/search')}>
-        Browse videos by topic
+      <Button variant="primary" size="md" leftIcon={<Plus className="w-4 h-4" />} onClick={() => navigate('/search')}>
+        New Project
       </Button>
     </div>
   )
@@ -527,19 +504,31 @@ const DashboardPage: NextPageWithLayout = () => {
 
 
   return (
-    <div className="flex flex-col gap-5 max-w-content mx-auto">
+    <div className="flex flex-col gap-6 max-w-content mx-auto">
 
-      {/* Greeting + quick search */}
-      <div className="flex flex-col gap-3">
+      {/* Header: Greeting + New Project Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-heading-xl text-[var(--color-text-primary)]">{greeting}</h1>
+          <h1 className="text-heading-xl text-[var(--color-text-primary)] tracking-tight">{greeting}</h1>
           <p className="text-body-sm text-[var(--color-text-secondary)] mt-0.5">
             {projects.length > 0
               ? `You have ${projects.length} video project${projects.length !== 1 ? 's' : ''}`
               : 'Start your first video project'}
           </p>
         </div>
-        <QuickSearch />
+
+        <button
+          onClick={() => navigate('/search')}
+          className={cn(
+            'inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium text-body-sm',
+            'bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white shadow-sm',
+            'transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 shrink-0 self-start sm:self-auto',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 cursor-pointer'
+          )}
+        >
+          <Plus className="w-4 h-4" />
+          <span>New Project</span>
+        </button>
       </div>
 
       {/* Onboarding for new users */}

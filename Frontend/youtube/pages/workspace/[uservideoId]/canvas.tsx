@@ -33,8 +33,14 @@ import { cn } from '@/utils/cn'
 import { apiClient } from '@/utils/apiClient'
 import { Spinner } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/Toast'
-import RadialKnowledgeCanvas from '@/components/canvas/RadialKnowledgeCanvas'
-import { SegmentFocusModal } from '@/components/canvas/SegmentFocusModal'
+import {
+  MindmapCanvas,
+  BlueprintCanvas,
+  ConceptMapCanvas,
+  CheatsheetBoard,
+  TimelineStream,
+  SegmentFocusModal,
+} from '@/components/canvas'
 import type {
   KnowledgeFormatType,
   KnowledgeFormatPayload,
@@ -101,6 +107,7 @@ export default function KnowledgeCanvasPage() {
   // Data state
   const [userVideo, setUserVideo] = useState<UserVideo | null>(null)
   const [payload, setPayload] = useState<KnowledgeFormatPayload | null>(null)
+  const [formatCache, setFormatCache] = useState<Record<string, KnowledgeFormatPayload>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -136,6 +143,14 @@ export default function KnowledgeCanvasPage() {
         return
       }
 
+      // Check client-side cache first if not explicitly refreshing
+      if (!refresh && formatCache[activeFormat]) {
+        setPayload(formatCache[activeFormat])
+        setIsLoading(false)
+        setError(null)
+        return
+      }
+
       if (refresh) {
         setIsRegenerating(true)
       } else {
@@ -149,6 +164,11 @@ export default function KnowledgeCanvasPage() {
         }`
         const res = await apiClient.get<KnowledgeFormatPayload>(url)
         setPayload(res.data)
+        // Store in client-side format cache for instant switching
+        setFormatCache((prev) => ({
+          ...prev,
+          [activeFormat]: res.data,
+        }))
       } catch (err: any) {
         console.error('Failed to load knowledge format', err)
         const msg =
@@ -162,7 +182,7 @@ export default function KnowledgeCanvasPage() {
         setIsRegenerating(false)
       }
     },
-    [uservideoId, activeFormat, router, toast]
+    [uservideoId, activeFormat, router, toast, formatCache]
   )
 
   useEffect(() => {
@@ -172,11 +192,21 @@ export default function KnowledgeCanvasPage() {
   // Change format handler
   const handleSwitchFormat = (newFormat: KnowledgeFormatType) => {
     if (newFormat === 'standard') {
-      router.push(`/workspace/${uservideoId}`)
+      apiClient.patch(`/videos/${uservideoId}/`, { preferred_format: 'standard' }).catch(() => {})
+      router.push(`/workspace/${uservideoId}?editor=1`)
       return
     }
 
     if (newFormat === activeFormat) return
+
+    // Immediately swap payload from cache if available to prevent layout flash
+    if (formatCache[newFormat]) {
+      setPayload(formatCache[newFormat])
+      setIsLoading(false)
+      setError(null)
+    }
+
+    apiClient.patch(`/videos/${uservideoId}/`, { preferred_format: newFormat }).catch(() => {})
 
     router.replace(
       {
@@ -229,7 +259,7 @@ export default function KnowledgeCanvasPage() {
         {/* Left: Back button & Video Title */}
         <div className="flex items-center gap-3 min-w-0">
           <Link
-            href={`/workspace/${uservideoId}`}
+            href={`/workspace/${uservideoId}?editor=1`}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -322,7 +352,7 @@ export default function KnowledgeCanvasPage() {
 
           {/* Jump to Standard Workspace button */}
           <Link
-            href={`/workspace/${uservideoId}`}
+            href={`/workspace/${uservideoId}?editor=1`}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary-600 hover:bg-primary-500 text-white shadow-lg transition-colors"
           >
             <Scissors className="w-3.5 h-3.5" />
@@ -384,15 +414,50 @@ export default function KnowledgeCanvasPage() {
           </div>
         )}
 
-        {/* Interactive Radial Canvas */}
+        {/* Format-Specific Visual Knowledge Canvas */}
         {payload && userVideo && (
-          <RadialKnowledgeCanvas
-            payload={payload}
-            userVideo={userVideo}
-            format={activeFormat}
-            onSelectNode={handleSelectNode}
-            selectedNodeId={selectedNode?.id}
-          />
+          <>
+            {activeFormat === 'mindmap' && (
+              <MindmapCanvas
+                payload={payload}
+                userVideo={userVideo}
+                onSelectNode={handleSelectNode}
+                selectedNodeId={selectedNode?.id}
+              />
+            )}
+            {activeFormat === 'blueprint' && (
+              <BlueprintCanvas
+                payload={payload}
+                userVideo={userVideo}
+                onSelectNode={handleSelectNode}
+                selectedNodeId={selectedNode?.id}
+              />
+            )}
+            {activeFormat === 'concept_map' && (
+              <ConceptMapCanvas
+                payload={payload}
+                userVideo={userVideo}
+                onSelectNode={handleSelectNode}
+                selectedNodeId={selectedNode?.id}
+              />
+            )}
+            {activeFormat === 'cheatsheet' && (
+              <CheatsheetBoard
+                payload={payload}
+                userVideo={userVideo}
+                onSelectNode={handleSelectNode}
+                selectedNodeId={selectedNode?.id}
+              />
+            )}
+            {activeFormat === 'timeline' && (
+              <TimelineStream
+                payload={payload}
+                userVideo={userVideo}
+                onSelectNode={handleSelectNode}
+                selectedNodeId={selectedNode?.id}
+              />
+            )}
+          </>
         )}
       </main>
 

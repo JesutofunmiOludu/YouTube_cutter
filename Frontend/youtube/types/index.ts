@@ -156,6 +156,7 @@ export interface UserVideo {
   file_url:          Nullable<string>
   processing_status: ProcessingStatus
   processing_stage?: ProcessingStage
+  preferred_format?: KnowledgeFormatType
   saved_at:          string
   last_accessed_at:  Nullable<string>
   cuts?:             VideoCut[]
@@ -190,8 +191,18 @@ export interface KnowledgeNodeRelation {
   label:     string
 }
 
+export interface KnowledgeGroup {
+  id:          string
+  label:       string
+  summary:     string
+  node_ids:    string[]
+  color?:      string
+  order:       number
+}
+
 export interface KnowledgeNode {
   id:            string
+  group_id?:     string
   order:         number
   title:         string
   summary:       string
@@ -207,6 +218,7 @@ export interface KnowledgeFormatPayload {
   format_type:   KnowledgeFormatType
   central_theme: string
   video_title:   string
+  groups?:       KnowledgeGroup[]
   nodes:         KnowledgeNode[]
   takeaways?:    string[]
   metadata?: {

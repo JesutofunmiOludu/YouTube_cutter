@@ -228,18 +228,87 @@ export function UnifiedIngestionBar({
           )}
         </div>
 
-        {/* Detected YouTube Video Preview Badge */}
+        {/* Detected YouTube Video Preview Card & Study Format Picker */}
         {detectedYtId && (
-          <div className="mt-3 pt-3 border-t border-[var(--color-border-tertiary)] flex items-center justify-between text-caption text-[var(--color-text-secondary)]">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/10 text-red-500 font-medium">
-                <Play className="w-3 h-3 fill-current" /> YouTube Video Detected
-              </span>
-              <span className="font-mono text-xs opacity-75">ID: {detectedYtId}</span>
+          <div className="mt-4 pt-4 border-t border-[var(--color-border-tertiary)] flex flex-col gap-3 animate-slide-up">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border-secondary)]">
+              {/* Thumbnail */}
+              <div className="relative w-28 aspect-video rounded-lg overflow-hidden bg-black shrink-0 border border-[var(--color-border-tertiary)]">
+                <img
+                  src={`https://img.youtube.com/vi/${detectedYtId}/mqdefault.jpg`}
+                  alt="YouTube thumbnail preview"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-full bg-red-600/90 text-white flex items-center justify-center shadow-md">
+                    <Play className="w-3 h-3 fill-current ml-0.5" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Meta */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-500/10 text-red-600 border border-red-500/20">
+                    <Play className="w-2.5 h-2.5 fill-current" /> YouTube Stream
+                  </span>
+                  <span className="text-[11px] font-mono text-[var(--color-text-tertiary)]">
+                    {detectedYtId}
+                  </span>
+                </div>
+                <p className="text-body-sm font-semibold text-[var(--color-text-primary)] truncate">
+                  Stream detected & ready for transformation
+                </p>
+                <p className="text-[11px] text-[var(--color-text-tertiary)]">
+                  Pick your study format to initialize the workspace
+                </p>
+              </div>
             </div>
-            <span className="text-xs text-primary-600 font-medium hidden sm:inline">
-              Ready to import into workspace
-            </span>
+
+            {/* 4 Study Workspace Format Selection Cards */}
+            <div>
+              <p className="text-caption font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider text-[10px]">
+                Target Learning Format
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: 'mindmap', label: 'Mindmap', icon: '🧠', badge: 'Radial Hub', desc: 'Concept breakdown' },
+                  { id: 'cheatsheet', label: 'Cheatsheet', icon: '📑', badge: 'Summary', desc: 'Rules & quotes' },
+                  { id: 'blueprint', label: 'Blueprint', icon: '📐', badge: 'Phased', desc: 'System specs' },
+                  { id: 'standard', label: 'Video Studio', icon: '🎬', badge: 'Cutter', desc: 'Clip editor' },
+                ].map((item) => {
+                  const isSelected = format === item.id
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setFormat(item.id as KnowledgeFormatType)}
+                      className={cn(
+                        'flex flex-col p-2.5 rounded-xl border text-left transition-all duration-fast relative group',
+                        isSelected
+                          ? 'bg-purple-500/10 border-purple-500 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500/20 shadow-sm'
+                          : 'bg-[var(--color-bg-primary)] border-[var(--color-border-secondary)] hover:border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                      )}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="text-lg">{item.icon}</span>
+                        {isSelected && (
+                          <div className="w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center">
+                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-body-xs font-bold truncate text-[var(--color-text-primary)]">
+                        {item.label}
+                      </p>
+                      <p className="text-[10px] text-[var(--color-text-tertiary)] truncate">
+                        {item.desc}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         )}
 
