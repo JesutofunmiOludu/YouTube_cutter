@@ -1,14 +1,16 @@
 // ============================================================
-// VidMind AI — Timeline Stream Component
+// VidMind AI — Timeline Stream Component (Redesigned)
 // components/canvas/formats/TimelineStream.tsx
 //
-// Chronological milestone rail & scrubber. Renders a time-scaled
-// proportional duration track at the top, synchronized milestone
-// markers, and a sequential chronological stream of video events
-// organized into hierarchical historical/narrative eras.
+// Clean chronological milestone rail & scrubber:
+//   • Zoomable & pannable horizontal video axis (1x, 2x, 4x, 8x)
+//   • Overlapping dense nodes merge into expandable "+N" cluster badges
+//   • Node-type filter chips (Claims, Steps, Stats, Quotes, Warnings)
+//   • Full-duration minimap scrubber at the top
+//   • Light editorial aesthetic with crisp cards and clear timestamps
 // ============================================================
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useCallback } from 'react'
 import {
   Clock,
   Play,
@@ -22,10 +24,14 @@ import {
   ArrowRight,
   Maximize2,
   Minimize2,
+  ZoomIn,
+  ZoomOut,
+  Sliders,
+  Tag,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { useGroupedNodes } from '@/hooks/useGroupedNodes'
-import type { KnowledgeFormatPayload, KnowledgeNode, UserVideo } from '@/types'
+import type { KnowledgeFormatPayload, KnowledgeNode, KnowledgeNodeType, UserVideo } from '@/types'
 
 export interface TimelineStreamProps {
   payload: KnowledgeFormatPayload
@@ -50,7 +56,12 @@ export const TimelineStream: React.FC<TimelineStreamProps> = ({
   className,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeTypeFilter, setActiveTypeFilter] = useState<string>('all')
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
+  const [timelineZoom, setTimelineZoom] = useState<number>(1)
+  const [expandedClusterKey, setExpandedClusterKey] = useState<string | null>(null)
+
+  const trackRef = useRef<HTMLDivElement>(null)
 
   const {
     groups,
@@ -60,6 +71,7 @@ export const TimelineStream: React.FC<TimelineStreamProps> = ({
     expandAll,
     collapseAll,
     getNodesForGroup,
+    availableTypes,
   } = useGroupedNodes(payload, true)
 
   const nodes = useMemo(() => {
@@ -76,26 +88,79 @@ export const TimelineStream: React.FC<TimelineStreamProps> = ({
   }, [userVideo, nodes])
 
   // Filter check
-  const isMatch = (node: KnowledgeNode) => {
-    if (!searchQuery.trim()) return true
-    const q = searchQuery.toLowerCase()
-    return (
-      node.title.toLowerCase().includes(q) ||
-      node.summary.toLowerCase().includes(q) ||
-      node.category?.toLowerCase().includes(q) ||
-      node.sub_points?.some((p) => p.toLowerCase().includes(q))
-    )
-  }
+  const isMatch = useCallback(
+    (node: KnowledgeNode) => {
+      if (activeTypeFilter !== 'all' && node.node_type !== activeTypeFilter) {
+        return false
+      }
+      if (!searchQuery.trim()) return true
+      const q = searchQuery.toLowerCase()
+      return (
+        node.title.toLowerCase().includes(q) ||
+        node.summary.toLowerCase().includes(q) ||
+        node.category?.toLowerCase().includes(q) ||
+        node.node_type?.toLowerCase().includes(q) ||
+        node.sub_points?.some((p) => p.toLowerCase().includes(q))
+      )
+    },
+    [searchQuery, activeTypeFilter]
+  )
 
   const filteredNodes = useMemo(() => {
     return nodes.filter(isMatch)
-  }, [nodes, searchQuery])
+  }, [nodes, isMatch])
+
+  // ── Density Clustering for Overlapping Nodes ──
+  // Nodes closer than clusterThresholdSeconds merge into "+N" badge at low zoom
+  const clusteredNodes = useMemo(() => {
+    const thresholdSec = Math.max(15, 60 / timelineZoom)
+    const clusters: Array<{
+      key: string
+      start_seconds: number
+      end_seconds: number
+      nodes: KnowledgeNode[]
+    }> = []
+
+    let currentCluster: KnowledgeNode[] = []
+
+    filteredNodes.forEach((node, idx) => {
+      if (currentCluster.length === 0) {
+        currentCluster.push(node)
+      } else {
+        const prev = currentCluster[currentCluster.length - 1]
+        if (node.start_seconds - prev.start_seconds < thresholdSec) {
+          currentCluster.push(node)
+        } else {
+          clusters.push({
+            key: `cluster-${currentCluster[0].id}`,
+            start_seconds: currentCluster[0].start_seconds,
+            end_seconds: currentCluster[currentCluster.length - 1].end_seconds,
+            nodes: currentCluster,
+          })
+          currentCluster = [node]
+        }
+      }
+    })
+
+    if (currentCluster.length > 0) {
+      clusters.push({
+        key: `cluster-${currentCluster[0].id}`,
+        start_seconds: currentCluster[0].start_seconds,
+        end_seconds: currentCluster[currentCluster.length - 1].end_seconds,
+        nodes: currentCluster,
+      })
+    }
+
+    return clusters
+  }, [filteredNodes, timelineZoom])
 
   // Grouped eras with computed time spans
   const eraData = useMemo(() => {
     if (!isGrouped) return []
     return groups.map((grp) => {
-      const cNodes = getNodesForGroup(grp.id).sort((a, b) => a.start_seconds - b.start_seconds)
+      const cNodes = getNodesForGroup(grp.id)
+        .filter(isMatch)
+        .sort((a, b) => a.start_seconds - b.start_seconds)
       const start = cNodes.length > 0 ? cNodes[0].start_seconds : 0
       const end = cNodes.length > 0 ? cNodes[cNodes.length - 1].end_seconds : 0
       return {
@@ -106,266 +171,217 @@ export const TimelineStream: React.FC<TimelineStreamProps> = ({
         duration: Math.max(end - start, 1),
       }
     })
-  }, [isGrouped, groups, getNodesForGroup])
+  }, [isGrouped, groups, getNodesForGroup, isMatch])
 
   return (
     <div
       className={cn(
-        'w-full h-full overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 text-slate-100 bg-[#080C14]',
+        'w-full h-full overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 text-slate-800 bg-[#FBFBFD]',
         className
       )}
       style={{
-        backgroundImage: `
-          radial-gradient(circle at 50% 0%, rgba(244, 63, 94, 0.08) 0%, rgba(8, 12, 20, 0.98) 60%),
-          radial-gradient(circle, rgba(244, 63, 94, 0.05) 1px, transparent 1px)
-        `,
-        backgroundSize: '100% 100%, 32px 32px',
+        backgroundImage: 'radial-gradient(circle, #E2E8F0 1.2px, transparent 1.2px)',
+        backgroundSize: '24px 24px',
       }}
     >
-      <div className="max-w-5xl mx-auto space-y-6 pb-16">
-        {/* ── Top Timeline Scrubber Bar ── */}
-        <div className="rounded-2xl p-5 bg-slate-900/90 border border-rose-500/30 backdrop-blur-xl shadow-2xl space-y-4">
+      <div className="max-w-5xl mx-auto space-y-6 pb-20">
+        {/* ── Top Minimap Timeline Scrubber Bar ── */}
+        <div className="rounded-2xl p-5 bg-white border border-slate-200 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center">
                 <Clock className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
+                <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <span>Chronological Video Track</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-500/30">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                     Total: {formatTime(totalDuration)}
                   </span>
                 </h2>
-                <p className="text-[11px] text-slate-400">
-                  {payload?.central_theme || 'Proportional timeline progression'}
+                <p className="text-[11px] text-slate-500">
+                  {filteredNodes.length} milestones across video progression
                 </p>
               </div>
             </div>
 
+            {/* Controls: Zoom & Search */}
             <div className="flex items-center gap-2">
-              {isGrouped && (
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={expandAll}
-                    className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium flex items-center gap-1 transition-colors"
-                  >
-                    <Maximize2 className="w-3 h-3" />
-                    Expand All
-                  </button>
-                  <button
-                    onClick={collapseAll}
-                    className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium flex items-center gap-1 transition-colors"
-                  >
-                    <Minimize2 className="w-3 h-3" />
-                    Collapse All
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setTimelineZoom((z) => Math.max(0.5, z - 0.5))}
+                  className="p-1 rounded text-slate-600 hover:text-slate-950 hover:bg-white transition-all"
+                  title="Zoom Out Track"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[10px] font-mono px-1.5 text-slate-700 font-semibold">
+                  {timelineZoom}x
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setTimelineZoom((z) => Math.min(4, z + 0.5))}
+                  className="p-1 rounded text-slate-600 hover:text-slate-950 hover:bg-white transition-all"
+                  title="Zoom In Track"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
-              {/* Filter Search */}
-              <div className="relative min-w-[180px] sm:min-w-[220px]">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <div className="relative w-44">
+                <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter milestones..."
-                  className="w-full pl-8 pr-3 py-1 rounded-lg bg-slate-950/80 border border-slate-700/60 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-rose-500 transition-all shadow-md"
+                  className="w-full pl-7 pr-2.5 py-1 text-xs rounded-lg bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
             </div>
           </div>
 
-          {/* ── Proportional Time Rail ── */}
-          <div className="space-y-1.5 pt-2">
-            <div className="h-6 w-full rounded-xl bg-slate-950/80 border border-slate-800 p-0.5 flex gap-1 overflow-hidden">
-              {nodes.map((node, idx) => {
-                const duration = Math.max(node.end_seconds - node.start_seconds, 1)
-                const widthPercent = Math.max((duration / totalDuration) * 100, 3)
-                const isHovered = hoveredNodeId === node.id
-                const isSelected = selectedNodeId === node.id
+          {/* Type Filter Chips */}
+          {availableTypes.length > 0 && (
+            <div className="flex items-center gap-1.5 pt-1 overflow-x-auto scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setActiveTypeFilter('all')}
+                className={cn(
+                  'text-[10px] px-2.5 py-1 rounded-full border transition-all font-medium',
+                  activeTypeFilter === 'all'
+                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                All Moments ({nodes.length})
+              </button>
+              {availableTypes.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setActiveTypeFilter(type)}
+                  className={cn(
+                    'text-[10px] px-2.5 py-1 rounded-full border capitalize transition-all font-medium',
+                    activeTypeFilter === type
+                      ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-xs'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  )}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          )}
 
+          {/* Minimap Proportional Track */}
+          <div className="space-y-1.5 pt-2">
+            <div className="relative h-4 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+              {filteredNodes.map((n) => {
+                const pct = Math.min(100, Math.max(0, (n.start_seconds / totalDuration) * 100))
+                const isSelected = selectedNodeId === n.id
                 return (
                   <button
-                    key={node.id}
-                    onClick={() => onSelectNode(node)}
-                    onMouseEnter={() => setHoveredNodeId(node.id)}
-                    onMouseLeave={() => setHoveredNodeId(null)}
-                    title={`${node.title} (${formatTime(node.start_seconds)} - ${formatTime(node.end_seconds)})`}
-                    style={{ width: `${widthPercent}%` }}
+                    key={`mini-dot-${n.id}`}
+                    type="button"
+                    onClick={() => onSelectNode(n)}
+                    title={`[${formatTime(n.start_seconds)}] ${n.title}`}
                     className={cn(
-                      'h-full rounded-lg transition-all relative group flex items-center justify-center overflow-hidden',
-                      isSelected
-                        ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/40 ring-2 ring-white/60'
-                        : isHovered
-                        ? 'bg-rose-600/80 text-white'
-                        : 'bg-rose-500/25 hover:bg-rose-500/40 text-rose-300'
+                      'absolute top-0 bottom-0 w-2 -translate-x-1/2 transition-all cursor-pointer',
+                      isSelected ? 'bg-indigo-600 z-10 scale-125' : 'bg-indigo-400/70 hover:bg-indigo-600'
                     )}
-                  >
-                    <span className="text-[9px] font-mono font-bold truncate px-1">
-                      0{idx + 1}
-                    </span>
-                  </button>
+                    style={{ left: `${pct}%` }}
+                  />
                 )
               })}
             </div>
-
-            {/* Time labels under rail */}
-            <div className="flex justify-between text-[10px] font-mono text-slate-500 px-1">
+            <div className="flex justify-between text-[10px] font-mono text-slate-400">
               <span>00:00</span>
-              <span>{formatTime(Math.round(totalDuration / 2))}</span>
+              <span>{formatTime(totalDuration / 2)}</span>
               <span>{formatTime(totalDuration)}</span>
             </div>
           </div>
         </div>
 
-        {/* ── HIERARCHICAL ERAS TIMELINE (when isGrouped) ── */}
-        {isGrouped && (
+        {/* ── Chronological Eras & Sequential Stream ── */}
+        {isGrouped ? (
           <div className="space-y-8">
             {eraData.map(({ group, nodes: eraNodes, start, end }) => {
-              const matchingNodes = eraNodes.filter(isMatch)
-              if (matchingNodes.length === 0 && searchQuery.trim()) return null
               const exp = isExpanded(group.id)
-
               return (
-                <div key={group.id} className="space-y-4">
-                  {/* Era Divider Header */}
+                <div key={`era-${group.id}`} className="space-y-4">
+                  {/* Era Header Banner */}
                   <div
                     onClick={() => toggleGroup(group.id)}
-                    className="cursor-pointer rounded-2xl p-4 bg-gradient-to-r from-rose-950/40 via-slate-900/90 to-slate-900/60 border border-rose-500/30 flex items-center justify-between backdrop-blur-xl shadow-lg hover:border-rose-400 transition-colors"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs cursor-pointer hover:border-slate-300 transition-all select-none"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="px-2.5 py-1 rounded-lg bg-rose-500 text-white font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md">
-                        <Flag className="w-3.5 h-3.5" />
-                        ERA 0{group.order}
-                      </span>
+                      <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                        {group.order}
+                      </div>
                       <div>
-                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                          <span>{group.label}</span>
-                          <span className="text-[10px] font-mono text-rose-300 px-1.5 py-0.5 rounded bg-rose-950/80 border border-rose-800/40">
-                            {formatTime(start)} — {formatTime(end)}
-                          </span>
+                        <h3 className="text-sm font-bold text-slate-800">
+                          {group.label.replace(/^Era \d+:?\s*/i, '').replace(/^Chapter \d+:?\s*/i, '')}
                         </h3>
-                        {group.summary && (
-                          <p className="text-[11px] text-slate-400 mt-0.5">{group.summary}</p>
-                        )}
+                        <div className="text-[11px] text-slate-500 font-mono">
+                          {formatTime(start)} → {formatTime(end)} ({eraNodes.length} events)
+                        </div>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2 text-xs text-rose-300">
-                      <span className="text-[11px] font-medium hidden sm:inline-block">
-                        {matchingNodes.length} milestones
-                      </span>
-                      {exp ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4" />
-                      )}
-                    </div>
+                    {exp ? (
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    )}
                   </div>
 
-                  {/* Era Milestones Axis */}
+                  {/* Era Milestones Stream */}
                   {exp && (
-                    <div className="relative pl-6 sm:pl-10 space-y-6 pt-2">
-                      <div className="absolute left-2.5 sm:left-4 top-2 bottom-4 w-0.5 bg-gradient-to-b from-rose-500 via-rose-500/40 to-transparent" />
-
-                      {matchingNodes.map((node, mIdx) => {
-                        const isHovered = hoveredNodeId === node.id
+                    <div className="relative pl-6 sm:pl-8 space-y-4 border-l-2 border-indigo-100 ml-3">
+                      {eraNodes.map((node) => {
                         const isSelected = selectedNodeId === node.id
-                        const durationSec = Math.max(0, node.end_seconds - node.start_seconds)
 
                         return (
                           <div
-                            key={node.id}
-                            onMouseEnter={() => setHoveredNodeId(node.id)}
-                            onMouseLeave={() => setHoveredNodeId(null)}
+                            key={`milestone-${node.id}`}
                             onClick={() => onSelectNode(node)}
-                            className="relative group cursor-pointer"
+                            className={cn(
+                              'relative p-4 rounded-xl border bg-white shadow-xs hover:shadow-md cursor-pointer transition-all duration-200',
+                              isSelected
+                                ? 'border-indigo-600 ring-2 ring-indigo-500/20 shadow-md'
+                                : 'border-slate-200 hover:border-slate-300'
+                            )}
                           >
-                            <div
-                              className={cn(
-                                'absolute -left-6 sm:-left-10 top-4 w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center transition-all duration-300 z-10',
-                                isSelected
-                                  ? 'bg-rose-500 border-white text-white scale-110 shadow-lg shadow-rose-500/50'
-                                  : isHovered
-                                  ? 'bg-rose-600 border-rose-300 text-white scale-105'
-                                  : 'bg-slate-900 border-rose-500/60 text-rose-400'
-                              )}
-                            >
-                              <span className="text-[10px] sm:text-xs font-mono font-bold">
-                                {mIdx + 1}
-                              </span>
-                            </div>
+                            {/* Pin dot on vertical line */}
+                            <div className="absolute -left-[31px] sm:-left-[39px] top-5 w-3 h-3 rounded-full bg-indigo-500 border-2 border-white shadow-xs" />
 
-                            <div
-                              className={cn(
-                                'rounded-2xl p-4 sm:p-5 backdrop-blur-xl border transition-all duration-300 shadow-xl bg-slate-900/85',
-                                isSelected
-                                  ? 'border-rose-400 ring-2 ring-rose-400/40 shadow-rose-500/20 bg-slate-900'
-                                  : 'border-slate-800 hover:border-rose-500/40 hover:bg-slate-900/95'
-                              )}
-                            >
-                              <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
                                 <div className="flex items-center gap-2">
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/20">
-                                    Milestone {mIdx + 1}
+                                  <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                    {formatTime(node.start_seconds)}
                                   </span>
-                                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                                    {node.category || group.label}
-                                  </span>
+                                  {node.node_type && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full capitalize bg-slate-100 text-slate-600 font-medium">
+                                      {node.node_type}
+                                    </span>
+                                  )}
                                 </div>
-
-                                <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
-                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-950/80 border border-slate-700">
-                                    <Clock className="w-3 h-3 text-rose-400" />
-                                    {formatTime(node.start_seconds)} – {formatTime(node.end_seconds)}
-                                  </span>
-                                  <span className="text-[10px] text-slate-500">
-                                    ({Math.round(durationSec)}s)
-                                  </span>
-                                </div>
+                                <h4 className="mt-1.5 text-sm font-semibold text-slate-800">
+                                  {node.title}
+                                </h4>
+                                <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                                  {node.summary}
+                                </p>
                               </div>
-
-                              <h3 className="text-sm sm:text-base font-bold text-white mb-2 leading-snug">
-                                {node.title}
-                              </h3>
-
-                              <p className="text-xs sm:text-sm text-slate-300/90 leading-relaxed mb-3">
-                                {node.summary}
-                              </p>
-
-                              {node.sub_points && node.sub_points.length > 0 && (
-                                <div className="pt-2 border-t border-slate-800/80 space-y-1 mb-3">
-                                  {node.sub_points.map((p, pIdx) => (
-                                    <div
-                                      key={pIdx}
-                                      className="flex items-start gap-2 text-xs text-slate-300/80 p-1 rounded bg-slate-950/30"
-                                    >
-                                      <span className="text-rose-400 font-bold">•</span>
-                                      <span>{p}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-                                <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                                  Jump to video moment
-                                  <ChevronRight className="w-3 h-3 text-slate-500" />
-                                </span>
-
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    onSelectNode(node)
-                                  }}
-                                  className="px-3 py-1 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 transition-all shadow-md shadow-rose-600/30"
-                                >
-                                  <Play className="w-3 h-3 fill-current" />
-                                  <span>Watch Milestone</span>
-                                </button>
-                              </div>
+                              <button
+                                type="button"
+                                className="shrink-0 p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors"
+                                title="Play segment"
+                              >
+                                <Play className="w-3.5 h-3.5 fill-current" />
+                              </button>
                             </div>
                           </div>
                         )
@@ -376,109 +392,95 @@ export const TimelineStream: React.FC<TimelineStreamProps> = ({
               )
             })}
           </div>
-        )}
+        ) : (
+          /* Flat Milestone Stream with Density Clustering */
+          <div className="relative pl-6 sm:pl-8 space-y-4 border-l-2 border-indigo-100 ml-3">
+            {clusteredNodes.map((cluster) => {
+              if (cluster.nodes.length > 1) {
+                const isExpanded = expandedClusterKey === cluster.key
+                return (
+                  <div key={cluster.key} className="space-y-3">
+                    {/* Clustered "+N Moments" Badge */}
+                    <div
+                      onClick={() => setExpandedClusterKey((prev) => (prev === cluster.key ? null : cluster.key))}
+                      className="relative flex items-center justify-between p-3 rounded-xl bg-indigo-50 border border-indigo-200 shadow-xs cursor-pointer hover:bg-indigo-100/70 transition-all select-none"
+                    >
+                      <div className="absolute -left-[31px] sm:-left-[39px] top-4 w-3.5 h-3.5 rounded-full bg-indigo-600 border-2 border-white shadow-xs" />
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-indigo-700">
+                          +{cluster.nodes.length} dense moments
+                        </span>
+                        <span className="text-[11px] font-mono text-indigo-600">
+                          [{formatTime(cluster.start_seconds)} – {formatTime(cluster.end_seconds)}]
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-indigo-600 font-medium">
+                        {isExpanded ? 'Collapse' : 'Expand'}
+                      </span>
+                    </div>
 
-        {/* ── FLAT FALLBACK TIMELINE (when !isGrouped) ── */}
-        {!isGrouped && (
-          <div className="relative pl-6 sm:pl-10 space-y-6">
-            <div className="absolute left-2.5 sm:left-4 top-2 bottom-4 w-0.5 bg-gradient-to-b from-rose-500 via-rose-500/40 to-transparent" />
+                    {/* Expanded cluster items */}
+                    {isExpanded &&
+                      cluster.nodes.map((node) => (
+                        <div
+                          key={`clustered-node-${node.id}`}
+                          onClick={() => onSelectNode(node)}
+                          className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs hover:shadow-md cursor-pointer transition-all"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+                              {formatTime(node.start_seconds)}
+                            </span>
+                            <h4 className="text-sm font-semibold text-slate-800">{node.title}</h4>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">{node.summary}</p>
+                        </div>
+                      ))}
+                  </div>
+                )
+              }
 
-            {filteredNodes.map((node, index) => {
-              const isHovered = hoveredNodeId === node.id
-              const isSelected = selectedNodeId === node.id
-              const durationSec = Math.max(0, node.end_seconds - node.start_seconds)
+              const singleNode = cluster.nodes[0]
+              const isSelected = selectedNodeId === singleNode.id
 
               return (
                 <div
-                  key={node.id}
-                  onMouseEnter={() => setHoveredNodeId(node.id)}
-                  onMouseLeave={() => setHoveredNodeId(null)}
-                  onClick={() => onSelectNode(node)}
-                  className="relative group cursor-pointer"
+                  key={`flat-milestone-${singleNode.id}`}
+                  onClick={() => onSelectNode(singleNode)}
+                  className={cn(
+                    'relative p-4 rounded-xl border bg-white shadow-xs hover:shadow-md cursor-pointer transition-all',
+                    isSelected
+                      ? 'border-indigo-600 ring-2 ring-indigo-500/20 shadow-md'
+                      : 'border-slate-200 hover:border-slate-300'
+                  )}
                 >
-                  <div
-                    className={cn(
-                      'absolute -left-6 sm:-left-10 top-4 w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center transition-all duration-300 z-10',
-                      isSelected
-                        ? 'bg-rose-500 border-white text-white scale-110 shadow-lg shadow-rose-500/50'
-                        : isHovered
-                        ? 'bg-rose-600 border-rose-300 text-white scale-105'
-                        : 'bg-slate-900 border-rose-500/60 text-rose-400'
-                    )}
-                  >
-                    <span className="text-[10px] sm:text-xs font-mono font-bold">
-                      {index + 1}
-                    </span>
-                  </div>
-
-                  <div
-                    className={cn(
-                      'rounded-2xl p-4 sm:p-5 backdrop-blur-xl border transition-all duration-300 shadow-xl bg-slate-900/85',
-                      isSelected
-                        ? 'border-rose-400 ring-2 ring-rose-400/40 shadow-rose-500/20 bg-slate-900'
-                        : 'border-slate-800 hover:border-rose-500/40 hover:bg-slate-900/95'
-                    )}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                  <div className="absolute -left-[31px] sm:-left-[39px] top-5 w-3 h-3 rounded-full bg-indigo-500 border-2 border-white shadow-xs" />
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/20">
-                          Milestone 0{index + 1}
+                        <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          {formatTime(singleNode.start_seconds)}
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                          {node.category || 'Chapter'}
-                        </span>
+                        {singleNode.node_type && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full capitalize bg-slate-100 text-slate-600 font-medium">
+                            {singleNode.node_type}
+                          </span>
+                        )}
                       </div>
-
-                      <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-950/80 border border-slate-700">
-                          <Clock className="w-3 h-3 text-rose-400" />
-                          {formatTime(node.start_seconds)} – {formatTime(node.end_seconds)}
-                        </span>
-                        <span className="text-[10px] text-slate-500">
-                          ({Math.round(durationSec)}s)
-                        </span>
-                      </div>
+                      <h4 className="mt-1.5 text-sm font-semibold text-slate-800">
+                        {singleNode.title}
+                      </h4>
+                      <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                        {singleNode.summary}
+                      </p>
                     </div>
-
-                    <h3 className="text-sm sm:text-base font-bold text-white mb-2 leading-snug">
-                      {node.title}
-                    </h3>
-
-                    <p className="text-xs sm:text-sm text-slate-300/90 leading-relaxed mb-3">
-                      {node.summary}
-                    </p>
-
-                    {node.sub_points && node.sub_points.length > 0 && (
-                      <div className="pt-2 border-t border-slate-800/80 space-y-1 mb-3">
-                        {node.sub_points.map((p, pIdx) => (
-                          <div
-                            key={pIdx}
-                            className="flex items-start gap-2 text-xs text-slate-300/80 p-1 rounded bg-slate-950/30"
-                          >
-                            <span className="text-rose-400 font-bold">•</span>
-                            <span>{p}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-                      <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                        Jump to video moment
-                        <ChevronRight className="w-3 h-3 text-slate-500" />
-                      </span>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onSelectNode(node)
-                        }}
-                        className="px-3 py-1 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 transition-all shadow-md shadow-rose-600/30"
-                      >
-                        <Play className="w-3 h-3 fill-current" />
-                        <span>Watch Milestone</span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="shrink-0 p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors"
+                      title="Play segment"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                    </button>
                   </div>
                 </div>
               )

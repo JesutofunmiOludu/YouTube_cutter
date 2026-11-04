@@ -30,6 +30,7 @@ export interface CanvasMinimapProps {
   className?: string
   width?: number
   height?: number
+  theme?: 'light' | 'dark'
 }
 
 export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
@@ -42,8 +43,10 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
   className,
   width = 160,
   height = 110,
+  theme = 'light',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
+  const isLight = theme === 'light'
 
   // Calculate coordinate boundaries of all nodes
   const bounds = useMemo(() => {
@@ -107,9 +110,14 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
         <button
           type="button"
           onClick={onToggle}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/85 backdrop-blur-md border border-slate-700/60 text-[10px] font-semibold text-slate-300 hover:text-white transition-colors shadow-lg"
+          className={cn(
+            'flex items-center gap-1.5 px-2.5 py-1 rounded-lg backdrop-blur-md text-[10px] font-semibold transition-colors shadow-md',
+            isLight
+              ? 'bg-white/95 border border-slate-200/90 text-slate-700 hover:text-slate-950'
+              : 'bg-slate-900/85 border border-slate-700/60 text-slate-300 hover:text-white'
+          )}
         >
-          <MapPin className="w-3 h-3 text-primary-400" />
+          <MapPin className={cn('w-3 h-3', isLight ? 'text-indigo-600' : 'text-primary-400')} />
           <span>Minimap</span>
           {onToggle && (
             isOpen ? <ChevronDown className="w-3 h-3 text-slate-400" /> : <ChevronUp className="w-3 h-3 text-slate-400" />
@@ -123,7 +131,12 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
           ref={containerRef}
           onClick={handleClick}
           style={{ width, height }}
-          className="relative rounded-xl overflow-hidden bg-slate-950/90 backdrop-blur-md border border-slate-700/70 shadow-2xl cursor-crosshair"
+          className={cn(
+            'relative rounded-xl overflow-hidden backdrop-blur-md shadow-2xl cursor-crosshair transition-colors',
+            isLight
+              ? 'bg-slate-50/95 border border-slate-200/90 shadow-slate-900/10'
+              : 'bg-slate-950/90 border border-slate-700/70'
+          )}
           title="Click to jump canvas position"
         >
           {/* Subtle grid texture */}
@@ -137,7 +150,7 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
 
           {/* Central seed marker */}
           <div
-            className="absolute w-2 h-2 rounded-full bg-purple-500 shadow-xs -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+            className="absolute w-2 h-2 rounded-full bg-indigo-500 shadow-xs -translate-x-1/2 -translate-y-1/2 pointer-events-none"
             style={{
               left: `${toMinimapCoords(0, 0).mx}px`,
               top: `${toMinimapCoords(0, 0).my}px`,
@@ -154,8 +167,8 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
                 style={{
                   left: `${mx}px`,
                   top: `${my}px`,
-                  backgroundColor: n.color || '#38BDF8',
-                  boxShadow: '0 0 3px rgba(56, 189, 248, 0.5)',
+                  backgroundColor: n.color || (isLight ? '#4F46E5' : '#38BDF8'),
+                  boxShadow: isLight ? '0 0 2px rgba(79, 70, 229, 0.4)' : '0 0 3px rgba(56, 189, 248, 0.5)',
                 }}
               />
             )
@@ -163,13 +176,18 @@ export const CanvasMinimap: React.FC<CanvasMinimapProps> = ({
 
           {/* Current Viewport Frame */}
           <div
-            className="absolute border border-primary-400 bg-primary-500/15 rounded-xs -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-75"
+            className={cn(
+              'absolute rounded-xs -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-75',
+              isLight
+                ? 'border border-indigo-600 bg-indigo-500/15'
+                : 'border border-primary-400 bg-primary-500/15'
+            )}
             style={{
               left: `${vpCenter.mx}px`,
               top: `${vpCenter.my}px`,
               width: `${vpW}px`,
               height: `${vpH}px`,
-              boxShadow: '0 0 6px rgba(56, 189, 248, 0.4)',
+              boxShadow: isLight ? '0 0 4px rgba(79, 70, 229, 0.3)' : '0 0 6px rgba(56, 189, 248, 0.4)',
             }}
           />
         </div>

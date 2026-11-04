@@ -1,12 +1,21 @@
 // ============================================================
-// VidMind AI — Mindmap Canvas Component
+// VidMind AI — Mindmap Canvas Component (Circular Hub Orbit & Crescent Branch)
 // components/canvas/formats/MindmapCanvas.tsx
 //
-// Specialized hierarchical mindmap representation. Organizes
-// knowledge nodes into organic left-right thematic branches
-// radiating from the central thesis with flowing bezier tentacles,
-// collapsible sub-ideas, multi-tier group clustering, and
-// category color quadrants.
+// Clean editorial radial orbital knowledge constellation:
+//   • 16:9 Cinematic Center Card with real YouTube video thumbnail,
+//     duration badge, and play overlay.
+//   • Main Chapter Group Nodes arranged in a smooth circular / elliptical
+//     orbit around the central video title (like planets around a star).
+//   • Direct radial curved spokes radiating from center to each chapter.
+//   • Chapter cards featuring Title, Concept Count, Timestamp Range,
+//     and Key Topic Highlights previewing what the group entails.
+//   • Outward Circular Crescent Arc Branching: when a group is clicked,
+//     subnodes fan out in an elegant satellite arc into free space.
+//   • Wide-Angle Camera Zoom-Out (0.85x): camera glides to center the
+//     active chapter and zooms out so all circular subnodes fit with zero edge clipping.
+//   • Timestamp-specific micro-thumbnails for subnodes.
+//   • Seamless "Back to Overview" reset.
 // ============================================================
 
 import React, { useState, useMemo, useCallback } from 'react'
@@ -14,19 +23,15 @@ import {
   GitFork,
   Play,
   Clock,
-  Sparkles,
-  ChevronRight,
-  ChevronDown,
-  Lightbulb,
-  ExternalLink,
   Layers,
   Maximize2,
   Minimize2,
+  Video,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { CanvasShell } from '../CanvasShell'
 import { useGroupedNodes } from '@/hooks/useGroupedNodes'
-import type { KnowledgeFormatPayload, KnowledgeGroup, KnowledgeNode, UserVideo } from '@/types'
+import type { KnowledgeFormatPayload, KnowledgeGroup, KnowledgeNode, KnowledgeNodeType, UserVideo } from '@/types'
 
 export interface MindmapCanvasProps {
   payload: KnowledgeFormatPayload
@@ -43,15 +48,35 @@ function formatTime(seconds: number): string {
   return `${m}:${s < 10 ? '0' : ''}${s}`
 }
 
-// Branch color palette for organic mindmap variety
-const BRANCH_PALETTES = [
-  { border: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.12)', stroke: '#A78BFA', glow: 'rgba(139, 92, 246, 0.45)', tag: 'text-purple-300' },
-  { border: '#EC4899', bg: 'rgba(236, 72, 153, 0.12)', stroke: '#F472B6', glow: 'rgba(236, 72, 153, 0.45)', tag: 'text-pink-300' },
-  { border: '#3B82F6', bg: 'rgba(59, 130, 246, 0.12)', stroke: '#60A5FA', glow: 'rgba(59, 130, 246, 0.45)', tag: 'text-blue-300' },
-  { border: '#10B981', bg: 'rgba(16, 185, 129, 0.12)', stroke: '#34D399', glow: 'rgba(16, 185, 129, 0.45)', tag: 'text-emerald-300' },
-  { border: '#F59E0B', bg: 'rgba(245, 158, 11, 0.12)', stroke: '#FBBF24', glow: 'rgba(245, 158, 11, 0.45)', tag: 'text-amber-300' },
-  { border: '#06B6D4', bg: 'rgba(6, 182, 212, 0.12)', stroke: '#22D3EE', glow: 'rgba(6, 182, 212, 0.45)', tag: 'text-cyan-300' },
-]
+function formatDuration(seconds: number): string {
+  if (isNaN(seconds) || seconds <= 0) return '0 min'
+  const mins = Math.round(seconds / 60)
+  if (mins < 60) return `${mins} min`
+  const hrs = Math.floor(mins / 60)
+  const rem = mins % 60
+  return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`
+}
+
+function getNodeTypeBadge(type?: string): { label: string; badgeClass: string } {
+  switch (type?.toLowerCase()) {
+    case 'stat':
+      return { label: 'Stat', badgeClass: 'bg-cyan-50 text-cyan-700 border-cyan-200' }
+    case 'step':
+      return { label: 'Step', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+    case 'warning':
+      return { label: 'Warning', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' }
+    case 'definition':
+      return { label: 'Definition', badgeClass: 'bg-violet-50 text-violet-700 border-violet-200' }
+    case 'quote':
+      return { label: 'Quote', badgeClass: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200' }
+    case 'analogy':
+      return { label: 'Analogy', badgeClass: 'bg-teal-50 text-teal-700 border-teal-200' }
+    case 'example':
+      return { label: 'Example', badgeClass: 'bg-sky-50 text-sky-700 border-sky-200' }
+    default:
+      return { label: 'Claim', badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200' }
+  }
+}
 
 export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
   payload,
@@ -61,318 +86,371 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
   className,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeTypeFilter, setActiveTypeFilter] = useState<string>('all')
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null)
+  const [focusedGroupId, setFocusedGroupId] = useState<string | null>(null)
 
+  const nodes = useMemo(() => payload?.nodes || [], [payload])
+
+  // Grouped nodes hook (always clusters when totalNodesCount > 4, collapsed by default when > 10)
   const {
     groups,
     isGrouped,
     isExpanded,
     toggleGroup,
+    expandOnly,
     expandAll,
     collapseAll,
     getNodesForGroup,
-    ungroupedNodes,
-  } = useGroupedNodes(payload, true)
-
-  const nodes = useMemo(() => payload?.nodes || [], [payload])
+    availableTypes,
+  } = useGroupedNodes(payload, false)
 
   // Filter check
   const isMatch = useCallback(
     (node: KnowledgeNode) => {
+      if (activeTypeFilter !== 'all' && node.node_type !== activeTypeFilter) {
+        return false
+      }
       if (!searchQuery.trim()) return true
       const q = searchQuery.toLowerCase()
       return (
         node.title.toLowerCase().includes(q) ||
         node.summary.toLowerCase().includes(q) ||
         node.category?.toLowerCase().includes(q) ||
+        node.node_type?.toLowerCase().includes(q) ||
         node.sub_points?.some((p) => p.toLowerCase().includes(q))
       )
     },
-    [searchQuery]
+    [searchQuery, activeTypeFilter]
   )
 
-  // ── Hierarchical Grouped Layout Geometry ──
-  const hierarchicalLayout = useMemo(() => {
-    if (!isGrouped) return null
+  const youtubeId = userVideo.video?.youtube_id
 
-    // Split groups into right and left lobes
-    const half = Math.ceil(groups.length / 2)
-    const rightGroups = groups.slice(0, half)
-    const leftGroups = groups.slice(half)
+  // Main video thumbnail for the central thesis card
+  const videoThumbnailUrl = useMemo(() => {
+    if (userVideo.video?.thumbnail_url) return userVideo.video.thumbnail_url
+    if (youtubeId) {
+      return `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`
+    }
+    return null
+  }, [userVideo, youtubeId])
 
-    const calculateSide = (
-      groupList: KnowledgeGroup[],
-      side: 'left' | 'right',
-      paletteOffset: number
-    ) => {
-      const groupDataList: Array<{
-        group: KnowledgeGroup
-        groupX: number
-        groupY: number
-        palette: typeof BRANCH_PALETTES[0]
-        side: 'left' | 'right'
-        isExp: boolean
-        children: Array<{
-          node: KnowledgeNode
-          x: number
-          y: number
-          palette: typeof BRANCH_PALETTES[0]
-        }>
+  const totalDurationSeconds = useMemo(() => {
+    return (
+      payload?.metadata?.duration_seconds ||
+      userVideo.video?.duration_seconds ||
+      (nodes.length > 0 ? nodes[nodes.length - 1].end_seconds : 0) ||
+      1
+    )
+  }, [payload, userVideo, nodes])
+
+  const videoDurationFormatted = useMemo(() => {
+    return formatDuration(totalDurationSeconds)
+  }, [totalDurationSeconds])
+
+  // Get timestamp-specific YouTube frame thumbnail for leaf cards
+  const getNodeThumbnail = useCallback(
+    (node: KnowledgeNode) => {
+      if (!youtubeId) return null
+      const ratio = (node.start_seconds || 0) / Math.max(totalDurationSeconds, 1)
+      let frame = 1
+      if (ratio >= 0.66) frame = 3
+      else if (ratio >= 0.33) frame = 2
+      return `https://img.youtube.com/vi/${youtubeId}/${frame}.jpg`
+    },
+    [youtubeId, totalDurationSeconds]
+  )
+
+  // ── Symmetrical Circular / Elliptical Orbit for Group Nodes ──
+  const hubLayout = useMemo(() => {
+    if (!isGrouped || groups.length === 0) return []
+
+    const N = groups.length
+    // Radii of the elliptical planetary orbit around center (0, 0)
+    // Rx = 480px, Ry = 300px (generous clearance from center card 240x140)
+    const Rx = 480
+    const Ry = 300
+
+    // Arc radius for subnodes fanning out from the group
+    const subnodeRadius = 260
+    const subnodeSpanDeg = 130 // 130° fan
+
+    return groups.map((group, idx) => {
+      // Angular distribution: offset slightly so no card sits directly at 90° (dead top/bottom)
+      const step = (2 * Math.PI) / N
+      const offset = Math.PI / N - Math.PI / 2
+      const groupAngle = offset + idx * step
+
+      const groupX = Math.round(Rx * Math.cos(groupAngle))
+      const groupY = Math.round(Ry * Math.sin(groupAngle))
+
+      const exp = isExpanded(group.id)
+      const cNodes = getNodesForGroup(group.id).filter(isMatch)
+
+      // Subnodes fan outward in direction of groupAngle
+      const childrenPositions: Array<{
+        node: KnowledgeNode
+        x: number
+        y: number
       }> = []
 
-      // Calculate required heights for each group
-      const heights = groupList.map((g) => {
-        const exp = isExpanded(g.id)
-        const cNodes = getNodesForGroup(g.id)
-        if (!exp || cNodes.length === 0) return 90
-        return Math.max(cNodes.length * 150, 150)
-      })
+      if (exp && cNodes.length > 0) {
+        const M = cNodes.length
+        const spanRad = (subnodeSpanDeg * Math.PI) / 180
 
-      const totalH = heights.reduce((sum, h) => sum + h, 0) + (groupList.length - 1) * 40
-      let currentTop = -totalH / 2
+        cNodes.forEach((node, cIdx) => {
+          let childAngle: number
+          if (M === 1) {
+            childAngle = groupAngle
+          } else {
+            const fraction = cIdx / (M - 1)
+            childAngle = groupAngle - spanRad / 2 + fraction * spanRad
+          }
 
-      groupList.forEach((group, idx) => {
-        const palette = BRANCH_PALETTES[(idx + paletteOffset) % BRANCH_PALETTES.length]
-        const exp = isExpanded(group.id)
-        const cNodes = getNodesForGroup(group.id)
-        const gH = heights[idx]
-        const groupY = currentTop + gH / 2
-        currentTop += gH + 40
+          const childX = Math.round(groupX + subnodeRadius * Math.cos(childAngle))
+          const childY = Math.round(groupY + subnodeRadius * Math.sin(childAngle))
 
-        const groupX = side === 'right' ? 360 : -360
-
-        // Position child nodes
-        const childrenPositions: Array<{
-          node: KnowledgeNode
-          x: number
-          y: number
-          palette: typeof BRANCH_PALETTES[0]
-        }> = []
-
-        if (exp && cNodes.length > 0) {
-          const childSpacing = 150
-          const childTotalH = (cNodes.length - 1) * childSpacing
-          const childStartY = groupY - childTotalH / 2
-
-          cNodes.forEach((node, cIdx) => {
-            const childX = side === 'right' ? 700 : -700
-            const childY = childStartY + cIdx * childSpacing
-            childrenPositions.push({
-              node,
-              x: childX,
-              y: childY,
-              palette,
-            })
+          childrenPositions.push({
+            node,
+            x: childX,
+            y: childY,
           })
-        }
-
-        groupDataList.push({
-          group,
-          groupX,
-          groupY,
-          palette,
-          side,
-          isExp: exp,
-          children: childrenPositions,
         })
-      })
+      }
 
-      return groupDataList
-    }
-
-    const rightSide = calculateSide(rightGroups, 'right', 0)
-    const leftSide = calculateSide(leftGroups, 'left', rightGroups.length)
-
-    return [...rightSide, ...leftSide]
-  }, [isGrouped, groups, isExpanded, getNodesForGroup])
-
-  // ── Backward Compatible Flat Layout (when !isGrouped) ──
-  const flatLayout = useMemo(() => {
-    if (isGrouped) return []
-    const leftNodes: Array<{ node: KnowledgeNode; index: number; x: number; y: number; palette: typeof BRANCH_PALETTES[0]; side: 'left' }> = []
-    const rightNodes: Array<{ node: KnowledgeNode; index: number; x: number; y: number; palette: typeof BRANCH_PALETTES[0]; side: 'right' }> = []
-
-    const half = Math.ceil(nodes.length / 2)
-    const rightList = nodes.slice(0, half)
-    const leftList = nodes.slice(half)
-
-    const spreadY = 170
-    const startYRight = -((rightList.length - 1) * spreadY) / 2
-    const startYLeft = -((leftList.length - 1) * spreadY) / 2
-
-    rightList.forEach((node, idx) => {
-      const palette = BRANCH_PALETTES[idx % BRANCH_PALETTES.length]
-      const curveOffset = Math.sin((idx / Math.max(rightList.length - 1, 1)) * Math.PI) * 50
-      rightNodes.push({
-        node,
-        index: idx,
-        x: 420 + curveOffset,
-        y: startYRight + idx * spreadY,
-        palette,
-        side: 'right',
-      })
+      return {
+        group,
+        groupX,
+        groupY,
+        groupAngle,
+        isExp: exp,
+        children: childrenPositions,
+      }
     })
+  }, [isGrouped, groups, isExpanded, getNodesForGroup, isMatch])
 
-    leftList.forEach((node, idx) => {
-      const palette = BRANCH_PALETTES[(idx + half) % BRANCH_PALETTES.length]
-      const curveOffset = Math.sin((idx / Math.max(leftList.length - 1, 1)) * Math.PI) * 50
-      leftNodes.push({
+  // Minimal radial layout for very small payload (<= 4 nodes with no groups)
+  const compactNodesLayout = useMemo(() => {
+    if (isGrouped || nodes.length === 0) return []
+    const radius = 280
+    return nodes.filter(isMatch).map((node, idx, arr) => {
+      const angle = (idx / arr.length) * 2 * Math.PI - Math.PI / 2
+      return {
         node,
-        index: half + idx,
-        x: -(420 + curveOffset),
-        y: startYLeft + idx * spreadY,
-        palette,
-        side: 'left',
-      })
+        x: Math.round(radius * Math.cos(angle)),
+        y: Math.round(radius * Math.sin(angle)),
+      }
     })
+  }, [isGrouped, nodes, isMatch])
 
-    return [...rightNodes, ...leftNodes]
-  }, [isGrouped, nodes])
-
-  // Minimap coordinate nodes
+  // Minimap coordinate list
   const minimapNodes = useMemo(() => {
-    if (isGrouped && hierarchicalLayout) {
-      const list: Array<{ id: string; x: number; y: number; color?: string }> = []
-      hierarchicalLayout.forEach(({ group, groupX, groupY, palette, isExp, children }) => {
-        list.push({ id: group.id, x: groupX, y: groupY, color: palette.border })
+    const list: Array<{ id: string; x: number; y: number; color?: string }> = [
+      { id: 'center-thesis', x: 0, y: 0, color: '#10B981' },
+    ]
+
+    if (hubLayout.length > 0) {
+      hubLayout.forEach(({ group, groupX, groupY, isExp, children }) => {
+        list.push({ id: group.id, x: groupX, y: groupY, color: '#6366F1' })
         if (isExp) {
           children.forEach(({ node, x, y }) => {
-            list.push({ id: node.id, x, y, color: palette.border })
+            list.push({ id: node.id, x, y, color: '#94A3B8' })
           })
         }
       })
-      return list
+    } else {
+      compactNodesLayout.forEach(({ node, x, y }) => {
+        list.push({ id: node.id, x, y, color: '#6366F1' })
+      })
     }
-    return flatLayout.map(({ node, x, y, palette }) => ({
-      id: node.id,
-      x,
-      y,
-      color: palette.border,
-    }))
-  }, [isGrouped, hierarchicalLayout, flatLayout])
+
+    return list
+  }, [hubLayout, compactNodesLayout])
 
   return (
     <CanvasShell
       formatName="Mindmap"
-      formatDescription={
-        isGrouped
-          ? `Hierarchical organic mindmap with ${groups.length} thematic pillars and ${nodes.length} structured concepts`
-          : 'Hierarchical organic thought branches radiating from core insights'
-      }
-      accentColor="#8B5CF6"
-      accentGlow="rgba(139, 92, 246, 0.45)"
+      formatDescription="Direct hub-and-spoke knowledge constellation with circular branching"
+      accentColor="#6366F1"
+      accentGlow="rgba(99, 102, 241, 0.25)"
       nodeCount={nodes.length}
-      centralTheme={payload?.central_theme}
+      centralTheme={payload.central_theme}
       icon={GitFork}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
+      typeFilter={activeTypeFilter}
+      onTypeFilterChange={setActiveTypeFilter}
+      availableTypes={availableTypes}
       minimapNodes={minimapNodes}
-      backgroundStyle={{
-        backgroundImage: `
-          radial-gradient(circle at center, rgba(139, 92, 246, 0.08) 0%, rgba(11, 15, 25, 0.98) 75%),
-          radial-gradient(circle, rgba(167, 139, 250, 0.08) 1px, transparent 1px)
-        `,
-        backgroundSize: '100% 100%, 32px 32px',
+      onBackToOverview={() => {
+        setFocusedGroupId(null)
+        collapseAll()
       }}
       className={className}
     >
-      {() => (
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0 h-0">
-          {/* ── Global Toolbar Overlay for Groups (when grouped) ── */}
-          {isGrouped && (
-            <div className="absolute -top-[340px] left-0 -translate-x-1/2 z-30 flex items-center gap-2 bg-slate-900/90 border border-purple-500/30 backdrop-blur-md px-3 py-1.5 rounded-full shadow-2xl">
-              <span className="text-[11px] font-medium text-purple-300 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5" />
-                {groups.length} Topic Pillars ({nodes.length} Nodes)
-              </span>
-              <div className="w-[1px] h-3 bg-slate-700 mx-1" />
-              <button
-                onClick={expandAll}
-                className="text-[10px] text-slate-300 hover:text-white px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 flex items-center gap-1 transition-colors"
-                title="Expand All Pillars"
-              >
-                <Maximize2 className="w-3 h-3" />
-                Expand All
-              </button>
-              <button
-                onClick={collapseAll}
-                className="text-[10px] text-slate-300 hover:text-white px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 flex items-center gap-1 transition-colors"
-                title="Collapse All Pillars"
-              >
-                <Minimize2 className="w-3 h-3" />
-                Collapse All
-              </button>
-            </div>
-          )}
+      {({ flyTo, resetCamera, isFocused }) => {
+        // Handle chapter card click: fly to group and expand with wide-angle zoom-out (0.85x)
+        const handleGroupClick = (group: KnowledgeGroup, groupX: number, groupY: number, groupAngle: number) => {
+          if (focusedGroupId === group.id) {
+            // Already focused: reset back to overview
+            resetCamera()
+            setFocusedGroupId(null)
+            collapseAll()
+          } else {
+            setFocusedGroupId(group.id)
+            expandOnly(group.id)
+            // Center camera slightly offset in direction of satellite arc, with wide zoom out (0.85x)
+            const targetX = Math.round(groupX + 100 * Math.cos(groupAngle))
+            const targetY = Math.round(groupY + 100 * Math.sin(groupAngle))
+            flyTo(targetX, targetY, 0.85)
+          }
+        }
 
-          {/* ── SVG Layer for Organic Tendril Branches ── */}
-          <svg
-            className="overflow-visible pointer-events-none absolute left-0 top-0"
-            style={{ width: 1, height: 1 }}
-          >
-            <defs>
-              <filter id="mindmap-glow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="4" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
+        return (
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0 h-0">
+            {/* ── Top Floating Chapter Toolbar ── */}
+            {isGrouped && (
+              <div className="absolute -top-[340px] left-0 -translate-x-1/2 z-30 flex items-center gap-2 bg-white/95 border border-slate-200/90 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-lg shadow-slate-900/5">
+                <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                  {groups.length} Chapters ({nodes.length} Concepts)
+                </span>
 
-            {/* Hierarchical Grouped Splines */}
-            {hierarchicalLayout &&
-              hierarchicalLayout.map(({ group, groupX, groupY, palette, side, isExp, children }) => {
-                const rootX = side === 'right' ? 140 : -140
-                const rootY = 0
-                const ctrl1X = rootX + (side === 'right' ? 110 : -110)
-                const ctrl1Y = rootY + (groupY - rootY) * 0.2
-                const ctrl2X = groupX - (side === 'right' ? 90 : -90)
-                const ctrl2Y = groupY
+                <div className="w-[1px] h-3 bg-slate-200 mx-1" />
+
+                <button
+                  type="button"
+                  onClick={expandAll}
+                  className="text-[10px] text-slate-600 hover:text-slate-900 px-2 py-0.5 rounded hover:bg-slate-100 flex items-center gap-1 transition-colors"
+                  title="Expand All Chapters"
+                >
+                  <Maximize2 className="w-3 h-3 text-slate-400" />
+                  Expand All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    collapseAll()
+                    resetCamera()
+                    setFocusedGroupId(null)
+                  }}
+                  className="text-[10px] text-slate-600 hover:text-slate-900 px-2 py-0.5 rounded hover:bg-slate-100 flex items-center gap-1 transition-colors"
+                  title="Collapse to Overview"
+                >
+                  <Minimize2 className="w-3 h-3 text-slate-400" />
+                  Overview
+                </button>
+              </div>
+            )}
+
+            {/* ── Large ViewBox SVG Layer for Crisp Connecting Lines ── */}
+            <svg
+              className="overflow-visible pointer-events-none absolute"
+              style={{
+                left: -3500,
+                top: -3500,
+                width: 7000,
+                height: 7000,
+              }}
+              viewBox="-3500 -3500 7000 7000"
+            >
+              <defs>
+                <marker
+                  id="mindmap-arrow"
+                  markerWidth="8"
+                  markerHeight="8"
+                  refX="7"
+                  refY="4"
+                  orient="auto"
+                >
+                  <polygon points="0 1, 7 4, 0 7" fill="#94A3B8" />
+                </marker>
+                <marker
+                  id="mindmap-arrow-active"
+                  markerWidth="8"
+                  markerHeight="8"
+                  refX="7"
+                  refY="4"
+                  orient="auto"
+                >
+                  <polygon points="0 1, 7 4, 0 7" fill="#4F46E5" />
+                </marker>
+              </defs>
+
+              {/* Direct Radial Spokes: Center Video Title to Circular Group Orbit */}
+              {hubLayout.map(({ group, groupX, groupY, isExp, children }) => {
+                const angle = Math.atan2(groupY, groupX)
+                // Center exit point on boundary of 240x140 card
+                const rootX = Math.round(115 * Math.cos(angle))
+                const rootY = Math.round(65 * Math.sin(angle))
+                // Chapter entry point on boundary of 220x96 card
+                const targetX = Math.round(groupX - 105 * Math.cos(angle))
+                const targetY = Math.round(groupY - 45 * Math.sin(angle))
+
+                // Smooth S-curve spline directly from center video card edge to chapter card
+                const dx = targetX - rootX
+                const dy = targetY - rootY
+                const c1X = rootX + dx * 0.45
+                const c1Y = rootY + dy * 0.1
+                const c2X = rootX + dx * 0.75
+                const c2Y = targetY
 
                 const isGroupHovered = hoveredGroupId === group.id
+                const isGroupFocused = focusedGroupId === group.id
+                const isDimmed = isFocused && !isGroupFocused
 
                 return (
-                  <g key={`group-arm-${group.id}`}>
-                    {/* Primary Core-to-Group Tentacle */}
+                  <g key={`direct-line-${group.id}`} className="transition-all duration-300">
+                    {/* Radial Spoke to Chapter in Orbit */}
                     <path
-                      d={`M ${rootX} ${rootY} C ${ctrl1X} ${ctrl1Y}, ${ctrl2X} ${ctrl2Y}, ${groupX} ${groupY}`}
+                      d={`M ${rootX} ${rootY} C ${c1X} ${c1Y}, ${c2X} ${c2Y}, ${targetX} ${targetY}`}
                       fill="none"
-                      stroke={palette.stroke}
-                      strokeWidth={isGroupHovered ? 4 : 2.5}
-                      strokeOpacity={isGroupHovered ? 0.9 : 0.6}
+                      stroke={isGroupFocused ? '#4F46E5' : isGroupHovered ? '#6366F1' : '#94A3B8'}
+                      strokeWidth={isGroupFocused ? 2.75 : isGroupHovered ? 2.25 : 1.75}
+                      strokeOpacity={isDimmed ? 0.2 : 0.85}
+                      markerEnd={isGroupFocused ? 'url(#mindmap-arrow-active)' : 'url(#mindmap-arrow)'}
                       className="transition-all duration-300"
                     />
 
-                    {/* Secondary Group-to-Child Splines */}
+                    {/* Circular Branch Spokes: From Chapter to each Child in the Crescent Arc */}
                     {isExp &&
                       children.map(({ node, x: cX, y: cY }) => {
-                        const cCtrl1X = groupX + (side === 'right' ? 120 : -120)
-                        const cCtrl1Y = groupY
-                        const cCtrl2X = cX - (side === 'right' ? 120 : -120)
-                        const cCtrl2Y = cY
+                        const spokeAngle = Math.atan2(cY - groupY, cX - groupX)
+                        // Chapter card perimeter exit point
+                        const startX = Math.round(groupX + 100 * Math.cos(spokeAngle))
+                        const startY = Math.round(groupY + 45 * Math.sin(spokeAngle))
+                        // Child card perimeter entry point
+                        const endX = Math.round(cX - 88 * Math.cos(spokeAngle))
+                        const endY = Math.round(cY - 30 * Math.sin(spokeAngle))
+
+                        const cdx = endX - startX
+                        const cdy = endY - startY
+                        const cp1X = startX + cdx * 0.4
+                        const cp1Y = startY + cdy * 0.1
+                        const cp2X = startX + cdx * 0.7
+                        const cp2Y = endY
 
                         const isChildHovered = hoveredNodeId === node.id
                         const isChildSelected = selectedNodeId === node.id
 
                         return (
-                          <g key={`child-spline-${node.id}`}>
+                          <g key={`child-circular-spoke-${node.id}`} className="transition-all duration-300">
                             <path
-                              d={`M ${groupX} ${groupY} C ${cCtrl1X} ${cCtrl1Y}, ${cCtrl2X} ${cCtrl2Y}, ${cX} ${cY}`}
+                              d={`M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`}
                               fill="none"
-                              stroke={palette.stroke}
-                              strokeWidth={isChildSelected ? 3.5 : isChildHovered ? 2.5 : 1.5}
-                              strokeOpacity={isChildSelected ? 1 : isChildHovered ? 0.8 : 0.35}
+                              stroke={isChildSelected ? '#4F46E5' : isChildHovered ? '#6366F1' : '#CBD5E1'}
+                              strokeWidth={isChildSelected ? 2.5 : isChildHovered ? 2 : 1.5}
+                              strokeOpacity={isDimmed ? 0.2 : 0.85}
                               className="transition-all duration-300"
                             />
+                            {/* Anchor dot at child node entry */}
                             <circle
-                              cx={cX}
-                              cy={cY}
-                              r={isChildSelected ? 5 : 3}
-                              fill={isChildSelected ? '#FFFFFF' : palette.stroke}
-                              stroke={palette.border}
-                              strokeWidth="1.5"
+                              cx={endX}
+                              cy={endY}
+                              r={3}
+                              fill={isChildSelected ? '#4F46E5' : isChildHovered ? '#6366F1' : '#94A3B8'}
+                              opacity={isDimmed ? 0.2 : 0.9}
                             />
                           </g>
                         )
@@ -381,351 +459,241 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
                 )
               })}
 
-            {/* Flat Layout Splines (Backward Compat) */}
-            {!isGrouped &&
-              flatLayout.map(({ node, x, y, palette, side }) => {
-                const matched = isMatch(node)
-                const isHovered = hoveredNodeId === node.id
+              {/* Compact Direct Lines (for <= 4 nodes with no groups) */}
+              {compactNodesLayout.map(({ node, x, y }) => {
                 const isSelected = selectedNodeId === node.id
-
-                const rootX = side === 'right' ? 120 : -120
-                const rootY = 0
-                const ctrl1X = rootX + (side === 'right' ? 150 : -150)
-                const ctrl1Y = rootY + (y - rootY) * 0.15
-                const ctrl2X = x - (side === 'right' ? 140 : -140)
-                const ctrl2Y = y
-
-                const strokeWidth = isSelected ? 4 : isHovered ? 3 : 2
-                const strokeOpacity = !matched ? 0.08 : isSelected ? 1 : isHovered ? 0.9 : 0.4
-
                 return (
-                  <g key={`branch-${node.id}`}>
-                    <path
-                      d={`M ${rootX} ${rootY} C ${ctrl1X} ${ctrl1Y}, ${ctrl2X} ${ctrl2Y}, ${x} ${y}`}
-                      fill="none"
-                      stroke={palette.stroke}
-                      strokeWidth={strokeWidth}
-                      strokeOpacity={strokeOpacity}
-                      className="transition-all duration-300"
-                    />
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r={isSelected ? 6 : isHovered ? 5 : 3.5}
-                      fill={isSelected ? '#FFFFFF' : palette.stroke}
-                      stroke={palette.border}
-                      strokeWidth="2"
-                    />
-                  </g>
+                  <path
+                    key={`compact-line-${node.id}`}
+                    d={`M 0 0 L ${x} ${y}`}
+                    fill="none"
+                    stroke={isSelected ? '#4F46E5' : '#94A3B8'}
+                    strokeWidth={isSelected ? 2.5 : 1.75}
+                    strokeOpacity={0.8}
+                  />
                 )
               })}
-          </svg>
+            </svg>
 
-          {/* ── CENTRAL THOUGHT SEED (Core Theme Orb) ── */}
-          <div
-            className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 z-20 canvas-interactive-node"
-            style={{ width: 280 }}
-          >
-            <div className="absolute -inset-4 rounded-full blur-2xl opacity-40 bg-purple-600 animate-pulse pointer-events-none" />
-            <div className="relative rounded-2xl p-4 bg-slate-900/95 backdrop-blur-xl border border-purple-500/40 shadow-2xl text-center">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 mb-2">
-                <GitFork className="w-3 h-3 text-purple-400" />
-                Root Knowledge Seed
+            {/* ── Central Video Title Node with 16:9 Thumbnail ── */}
+            <div
+              className={cn(
+                'absolute z-20 -translate-x-1/2 -translate-y-1/2 w-[240px] rounded-2xl overflow-hidden border bg-white shadow-xl transition-all duration-300 select-none group',
+                'border-emerald-200/90 hover:border-emerald-300 hover:shadow-2xl'
+              )}
+              style={{ left: 0, top: 0 }}
+            >
+              {/* 16:9 Thumbnail Banner with Gradient Wash */}
+              <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
+                {videoThumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={videoThumbnailUrl}
+                    alt={payload.video_title || 'Video Thumbnail'}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-emerald-900 to-teal-900">
+                    <Video className="w-8 h-8 text-emerald-300" />
+                  </div>
+                )}
+                {/* Vignette / Dark Gradient Wash */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-transparent" />
+
+                {/* Centered Translucent Play Icon */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center shadow-lg text-emerald-700 group-hover:scale-110 transition-transform">
+                    <Play className="w-4 h-4 fill-current ml-0.5" />
+                  </div>
+                </div>
+
+                {/* Duration Badge in Bottom Corner */}
+                <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-xs text-[10px] font-mono text-white flex items-center gap-1">
+                  <Clock className="w-2.5 h-2.5" />
+                  <span>{videoDurationFormatted}</span>
+                </div>
               </div>
-              <h2 className="text-xs font-bold text-white line-clamp-2 leading-tight">
-                {payload?.central_theme || userVideo.video?.title || 'Core Mindmap Theme'}
-              </h2>
-              <div className="mt-2.5 pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-                <span className="truncate">{userVideo.video?.channel_name || 'VidMind AI'}</span>
-                <span className="font-mono text-[10px] text-purple-300 bg-purple-950/60 px-1.5 py-0.5 rounded border border-purple-800/40">
-                  {formatTime(userVideo.video?.duration_seconds || 0)}
-                </span>
+
+              {/* Title Content (Mint theme header matching reference sketch) */}
+              <div className="p-3 text-center bg-gradient-to-b from-emerald-50/40 to-white">
+                <h2 className="text-xs font-bold text-slate-900 leading-snug line-clamp-2">
+                  {payload.video_title || 'Video Title'}
+                </h2>
+                <div className="mt-1 text-[10px] text-emerald-700 font-medium">
+                  {userVideo.video?.channel_name || 'VidMind Knowledge Hub'}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* ── HIERARCHICAL GROUP NODES & CHILDREN ── */}
-          {hierarchicalLayout &&
-            hierarchicalLayout.map(
-              ({ group, groupX, groupY, palette, side, isExp, children }) => {
-                const childNodes = getNodesForGroup(group.id)
-                const matchedChildCount = childNodes.filter(isMatch).length
+            {/* ── Render Circular Orbit Group Nodes (Click to Fly & Expand Satellite Arc) ── */}
+            {hubLayout.map(({ group, groupX, groupY, groupAngle, isExp, children }) => {
+              const allGroupNodes = getNodesForGroup(group.id)
+              const firstNode = allGroupNodes[0]
+              const lastNode = allGroupNodes[allGroupNodes.length - 1]
+              const timestampLabel = firstNode
+                ? `${formatTime(firstNode.start_seconds)} – ${formatTime(lastNode?.end_seconds || firstNode.start_seconds)}`
+                : '00:00'
+              const isHovered = hoveredGroupId === group.id
+              const isFocusedGroup = focusedGroupId === group.id
+              const isDimmed = isFocused && !isFocusedGroup
 
-                return (
-                  <React.Fragment key={group.id}>
-                    {/* ── GROUP HUB NODE CARD ── */}
-                    <div
-                      onMouseEnter={() => setHoveredGroupId(group.id)}
-                      onMouseLeave={() => setHoveredGroupId(null)}
-                      onClick={() => toggleGroup(group.id)}
-                      className={cn(
-                        'absolute canvas-interactive-node cursor-pointer transition-all duration-300 transform-gpu z-20',
-                        matchedChildCount === 0 && searchQuery.trim() && 'opacity-25 grayscale'
-                      )}
-                      style={{
-                        left: groupX,
-                        top: groupY,
-                        transform: 'translate(-50%, -50%)',
-                        width: 250,
-                      }}
-                    >
-                      <div
-                        className={cn(
-                          'relative rounded-xl p-3 backdrop-blur-xl border transition-all duration-300 shadow-xl',
-                          'bg-slate-900/90 hover:bg-slate-900/98'
-                        )}
-                        style={{
-                          borderColor: palette.stroke,
-                          boxShadow: `0 0 20px -4px ${palette.glow}`,
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                          <span
-                            className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1"
-                            style={{ backgroundColor: palette.border }}
-                          >
-                            <Layers className="w-2.5 h-2.5" />
-                            {group.label}
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-                            {childNodes.length} ideas
-                          </span>
-                        </div>
-
-                        {group.summary && (
-                          <p className="text-[11px] text-slate-300/90 line-clamp-2 leading-relaxed mb-2">
-                            {group.summary}
-                          </p>
-                        )}
-
-                        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
-                          <span className="flex items-center gap-1">
-                            {isExp ? (
-                              <>
-                                <ChevronDown className="w-3 h-3 text-purple-400" />
-                                <span>Expanded</span>
-                              </>
-                            ) : (
-                              <>
-                                <ChevronRight className="w-3 h-3 text-slate-400" />
-                                <span>Click to unfold</span>
-                              </>
-                            )}
-                          </span>
-                          <span className="text-purple-300 font-semibold">
-                            {isExp ? 'Collapse' : 'Expand'}
-                          </span>
-                        </div>
+              return (
+                <React.Fragment key={`hub-group-${group.id}`}>
+                  {/* Chapter Card with Title, Summary, and Topic Highlights */}
+                  <div
+                    onMouseEnter={() => setHoveredGroupId(group.id)}
+                    onMouseLeave={() => setHoveredGroupId(null)}
+                    onClick={() => handleGroupClick(group, groupX, groupY, groupAngle)}
+                    className={cn(
+                      'absolute z-20 -translate-x-1/2 -translate-y-1/2 w-[220px] p-3 rounded-2xl cursor-pointer shadow-sm border transition-all duration-300 select-none text-left',
+                      'bg-[#EEF0FF] border-[#C7D2FE] text-[#312E81] hover:border-indigo-400 hover:shadow-md active:scale-95',
+                      isFocusedGroup && 'ring-2 ring-indigo-500 shadow-lg scale-105',
+                      isDimmed && 'opacity-20 pointer-events-none'
+                    )}
+                    style={{ left: groupX, top: groupY }}
+                  >
+                    {/* Header Row: Title & Concept Count */}
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="text-xs font-bold text-[#1E1B4B] leading-tight line-clamp-1">
+                        {group.label.replace(/^Pillar \d+:?\s*/i, '').replace(/^Chapter \d+:?\s*/i, '')}
                       </div>
+                      {allGroupNodes.length > 0 && (
+                        <span className="shrink-0 text-[9px] px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 font-mono font-semibold">
+                          {allGroupNodes.length} nodes
+                        </span>
+                      )}
                     </div>
 
-                    {/* ── EXPANDED CHILD LEAF CARDS ── */}
-                    {isExp &&
-                      children.map(({ node, x: cX, y: cY }) => {
-                        const matched = isMatch(node)
-                        const isHovered = hoveredNodeId === node.id
-                        const isSelected = selectedNodeId === node.id
-
-                        return (
-                          <div
-                            key={node.id}
-                            onMouseEnter={() => setHoveredNodeId(node.id)}
-                            onMouseLeave={() => setHoveredNodeId(null)}
-                            onClick={() => onSelectNode(node)}
-                            className={cn(
-                              'absolute canvas-interactive-node cursor-pointer transition-all duration-300 transform-gpu',
-                              !matched && 'opacity-20 grayscale pointer-events-none',
-                              isSelected && 'scale-105 z-30',
-                              !isSelected && isHovered && 'scale-102 z-20',
-                              !isSelected && !isHovered && 'z-10'
-                            )}
-                            style={{
-                              left: cX,
-                              top: cY,
-                              transform: 'translate(-50%, -50%)',
-                              width: 250,
-                            }}
+                    {/* Key Topic Highlights / Preview */}
+                    {group.topics && group.topics.length > 0 ? (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {group.topics.slice(0, 3).map((topic, tIdx) => (
+                          <span
+                            key={`topic-pill-${group.id}-${tIdx}`}
+                            className="text-[9px] text-[#4338CA] bg-white/80 px-1.5 py-0.5 rounded border border-indigo-200/60 font-medium truncate max-w-[200px]"
                           >
-                            <div
-                              className={cn(
-                                'relative rounded-xl p-3 backdrop-blur-xl border transition-all duration-300 shadow-xl',
-                                isSelected
-                                  ? 'bg-slate-900/95 border-2 ring-4 ring-offset-0'
-                                  : 'bg-slate-900/85 border-slate-700/70 hover:border-slate-500 hover:bg-slate-900/95'
-                              )}
-                              style={{
-                                borderColor: isSelected ? palette.stroke : isHovered ? palette.stroke : undefined,
-                                boxShadow: isSelected
-                                  ? `0 0 25px ${palette.glow}`
-                                  : isHovered
-                                  ? `0 8px 20px -5px ${palette.glow}`
-                                  : undefined,
-                              }}
-                            >
-                              <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                                <span className={cn('text-[10px] font-semibold truncate', palette.tag)}>
-                                  {node.category || 'Sub-Topic'}
-                                </span>
-                                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700">
-                                  <Play className="w-2.5 h-2.5 text-purple-400 fill-purple-400" />
-                                  {formatTime(node.start_seconds)}
-                                </div>
-                              </div>
+                            • {topic}
+                          </span>
+                        ))}
+                      </div>
+                    ) : group.summary ? (
+                      <div className="mt-1 text-[10px] text-indigo-900/70 line-clamp-2 leading-tight">
+                        {group.summary}
+                      </div>
+                    ) : null}
 
-                              <h3 className="text-xs font-bold text-white line-clamp-2 leading-snug mb-1">
-                                {node.title}
-                              </h3>
+                    {/* Footer Row: Timestamp range & explore cue */}
+                    <div className="mt-2 pt-1.5 border-t border-indigo-200/50 flex items-center justify-between text-[10px] text-[#4338CA] font-medium">
+                      <span className="font-mono flex items-center gap-1">
+                        <Clock className="w-2.5 h-2.5 text-indigo-400" />
+                        {timestampLabel}
+                      </span>
+                      <span className="text-[9px] font-semibold text-indigo-600">
+                        {isExp ? 'Close' : 'Explore'}
+                      </span>
+                    </div>
+                  </div>
 
-                              <p className="text-[11px] text-slate-300/90 line-clamp-2 leading-relaxed mb-2">
-                                {node.summary}
-                              </p>
+                  {/* Child Node Cards arranged in an Outward Crescent Radial Arc */}
+                  {isExp &&
+                    children.map(({ node, x, y }) => {
+                      const isSelected = selectedNodeId === node.id
+                      const isChildHovered = hoveredNodeId === node.id
+                      const thumb = getNodeThumbnail(node)
+                      const badge = getNodeTypeBadge(node.node_type || node.category)
 
-                              {node.sub_points && node.sub_points.length > 0 && (
-                                <div className="pt-1.5 border-t border-slate-800/80 space-y-1">
-                                  {node.sub_points.slice(0, 2).map((point, pIdx) => (
-                                    <div
-                                      key={pIdx}
-                                      className="flex items-start gap-1 p-0.5 rounded bg-slate-950/40 text-[10px] text-slate-300"
-                                    >
-                                      <Lightbulb className="w-2.5 h-2.5 text-purple-400 shrink-0 mt-0.5" />
-                                      <span className="line-clamp-1">{point}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between">
-                                <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
-                                  Explore
-                                  <ChevronRight className="w-3 h-3 text-slate-500" />
-                                </span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    onSelectNode(node)
-                                  }}
-                                  className="px-2 py-0.5 rounded text-[10px] font-semibold text-white flex items-center gap-1 transition-opacity"
-                                  style={{ backgroundColor: palette.border }}
-                                >
-                                  <Play className="w-2.5 h-2.5 fill-white" />
-                                  Focus
-                                </button>
-                              </div>
+                      return (
+                        <div
+                          key={`child-card-${node.id}`}
+                          onMouseEnter={() => setHoveredNodeId(node.id)}
+                          onMouseLeave={() => setHoveredNodeId(null)}
+                          onClick={() => onSelectNode(node)}
+                          className={cn(
+                            'absolute z-10 -translate-x-1/2 -translate-y-1/2 w-[195px] h-[68px] rounded-xl overflow-hidden cursor-pointer border shadow-xs transition-all duration-200 select-none bg-white flex items-center p-2 gap-2.5',
+                            'hover:shadow-md hover:border-indigo-300 hover:scale-105',
+                            isSelected
+                              ? 'border-indigo-600 ring-2 ring-indigo-500/20 shadow-md'
+                              : 'border-slate-200',
+                            isDimmed && 'opacity-20 pointer-events-none'
+                          )}
+                          style={{ left: x, top: y }}
+                        >
+                          {/* Miniature Preview Frame with Timestamp */}
+                          <div className="relative w-[50px] h-[50px] shrink-0 rounded-lg overflow-hidden bg-slate-900 border border-slate-100">
+                            {thumb ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={thumb}
+                                alt={node.title}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-tr from-indigo-800 to-purple-800" />
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
+                            <div className="absolute bottom-0.5 right-0.5 px-1 py-0.2 rounded bg-black/80 text-[8px] font-mono text-white">
+                              {formatTime(node.start_seconds)}
                             </div>
                           </div>
-                        )
-                      })}
-                  </React.Fragment>
-                )
-              })}
 
-          {/* ── FLAT FALLBACK BRANCH CARDS (when !isGrouped) ── */}
-          {!isGrouped &&
-            flatLayout.map(({ node, index, x, y, palette }) => {
-              const matched = isMatch(node)
-              const isHovered = hoveredNodeId === node.id
+                          {/* Node Type Pill & Title */}
+                          <div className="min-w-0 flex-1">
+                            <span
+                              className={cn(
+                                'inline-block text-[9px] px-1.5 py-0.2 rounded font-semibold border capitalize leading-tight mb-1',
+                                badge.badgeClass
+                              )}
+                            >
+                              {badge.label}
+                            </span>
+                            <div className="text-[11px] font-semibold text-slate-800 leading-snug line-clamp-2">
+                              {node.title}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                </React.Fragment>
+              )
+            })}
+
+            {/* ── Compact Cards (for <= 4 nodes with no groups) ── */}
+            {compactNodesLayout.map(({ node, x, y }) => {
               const isSelected = selectedNodeId === node.id
+              const thumb = getNodeThumbnail(node)
+              const badge = getNodeTypeBadge(node.node_type || node.category)
 
               return (
                 <div
-                  key={node.id}
-                  onMouseEnter={() => setHoveredNodeId(node.id)}
-                  onMouseLeave={() => setHoveredNodeId(null)}
+                  key={`compact-card-${node.id}`}
                   onClick={() => onSelectNode(node)}
                   className={cn(
-                    'absolute canvas-interactive-node cursor-pointer transition-all duration-300 transform-gpu',
-                    !matched && 'opacity-20 grayscale pointer-events-none',
-                    isSelected && 'scale-105 z-30',
-                    !isSelected && isHovered && 'scale-102 z-20',
-                    !isSelected && !isHovered && 'z-10'
+                    'absolute z-10 -translate-x-1/2 -translate-y-1/2 w-[190px] h-[64px] rounded-xl overflow-hidden cursor-pointer border shadow-xs transition-all select-none bg-white flex items-center p-2 gap-2',
+                    isSelected ? 'border-indigo-600 ring-2 ring-indigo-500/20 shadow-md' : 'border-slate-200'
                   )}
-                  style={{
-                    left: x,
-                    top: y,
-                    transform: 'translate(-50%, -50%)',
-                    width: 270,
-                  }}
+                  style={{ left: x, top: y }}
                 >
-                  <div
-                    className={cn(
-                      'relative rounded-xl p-3.5 backdrop-blur-xl border transition-all duration-300 shadow-xl',
-                      isSelected
-                        ? 'bg-slate-900/95 border-2 shadow-2xl ring-4 ring-offset-0'
-                        : 'bg-slate-900/85 border-slate-700/70 hover:border-slate-500 hover:bg-slate-900/95'
-                    )}
-                    style={{
-                      borderColor: isSelected ? palette.stroke : isHovered ? palette.stroke : undefined,
-                      boxShadow: isSelected
-                        ? `0 0 25px ${palette.glow}`
-                        : isHovered
-                        ? `0 8px 20px -5px ${palette.glow}`
-                        : undefined,
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-1.5 mb-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span
-                          className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                          style={{ backgroundColor: palette.border }}
-                        >
-                          {index + 1}
-                        </span>
-                        <span className={cn('text-[10px] font-semibold uppercase tracking-wider truncate', palette.tag)}>
-                          {node.category || `Branch ${index + 1}`}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700">
-                        <Play className="w-2.5 h-2.5 text-purple-400 fill-purple-400" />
+                  {thumb && (
+                    <div className="relative w-[48px] h-[48px] shrink-0 rounded-lg overflow-hidden bg-slate-900">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={thumb} alt={node.title} className="w-full h-full object-cover" />
+                      <div className="absolute bottom-0.5 right-0.5 px-1 rounded bg-black/80 text-[8px] font-mono text-white">
                         {formatTime(node.start_seconds)}
                       </div>
                     </div>
-
-                    <h3 className="text-xs font-bold text-white line-clamp-2 leading-snug mb-1.5">
-                      {node.title}
-                    </h3>
-
-                    <p className="text-[11px] text-slate-300/90 line-clamp-2 leading-relaxed mb-2.5">
-                      {node.summary}
-                    </p>
-
-                    {node.sub_points && node.sub_points.length > 0 && (
-                      <div className="pt-2 border-t border-slate-800/80 space-y-1">
-                        {node.sub_points.map((point, pIdx) => (
-                          <div
-                            key={pIdx}
-                            className="flex items-start gap-1.5 p-1 rounded bg-slate-950/40 text-[10px] text-slate-300"
-                          >
-                            <Lightbulb className="w-3 h-3 text-purple-400 shrink-0 mt-0.5" />
-                            <span className="line-clamp-2">{point}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
-                        Explore Segment
-                        <ChevronRight className="w-3 h-3 text-slate-500" />
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onSelectNode(node)
-                        }}
-                        className="px-2 py-0.5 rounded text-[10px] font-semibold text-white flex items-center gap-1 transition-opacity"
-                        style={{ backgroundColor: palette.border }}
-                      >
-                        <Play className="w-2.5 h-2.5 fill-white" />
-                        Focus
-                      </button>
-                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <span className={cn('inline-block text-[9px] px-1.5 py-0.2 rounded font-semibold border capitalize mb-0.5', badge.badgeClass)}>
+                      {badge.label}
+                    </span>
+                    <div className="text-[11px] font-semibold text-slate-800 line-clamp-2">{node.title}</div>
                   </div>
                 </div>
               )
             })}
-        </div>
-      )}
+          </div>
+        )
+      }}
     </CanvasShell>
   )
 }

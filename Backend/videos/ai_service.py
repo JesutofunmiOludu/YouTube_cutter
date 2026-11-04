@@ -794,6 +794,12 @@ def _build_fallback_knowledge_format(user_video: 'UserVideo', format_type: str) 
             relations = []
             category = "Quick Reference"
 
+        # Assign node_type and importance_score
+        fallback_types = ['claim', 'step', 'stat', 'definition', 'example', 'warning', 'analogy', 'quote']
+        node_type = fallback_types[idx % len(fallback_types)]
+        # Key milestone cuts or first cuts get higher importance
+        importance_score = 10 if idx == 0 else max(4, 9 - (idx % 6))
+
         node_dict = {
             'id': node_id,
             'order': idx + 1,
@@ -802,6 +808,8 @@ def _build_fallback_knowledge_format(user_video: 'UserVideo', format_type: str) 
             'start_seconds': int(cut.start_seconds),
             'end_seconds': int(cut.end_seconds),
             'category': category,
+            'node_type': node_type,
+            'importance_score': importance_score,
             'sub_points': sub_points,
             'relations': relations,
             'color': color,
@@ -951,6 +959,8 @@ def generate_video_knowledge_format(user_video: 'UserVideo', format_type: str) -
            - "start_seconds": Integer timestamp where this topic begins.
            - "end_seconds": Integer timestamp where this topic ends.
            - "category": Short category or branch name.
+           - "node_type": One of: "claim" | "stat" | "step" | "quote" | "definition" | "analogy" | "warning" | "example".
+           - "importance_score": Integer from 1 to 10 (10 = crucial core breakthrough/thesis/indispensable step, 1 = trivial side-note).
            - "sub_points": Array of 2-3 concise, high-impact bullet points.
            - "relations": Array of objects {{"target_id": "node-X", "label": "relation label"}} (especially important for concept_map and blueprint).
         4. **takeaways**: 3-5 key executive takeaways from the entire video.
@@ -978,6 +988,8 @@ def generate_video_knowledge_format(user_video: 'UserVideo', format_type: str) -
               "start_seconds": 0,
               "end_seconds": 120,
               "category": "...",
+              "node_type": "claim",
+              "importance_score": 9,
               "sub_points": ["...", "..."],
               "relations": [{{"target_id": "node-2", "label": "..."}}]
             }}
@@ -1031,6 +1043,15 @@ def generate_video_knowledge_format(user_video: 'UserVideo', format_type: str) -
                 n_group_id = assigned_g['id']
 
             color = FORMAT_COLORS[idx % len(FORMAT_COLORS)]
+            valid_types = {'claim', 'stat', 'step', 'quote', 'definition', 'analogy', 'warning', 'example'}
+            raw_type = str(n.get('node_type', '')).lower()
+            node_type = raw_type if raw_type in valid_types else 'claim'
+            try:
+                importance = int(n.get('importance_score', 7))
+                importance_score = max(1, min(10, importance))
+            except (ValueError, TypeError):
+                importance_score = 7
+
             processed_nodes.append({
                 'id': n_id,
                 'group_id': str(n_group_id) if n_group_id else None,
@@ -1040,6 +1061,8 @@ def generate_video_knowledge_format(user_video: 'UserVideo', format_type: str) -
                 'start_seconds': int(n.get('start_seconds', 0)),
                 'end_seconds': int(n.get('end_seconds', 0)),
                 'category': str(n.get('category', f'Part {idx + 1}')),
+                'node_type': node_type,
+                'importance_score': importance_score,
                 'sub_points': [str(p)[:120] for p in n.get('sub_points', []) if p],
                 'relations': n.get('relations', []),
                 'color': color,

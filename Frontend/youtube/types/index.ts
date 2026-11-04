@@ -186,6 +186,16 @@ export type KnowledgeFormatType =
   | 'blueprint'
   | 'timeline'
 
+export type KnowledgeNodeType =
+  | 'claim'
+  | 'stat'
+  | 'step'
+  | 'quote'
+  | 'definition'
+  | 'analogy'
+  | 'warning'
+  | 'example'
+
 export interface KnowledgeNodeRelation {
   target_id: string
   label:     string
@@ -198,20 +208,23 @@ export interface KnowledgeGroup {
   node_ids:    string[]
   color?:      string
   order:       number
+  topics?:     string[]
 }
 
 export interface KnowledgeNode {
-  id:            string
-  group_id?:     string
-  order:         number
-  title:         string
-  summary:       string
-  start_seconds: number
-  end_seconds:   number
-  category:      string
-  sub_points?:   string[]
-  relations?:    KnowledgeNodeRelation[]
-  color?:        string
+  id:                string
+  group_id?:         string
+  order:             number
+  title:             string
+  summary:           string
+  start_seconds:     number
+  end_seconds:       number
+  category:          string
+  node_type?:        KnowledgeNodeType
+  importance_score?: number
+  sub_points?:       string[]
+  relations?:        KnowledgeNodeRelation[]
+  color?:            string
 }
 
 export interface KnowledgeFormatPayload {

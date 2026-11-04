@@ -245,7 +245,7 @@ export default function KnowledgeCanvasPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0B0F19] text-slate-100">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#FBFBFD] text-slate-800">
       <Head>
         <title>
           {userVideo?.video?.title
@@ -255,36 +255,36 @@ export default function KnowledgeCanvasPage() {
       </Head>
 
       {/* ── Top Navigation Bar ── */}
-      <header className="h-14 px-4 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 flex items-center justify-between shrink-0 z-30">
+      <header className="h-14 px-4 bg-white/95 backdrop-blur-md border-b border-slate-200/90 flex items-center justify-between shrink-0 z-30 shadow-xs">
         {/* Left: Back button & Video Title */}
         <div className="flex items-center gap-3 min-w-0">
           <Link
             href={`/workspace/${uservideoId}?editor=1`}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-950 hover:bg-slate-100 transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
             <span className="hidden sm:inline">Editor</span>
           </Link>
 
-          <div className="h-4 w-px bg-slate-800 hidden sm:block" />
+          <div className="h-4 w-px bg-slate-200 hidden sm:block" />
 
           <div className="min-w-0">
-            <h1 className="text-xs sm:text-sm font-semibold text-white truncate max-w-[200px] sm:max-w-xs md:max-w-md">
+            <h1 className="text-xs sm:text-sm font-semibold text-slate-900 truncate max-w-[200px] sm:max-w-xs md:max-w-md">
               {userVideo?.video?.title || 'Video Knowledge Canvas'}
             </h1>
-            <p className="text-[10px] text-slate-400 truncate">
+            <p className="text-[10px] text-slate-500 truncate">
               {userVideo?.video?.channel_name || 'VidMind AI'}
             </p>
           </div>
         </div>
 
         {/* Center: Format Switcher Pills */}
-        <div className="hidden lg:flex items-center gap-1 p-1 rounded-xl bg-slate-950/70 border border-slate-800 shadow-inner">
+        <div className="hidden lg:flex items-center gap-1 p-1 rounded-xl bg-slate-100/90 border border-slate-200 shadow-inner">
           {/* Standard workspace pill */}
           <button
             onClick={() => handleSwitchFormat('standard')}
             className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all text-slate-600 hover:text-slate-950 hover:bg-white/80'
             )}
             title="Switch to 3-column Video Cutter Workspace"
           >
@@ -303,14 +303,14 @@ export default function KnowledgeCanvasPage() {
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all',
                   isActive
-                    ? 'bg-slate-800 text-white shadow-md border border-slate-700'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200/90'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 )}
               >
                 <Icon
                   className={cn(
                     'w-3.5 h-3.5',
-                    isActive ? 'text-primary-400' : 'text-slate-400'
+                    isActive ? 'text-indigo-600' : 'text-slate-500'
                   )}
                 />
                 <span>{fmt.label}</span>
@@ -326,7 +326,7 @@ export default function KnowledgeCanvasPage() {
             <select
               value={activeFormat}
               onChange={(e) => handleSwitchFormat(e.target.value as KnowledgeFormatType)}
-              className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none"
+              className="bg-white border border-slate-200 text-slate-800 text-xs rounded-lg px-2 py-1.5 focus:outline-none"
             >
               <option value="standard">Standard Workspace</option>
               <option value="mindmap">Mindmap</option>
@@ -342,10 +342,10 @@ export default function KnowledgeCanvasPage() {
             onClick={() => fetchFormatData(true)}
             disabled={isRegenerating || isLoading}
             title="Regenerate format using Gemini AI"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs transition-colors disabled:opacity-50"
           >
             <RotateCw
-              className={cn('w-3.5 h-3.5 text-primary-400', isRegenerating && 'animate-spin')}
+              className={cn('w-3.5 h-3.5 text-indigo-600', isRegenerating && 'animate-spin')}
             />
             <span className="hidden md:inline">Regenerate</span>
           </button>
@@ -353,7 +353,7 @@ export default function KnowledgeCanvasPage() {
           {/* Jump to Standard Workspace button */}
           <Link
             href={`/workspace/${uservideoId}?editor=1`}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary-600 hover:bg-primary-500 text-white shadow-lg transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-colors"
           >
             <Scissors className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Cutter Workspace</span>
@@ -362,24 +362,24 @@ export default function KnowledgeCanvasPage() {
       </header>
 
       {/* ── Main Canvas Viewport ── */}
-      <main className="flex-1 relative overflow-hidden">
+      <main className="flex-1 relative overflow-hidden bg-[#FBFBFD]">
         {/* Loading state */}
         {isLoading && (
-          <div className="absolute inset-0 z-40 bg-[#0B0F19]/90 backdrop-blur-md flex flex-col items-center justify-center gap-4">
+          <div className="absolute inset-0 z-40 bg-white/90 backdrop-blur-md flex flex-col items-center justify-center gap-4">
             <div className="relative">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center shadow-2xl animate-pulse">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-xl animate-pulse">
                 <Sparkles className="w-8 h-8 text-white animate-spin-slow" />
               </div>
             </div>
             <div className="text-center max-w-sm px-4">
-              <h3 className="text-sm font-semibold text-white">
+              <h3 className="text-sm font-semibold text-slate-900">
                 Synthesizing {FORMATS.find((f) => f.id === activeFormat)?.label || 'Knowledge'} Canvas...
               </h3>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 Extracting core video themes, structuring chronological nodes, and positioning orbital branches.
               </p>
             </div>
-            <Spinner className="w-5 h-5 text-primary-400 mt-2" />
+            <Spinner className="w-5 h-5 text-indigo-600 mt-2" />
           </div>
         )}
 
@@ -389,24 +389,24 @@ export default function KnowledgeCanvasPage() {
             <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-3 text-red-400">
               <AlertCircle className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-semibold text-white">Could not generate format canvas</h3>
-            <p className="text-xs text-slate-400 max-w-md mt-1 mb-4">{error}</p>
+            <h3 className="text-sm font-semibold text-slate-900">Could not generate format canvas</h3>
+            <p className="text-xs text-slate-500 max-w-md mt-1 mb-4">{error}</p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => fetchFormatData(true)}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-primary-600 text-white hover:bg-primary-500 shadow-md transition-colors"
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs transition-colors"
               >
                 Retry Generation
               </button>
               <Link
                 href="/dashboard"
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700 transition-colors"
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 shadow-xs transition-colors"
               >
                 Go to Dashboard
               </Link>
               <Link
                 href="/auth/login"
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700 transition-colors"
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 shadow-xs transition-colors"
               >
                 Switch Account
               </Link>
