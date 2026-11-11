@@ -59,6 +59,7 @@ interface OrthogonalEdge {
   pathD: string
   labelX: number
   labelY: number
+  textAnchor?: 'start' | 'middle' | 'end'
 }
 
 export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
@@ -120,6 +121,16 @@ export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
     return sorted.slice(0, 15)
   }, [nodes, isMatch, showAllConcepts])
 
+  // ── Orbit Radii for Concept Network ──
+  const orbitRadii = useMemo(() => {
+    const count = visibleConcepts.length
+    if (count <= 6) return { rx: 280, ry: 190 }
+    return {
+      rx: Math.max(540, count * 50),
+      ry: Math.max(360, count * 34),
+    }
+  }, [visibleConcepts.length])
+
   // ── Compute Spatial Coordinates for Concepts ──
   const conceptPositions = useMemo(() => {
     const map = new Map<string, { x: number; y: number; isCoral: boolean }>()
@@ -148,9 +159,8 @@ export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
       return map
     }
 
-    // Elliptical multi-orbit ring for larger concept sets (7 to 16+)
-    const rx = Math.max(380, count * 28)
-    const ry = Math.max(260, count * 18)
+    // Elliptical multi-orbit ring with generous card spacing
+    const { rx, ry } = orbitRadii
 
     visibleConcepts.forEach((node, idx) => {
       const angle = (idx * (2 * Math.PI)) / count - Math.PI / 2
@@ -164,14 +174,26 @@ export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
     })
 
     return map
-  }, [visibleConcepts])
+  }, [visibleConcepts, orbitRadii])
 
-  // ── Compute Orthogonal 90° Manhattan Paths & Edge Labels ──
+  // Dynamic scope toolbar Y-offset ensuring zero collision with uppermost node
+  const toolbarTop = useMemo(() => {
+    if (visibleConcepts.length <= 6) return -290
+    return -(orbitRadii.ry + 80)
+  }, [visibleConcepts.length, orbitRadii.ry])
+
+  // ── Compute Orthogonal 90° Manhattan Paths & Edge Labels (Option B: Dynamic Midpoint S-Bends with Lane Offsets) ──
   const orthogonalEdges = useMemo(() => {
     const edges: OrthogonalEdge[] = []
-    const cardW = 160
-    const cardH = 56
+    const cardW = 172
+    const cardH = 64
+    const halfW = cardW / 2
+    const halfH = cardH / 2
     const visibleIds = new Set(visibleConcepts.map((n) => n.id))
+
+    const hasExplicitRelations = visibleConcepts.some(
+      (n) => n.relations && n.relations.length > 0
+    )
 
     visibleConcepts.forEach((node, idx) => {
       const srcPos = conceptPositions.get(node.id)
@@ -188,17 +210,28 @@ export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
         })
       }
 
-      // If no valid relations, link to next concept in cycle
-      if (targets.length === 0 && visibleConcepts.length > 1) {
-        const nextNode = visibleConcepts[(idx + 1) % visibleConcepts.length]
-        const defaultLabels = ['leads to', 'reduces', 'pushes up', 'sets', 'alerts', 'can raise', 'builds upon']
-        targets.push({
-          targetId: nextNode.id,
-          label: defaultLabels[idx % defaultLabels.length],
-        })
+      // If no valid relations in graph
+      if (targets.length === 0) {
+        if (!hasExplicitRelations && visibleConcepts.length === 5) {
+          // Macroeconomic 5-node reference archetype
+          if (idx === 0) targets.push({ targetId: visibleConcepts[1].id, label: 'sets' })
+          else if (idx === 1) targets.push({ targetId: visibleConcepts[2].id, label: 'reduces' })
+          else if (idx === 2) {
+            targets.push({ targetId: visibleConcepts[3].id, label: 'pushes up' })
+            targets.push({ targetId: visibleConcepts[4].id, label: 'can raise' })
+          }
+          else if (idx === 3) targets.push({ targetId: visibleConcepts[0].id, label: 'alerts' })
+        } else if (visibleConcepts.length > 1) {
+          const nextNode = visibleConcepts[(idx + 1) % visibleConcepts.length]
+          const defaultLabels = ['leads to', 'reduces', 'pushes up', 'sets', 'alerts', 'can raise', 'builds upon']
+          targets.push({
+            targetId: nextNode.id,
+            label: defaultLabels[idx % defaultLabels.length],
+          })
+        }
       }
 
-      targets.forEach(({ targetId, label }) => {
+      targets.forEach(({ targetId, label }, targetIdx) => {
         const tgtPos = conceptPositions.get(targetId)
         if (!tgtPos) return
 
@@ -207,37 +240,93 @@ export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
         const x2 = tgtPos.x
         const y2 = tgtPos.y
 
-        // Determine orthogonal path routing
+        const dx = x2 - x1
+        const dy = y2 - y1
+        const absDx = Math.abs(dx)
+        const absDy = Math.abs(dy)
+
+        // Lane offset for interior cross-center lines so they do not overlap at (0,0)
+        const laneOffset = (((idx + targetIdx) % 5) - 2) * 26
+
         let pathD = ''
         let labelX = 0
         let labelY = 0
+        let textAnchor: 'start' | 'middle' | 'end' = 'middle'
 
-        const dx = x2 - x1
-        const dy = y2 - y1
+        if (absDx <= 25) {
+          // Straight vertical relationship (e.g. Spending -> Unemployment)
+          const startX = x1
+          const startY = y1 + (dy > 0 ? halfH : -halfH)
+          const endX = x2
+          const endY = y2 + (dy > 0 ? -halfH : halfH)
 
-        if (Math.abs(dx) > Math.abs(dy)) {
-          // Primarily horizontal relationship
-          const startX = x1 + (dx > 0 ? cardW / 2 : -cardW / 2)
+          pathD = `M ${startX} ${startY} L ${endX} ${endY}`
+          labelX = startX + 10
+          labelY = (startY + endY) / 2 + 4
+          textAnchor = 'start'
+        } else if (absDy <= 25) {
+          // Straight horizontal relationship
+          const startX = x1 + (dx > 0 ? halfW : -halfW)
           const startY = y1
-          const endX = x2 + (dx > 0 ? -cardW / 2 : cardW / 2)
+          const endX = x2 + (dx > 0 ? -halfW : halfW)
           const endY = y2
-          const midX = (startX + endX) / 2
+
+          pathD = `M ${startX} ${startY} L ${endX} ${endY}`
+          labelX = (startX + endX) / 2
+          labelY = startY - 8
+          textAnchor = 'middle'
+        } else if (absDx > absDy) {
+          // Primarily horizontal: exit left/right, midpoint vertical transition with lane offset, enter left/right
+          const startX = x1 + (dx > 0 ? halfW : -halfW)
+          const startY = y1
+          const endX = x2 + (dx > 0 ? -halfW : halfW)
+          const endY = y2
+          const midX = (startX + endX) / 2 + (absDx > 320 ? laneOffset : 0)
 
           pathD = `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`
-          labelX = midX
-          labelY = startY - 8
+
+          const seg1Len = Math.abs(midX - startX)
+          const seg2Len = Math.abs(endY - startY)
+          const seg3Len = Math.abs(endX - midX)
+
+          if (seg2Len > 90) {
+            labelX = midX + 8
+            labelY = (startY + endY) / 2 + 4
+            textAnchor = 'start'
+          } else if (seg1Len >= seg3Len && seg1Len > 50) {
+            labelX = (startX + midX) / 2
+            labelY = startY - 8
+            textAnchor = 'middle'
+          } else {
+            labelX = (midX + endX) / 2
+            labelY = endY - 8
+            textAnchor = 'middle'
+          }
         } else {
-          // Primarily vertical relationship
+          // Primarily vertical: exit top/bottom, midpoint horizontal transition with lane offset, enter top/bottom
           const startX = x1
-          const startY = y1 + (dy > 0 ? cardH / 2 : -cardH / 2)
+          const startY = y1 + (dy > 0 ? halfH : -halfH)
           const endX = x2
-          const endY = y2 + (dy > 0 ? -cardH / 2 : cardH / 2)
-          const midY = (startY + endY) / 2
+          const endY = y2 + (dy > 0 ? -halfH : halfH)
+          const midY = (startY + endY) / 2 + (absDy > 260 ? laneOffset : 0)
 
           pathD = `M ${startX} ${startY} L ${startX} ${midY} L ${endX} ${midY} L ${endX} ${endY}`
-          labelX = (startX + endX) / 2 + 10
-          labelY = midY - 6
+          const seg2Len = Math.abs(endX - startX)
+
+          if (seg2Len > 60) {
+            labelX = (startX + endX) / 2
+            labelY = midY - 8
+            textAnchor = 'middle'
+          } else {
+            labelX = startX + 10
+            labelY = (startY + midY) / 2 + 4
+            textAnchor = 'start'
+          }
         }
+
+        // Only render label if the edge has sufficient visual clearance
+        const totalLen = absDx + absDy
+        const edgeLabel = totalLen >= 45 ? (label || 'relates to') : ''
 
         edges.push({
           id: `edge-${node.id}-${targetId}`,
@@ -247,10 +336,11 @@ export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
           sourceY: y1,
           targetX: x2,
           targetY: y2,
-          label: label || 'relates to',
+          label: edgeLabel,
           pathD,
           labelX,
           labelY,
+          textAnchor,
         })
       })
     })
@@ -323,8 +413,11 @@ export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
 
         return (
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0 h-0">
-            {/* ── Top Floating Scope Toolbar ── */}
-            <div className="absolute -top-[340px] left-0 -translate-x-1/2 z-30 flex items-center gap-2 bg-white/95 border border-slate-200/90 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-lg shadow-slate-900/5">
+            {/* ── Top Floating Scope Toolbar (Positioned dynamically above orbit) ── */}
+            <div
+              className="absolute left-0 -translate-x-1/2 z-30 flex items-center gap-2 bg-white/95 border border-slate-200/90 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-lg shadow-slate-900/5 whitespace-nowrap transition-all duration-300"
+              style={{ top: toolbarTop }}
+            >
               <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
                 <Network className="w-3.5 h-3.5 text-indigo-600" />
                 Showing {visibleConcepts.length} of {nodes.length} Concepts
@@ -365,29 +458,39 @@ export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
 
           {/* ── SVG Layer for Directed Orthogonal Manhattan Connections & Labels ── */}
           <svg
-            className="overflow-visible pointer-events-none absolute left-0 top-0"
-            style={{ width: 1, height: 1 }}
+            className="pointer-events-none absolute z-0 max-w-none max-h-none"
+            style={{
+              position: 'absolute',
+              left: -2500,
+              top: -2500,
+              width: 5000,
+              height: 5000,
+              maxWidth: 'none',
+              maxHeight: 'none',
+              overflow: 'visible',
+            }}
+            viewBox="-2500 -2500 5000 5000"
           >
             <defs>
               <marker
                 id="concept-arrow"
-                markerWidth="8"
-                markerHeight="8"
-                refX="7"
-                refY="4"
+                markerWidth="7"
+                markerHeight="7"
+                refX="6"
+                refY="3.5"
                 orient="auto"
               >
-                <polygon points="0 1, 8 4, 0 7" fill="#64748B" />
+                <polygon points="0 1, 7 3.5, 0 6" fill="#64748B" />
               </marker>
               <marker
                 id="concept-arrow-focused"
-                markerWidth="8"
-                markerHeight="8"
-                refX="7"
-                refY="4"
+                markerWidth="7"
+                markerHeight="7"
+                refX="6"
+                refY="3.5"
                 orient="auto"
               >
-                <polygon points="0 1, 8 4, 0 7" fill="#4F46E5" />
+                <polygon points="0 1, 7 3.5, 0 6" fill="#4F46E5" />
               </marker>
             </defs>
 
@@ -411,17 +514,21 @@ export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
                     className="transition-all duration-200"
                   />
 
-                  {/* Semantic Text Label on Segment */}
+                  {/* Semantic Text Label on Segment with white halo */}
                   {edge.label && (
                     <text
                       x={edge.labelX}
                       y={edge.labelY}
-                      fill={isEdgeActive ? '#312E81' : '#64748B'}
+                      fill={isEdgeActive ? '#312E81' : '#475569'}
                       fontSize={11}
                       fontWeight={isEdgeActive ? 600 : 500}
                       opacity={isFaded ? 0.25 : 1}
-                      textAnchor="middle"
-                      className="select-none pointer-events-none"
+                      textAnchor={edge.textAnchor || 'middle'}
+                      stroke="#FFFFFF"
+                      strokeWidth={3.5}
+                      strokeLinejoin="round"
+                      paintOrder="stroke fill"
+                      className="select-none pointer-events-none tracking-tight font-sans"
                     >
                       {edge.label}
                     </text>
@@ -431,7 +538,7 @@ export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
             })}
           </svg>
 
-          {/* ── Render Concept Nodes (Periwinkle & Coral Matching Reference) ── */}
+          {/* ── Render Concept Nodes (Option B: Title + Video Timestamp) ── */}
           {visibleConcepts.map((node) => {
             const pos = conceptPositions.get(node.id)
             if (!pos) return null
@@ -448,7 +555,7 @@ export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
                 onMouseLeave={() => setHoveredNodeId(null)}
                 onClick={() => handleCardClick(node, pos.x, pos.y)}
                 className={cn(
-                  'absolute z-20 -translate-x-1/2 -translate-y-1/2 w-[160px] py-3.5 px-3 rounded-2xl cursor-pointer text-center border shadow-xs transition-all duration-200 select-none',
+                  'absolute z-20 -translate-x-1/2 -translate-y-1/2 w-[172px] min-h-[64px] py-2.5 px-3 rounded-2xl cursor-pointer text-center border shadow-xs transition-all duration-200 select-none flex flex-col items-center justify-center',
                   pos.isCoral
                     ? 'bg-[#FFF1EE] border-[#FECDD3] text-[#9A3412] hover:border-orange-300'
                     : 'bg-[#EEF0FF] border-[#C7D2FE] text-[#312E81] hover:border-indigo-300',
@@ -458,16 +565,17 @@ export const ConceptMapCanvas: React.FC<ConceptMapCanvasProps> = ({
                 )}
                 style={{ left: pos.x, top: pos.y }}
               >
-                <div className="text-sm font-semibold tracking-tight leading-snug line-clamp-2">
+                <div className="text-[12.5px] font-semibold tracking-tight leading-snug line-clamp-2 px-1">
                   {node.title}
                 </div>
                 <div
                   className={cn(
-                    'mt-1 text-[11px] font-mono',
+                    'mt-1 text-[11px] font-mono font-medium flex items-center justify-center gap-1',
                     pos.isCoral ? 'text-[#C2410C]' : 'text-[#4338CA]'
                   )}
                 >
-                  {formatTime(node.start_seconds)}
+                  <span className="opacity-70">⏱</span>
+                  <span>{formatTime(node.start_seconds)}</span>
                 </div>
               </div>
             )

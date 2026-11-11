@@ -138,19 +138,41 @@ export const BlueprintCanvas: React.FC<BlueprintCanvasProps> = ({
     })
   }, [isGrouped, groups, isExpanded, getNodesForGroup, isMatch])
 
-  // Cross-cutting prerequisites data
+  // Dynamic vertical offset so bottom bar always sits cleanly below tallest column
+  const prereqTop = useMemo(() => {
+    const colTop = -240
+    const maxHeaderH = 104
+    const maxExpandedCards = Math.max(
+      0,
+      ...phaseColumns.map((col) => (col.isExp ? col.nodes.length : 0))
+    )
+    if (maxExpandedCards === 0) {
+      return colTop + maxHeaderH + 40
+    }
+    const estBodyH = Math.min(460, maxExpandedCards * 92 + (maxExpandedCards - 1) * 12 + 28)
+    return colTop + maxHeaderH + estBodyH + 40
+  }, [phaseColumns])
+
+  // Cross-cutting prerequisites data (filters out generic fallback UI instructions)
   const prerequisites = useMemo(() => {
-    // If takeaways exist, use them; or gather prerequisite sub-points from first phase
-    if (payload.takeaways && payload.takeaways.length > 0) {
-      return payload.takeaways
+    const realTakeaways = (payload.takeaways || []).filter((t) => {
+      const lower = t.toLowerCase()
+      return (
+        !lower.startsWith('central theme:') &&
+        !lower.includes('interconnected knowledge nodes mapped') &&
+        !lower.includes('click any node or group on the canvas')
+      )
+    })
+    if (realTakeaways.length > 0) {
+      return realTakeaways
     }
     const prereqNodes = nodes.filter((n) =>
       n.title.toLowerCase().includes('prereq') ||
       n.title.toLowerCase().includes('setup') ||
-      n.category.toLowerCase().includes('prereq')
+      n.category?.toLowerCase().includes('prereq')
     )
     if (prereqNodes.length > 0) {
-      return prereqNodes.flatMap((n) => n.sub_points || [n.title])
+      return prereqNodes.flatMap((n) => (n.sub_points && n.sub_points.length > 0 ? n.sub_points : [n.title]))
     }
     return [
       'Fundamental tools and setup required throughout execution',
@@ -201,27 +223,27 @@ export const BlueprintCanvas: React.FC<BlueprintCanvasProps> = ({
         }
 
         return (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0 h-0">
+          <div className="blueprint-canvas absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0 h-0">
             {/* ── Top Floating Phase Toolbar ── */}
             {isGrouped && (
-              <div className="absolute -top-[340px] left-0 -translate-x-1/2 z-30 flex items-center gap-2 bg-white/95 border border-slate-200/90 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-lg shadow-slate-900/5">
-                <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
+              <div className="absolute -top-[310px] left-0 -translate-x-1/2 z-30 flex items-center gap-2 bg-white/95 border border-slate-200/90 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-lg shadow-slate-900/5 whitespace-nowrap w-max">
+                <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5 shrink-0">
                   <Layers className="w-3.5 h-3.5 text-emerald-600" />
                   {groups.length} Phases ({nodes.length} Steps)
                 </span>
 
-                <div className="w-[1px] h-3 bg-slate-200 mx-1" />
+                <div className="w-[1px] h-3 bg-slate-200 mx-1 shrink-0" />
 
-                <span className="text-[10px] text-slate-500 font-mono">
+                <span className="text-[10px] text-slate-500 font-mono shrink-0">
                   {completedNodeIds.size}/{nodes.length} Done
                 </span>
 
-                <div className="w-[1px] h-3 bg-slate-200 mx-1" />
+                <div className="w-[1px] h-3 bg-slate-200 mx-1 shrink-0" />
 
                 <button
                   type="button"
                   onClick={expandAll}
-                  className="text-[10px] text-slate-600 hover:text-slate-900 px-2 py-0.5 rounded hover:bg-slate-100 flex items-center gap-1 transition-colors"
+                  className="text-[10px] text-slate-600 hover:text-slate-900 px-2 py-0.5 rounded hover:bg-slate-100 flex items-center gap-1 transition-colors shrink-0"
                   title="Expand All Phase Lanes"
                 >
                   <Maximize2 className="w-3 h-3 text-slate-400" />
@@ -234,7 +256,7 @@ export const BlueprintCanvas: React.FC<BlueprintCanvasProps> = ({
                     resetCamera()
                     setFocusedPhaseId(null)
                   }}
-                  className="text-[10px] text-slate-600 hover:text-slate-900 px-2 py-0.5 rounded hover:bg-slate-100 flex items-center gap-1 transition-colors"
+                  className="text-[10px] text-slate-600 hover:text-slate-900 px-2 py-0.5 rounded hover:bg-slate-100 flex items-center gap-1 transition-colors shrink-0"
                   title="Collapse Phase Lanes"
                 >
                   <Minimize2 className="w-3 h-3 text-slate-400" />
@@ -245,8 +267,18 @@ export const BlueprintCanvas: React.FC<BlueprintCanvasProps> = ({
 
             {/* ── SVG Arrow Connectors Between Sequential Phases ── */}
             <svg
-              className="overflow-visible pointer-events-none absolute left-0 top-0"
-              style={{ width: 1, height: 1 }}
+              className="pointer-events-none absolute z-0 max-w-none max-h-none"
+              style={{
+                position: 'absolute',
+                left: -2500,
+                top: -2500,
+                width: 5000,
+                height: 5000,
+                maxWidth: 'none',
+                maxHeight: 'none',
+                overflow: 'visible',
+              }}
+              viewBox="-2500 -2500 5000 5000"
             >
               <defs>
                 <marker
@@ -266,7 +298,8 @@ export const BlueprintCanvas: React.FC<BlueprintCanvasProps> = ({
                 const nextCol = phaseColumns[idx + 1]
                 const startX = col.colX + col.colWidth + 4
                 const endX = nextCol.colX - 8
-                const arrowY = -60
+                const arrowY = -194
+                const isDimmed = isFocused && focusedPhaseId !== null
 
                 return (
                   <line
@@ -276,7 +309,8 @@ export const BlueprintCanvas: React.FC<BlueprintCanvasProps> = ({
                     x2={endX}
                     y2={arrowY}
                     stroke="#64748B"
-                    strokeWidth="1.75"
+                    strokeWidth="2"
+                    strokeOpacity={isDimmed ? 0.25 : 0.85}
                     markerEnd="url(#blueprint-arrow)"
                   />
                 )
@@ -288,6 +322,9 @@ export const BlueprintCanvas: React.FC<BlueprintCanvasProps> = ({
               {phaseColumns.map(({ group, colX, colWidth, timeRange, nodes: cNodes, isExp }) => {
                 const isDimmed = isFocused && focusedPhaseId !== null && focusedPhaseId !== group.id
                 const isCurrentFocused = focusedPhaseId === group.id
+                const cleanHeader = group.label
+                  .replace(/^Stage 0?\d+:?\s*/i, '')
+                  .replace(/^Phase 0?\d+:?\s*/i, '')
 
                 return (
                   <div
@@ -310,10 +347,13 @@ export const BlueprintCanvas: React.FC<BlueprintCanvasProps> = ({
                       onClick={() => handlePhaseClick(group.id, colX, colWidth)}
                       className="p-4 text-center cursor-pointer select-none border-b border-[#A7F3D0]/50 hover:bg-emerald-100/50 transition-colors rounded-t-[24px]"
                     >
-                    <h3 className="text-base font-bold text-[#065F46] tracking-tight">
-                      {group.label.replace(/^Stage 0?\d+:?\s*/i, '').replace(/^Phase 0?\d+:?\s*/i, '')}
+                    <h3
+                      className="text-sm font-bold text-[#065F46] tracking-tight leading-snug line-clamp-2"
+                      title={cleanHeader}
+                    >
+                      {cleanHeader}
                     </h3>
-                    <div className="text-xs font-medium text-[#047857] mt-0.5">
+                    <div className="text-xs font-medium text-[#047857] mt-1">
                       {timeRange}
                     </div>
                   </div>
@@ -355,7 +395,7 @@ export const BlueprintCanvas: React.FC<BlueprintCanvasProps> = ({
 
                             <div
                               className={cn(
-                                'text-sm font-semibold text-slate-800 line-clamp-2 px-3',
+                                'text-sm font-semibold text-slate-800 line-clamp-2 px-6',
                                 isCompleted && 'line-through text-slate-400'
                               )}
                             >
@@ -381,7 +421,7 @@ export const BlueprintCanvas: React.FC<BlueprintCanvasProps> = ({
             style={{
               position: 'absolute',
               left: phaseColumns.length > 0 ? phaseColumns[0].colX : -400,
-              top: 260,
+              top: prereqTop,
               width:
                 phaseColumns.length > 0
                   ? phaseColumns[phaseColumns.length - 1].colX +
@@ -390,7 +430,7 @@ export const BlueprintCanvas: React.FC<BlueprintCanvasProps> = ({
                   : 800,
             }}
             className={cn(
-              'rounded-2xl border py-3 px-5 text-center shadow-xs transition-all pointer-events-auto',
+              'rounded-2xl border py-3 px-5 text-center shadow-xs transition-all duration-300 pointer-events-auto',
               'bg-[#EEF0FF] border-[#C7D2FE] text-[#312E81]'
             )}
           >

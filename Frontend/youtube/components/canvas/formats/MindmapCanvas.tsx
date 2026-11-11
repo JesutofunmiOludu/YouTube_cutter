@@ -188,7 +188,7 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
       const exp = isExpanded(group.id)
       const cNodes = getNodesForGroup(group.id).filter(isMatch)
 
-      // Subnodes fan outward in direction of groupAngle
+      // Subnodes fan outward in direction of groupAngle with anti-collision dual-tier staggering
       const childrenPositions: Array<{
         node: KnowledgeNode
         x: number
@@ -197,7 +197,9 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
 
       if (exp && cNodes.length > 0) {
         const M = cNodes.length
-        const spanRad = (subnodeSpanDeg * Math.PI) / 180
+        // Dynamic arc span: 90° for 2 nodes, up to 145° for 8+ nodes
+        const spanDeg = Math.min(145, Math.max(90, (M - 1) * 22))
+        const spanRad = (spanDeg * Math.PI) / 180
 
         cNodes.forEach((node, cIdx) => {
           let childAngle: number
@@ -208,8 +210,17 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
             childAngle = groupAngle - spanRad / 2 + fraction * spanRad
           }
 
-          const childX = Math.round(groupX + subnodeRadius * Math.cos(childAngle))
-          const childY = Math.round(groupY + subnodeRadius * Math.sin(childAngle))
+          // Anti-collision dual-tier radial staggering:
+          // If M > 3: odd indices go to outer tier (410px), even indices stay in inner tier (255px)
+          // If M <= 3: single tier at 265px
+          let cardRadius = 265
+          if (M > 3) {
+            const isOuter = cIdx % 2 === 1
+            cardRadius = isOuter ? 410 : 255
+          }
+
+          const childX = Math.round(groupX + cardRadius * Math.cos(childAngle))
+          const childY = Math.round(groupY + cardRadius * Math.sin(childAngle))
 
           childrenPositions.push({
             node,
@@ -300,10 +311,10 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
           } else {
             setFocusedGroupId(group.id)
             expandOnly(group.id)
-            // Center camera slightly offset in direction of satellite arc, with wide zoom out (0.85x)
-            const targetX = Math.round(groupX + 100 * Math.cos(groupAngle))
-            const targetY = Math.round(groupY + 100 * Math.sin(groupAngle))
-            flyTo(targetX, targetY, 0.85)
+            // Center camera offset in direction of satellite arc, with wide zoom out (0.78x)
+            const targetX = Math.round(groupX + 130 * Math.cos(groupAngle))
+            const targetY = Math.round(groupY + 130 * Math.sin(groupAngle))
+            flyTo(targetX, targetY, 0.78)
           }
         }
 
@@ -344,16 +355,20 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
               </div>
             )}
 
-            {/* ── Large ViewBox SVG Layer for Crisp Connecting Lines ── */}
+            {/* ── High-Performance 1:1 Radial SVG Layer for Connecting Lines ── */}
             <svg
-              className="overflow-visible pointer-events-none absolute"
+              className="pointer-events-none absolute z-0 max-w-none max-h-none"
               style={{
-                left: -3500,
-                top: -3500,
-                width: 7000,
-                height: 7000,
+                position: 'absolute',
+                left: -2500,
+                top: -2500,
+                width: 5000,
+                height: 5000,
+                maxWidth: 'none',
+                maxHeight: 'none',
+                overflow: 'visible',
               }}
-              viewBox="-3500 -3500 7000 7000"
+              viewBox="-2500 -2500 5000 5000"
             >
               <defs>
                 <marker
@@ -364,7 +379,7 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
                   refY="4"
                   orient="auto"
                 >
-                  <polygon points="0 1, 7 4, 0 7" fill="#94A3B8" />
+                  <polygon points="0 1, 8 4, 0 7" fill="#6366F1" />
                 </marker>
                 <marker
                   id="mindmap-arrow-active"
@@ -374,7 +389,7 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
                   refY="4"
                   orient="auto"
                 >
-                  <polygon points="0 1, 7 4, 0 7" fill="#4F46E5" />
+                  <polygon points="0 1, 8 4, 0 7" fill="#4F46E5" />
                 </marker>
               </defs>
 
@@ -382,32 +397,43 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
               {hubLayout.map(({ group, groupX, groupY, isExp, children }) => {
                 const angle = Math.atan2(groupY, groupX)
                 // Center exit point on boundary of 240x140 card
-                const rootX = Math.round(115 * Math.cos(angle))
-                const rootY = Math.round(65 * Math.sin(angle))
-                // Chapter entry point on boundary of 220x96 card
-                const targetX = Math.round(groupX - 105 * Math.cos(angle))
-                const targetY = Math.round(groupY - 45 * Math.sin(angle))
+                const rootX = Math.round(118 * Math.cos(angle))
+                const rootY = Math.round(68 * Math.sin(angle))
+                // Chapter entry point on boundary of 220x96 card (slightly outside border for marker visibility)
+                const targetX = Math.round(groupX - 114 * Math.cos(angle))
+                const targetY = Math.round(groupY - 50 * Math.sin(angle))
 
-                // Smooth S-curve spline directly from center video card edge to chapter card
-                const dx = targetX - rootX
-                const dy = targetY - rootY
-                const c1X = rootX + dx * 0.45
-                const c1Y = rootY + dy * 0.1
-                const c2X = rootX + dx * 0.75
-                const c2Y = targetY
+                // Smooth radial curve spline directly from center video card edge to chapter card
+                const dist = Math.hypot(targetX - rootX, targetY - rootY)
+                const c1X = Math.round(rootX + Math.cos(angle) * (dist * 0.35))
+                const c1Y = Math.round(rootY + Math.sin(angle) * (dist * 0.35))
+                const c2X = Math.round(targetX - Math.cos(angle) * (dist * 0.35))
+                const c2Y = Math.round(targetY - Math.sin(angle) * (dist * 0.35))
 
                 const isGroupHovered = hoveredGroupId === group.id
                 const isGroupFocused = focusedGroupId === group.id
                 const isDimmed = isFocused && !isGroupFocused
 
+                // Option B: when a group is focused, hide connecting lines to all other inactive groups
+                if (isDimmed) return null
+
                 return (
                   <g key={`direct-line-${group.id}`} className="transition-all duration-300">
+                    {/* Anchor dot at center video card exit */}
+                    <circle
+                      cx={rootX}
+                      cy={rootY}
+                      r={isGroupFocused ? 4.5 : 3.5}
+                      fill={isGroupFocused ? '#4F46E5' : '#6366F1'}
+                      opacity={isDimmed ? 0.2 : 0.9}
+                    />
+
                     {/* Radial Spoke to Chapter in Orbit */}
                     <path
                       d={`M ${rootX} ${rootY} C ${c1X} ${c1Y}, ${c2X} ${c2Y}, ${targetX} ${targetY}`}
                       fill="none"
-                      stroke={isGroupFocused ? '#4F46E5' : isGroupHovered ? '#6366F1' : '#94A3B8'}
-                      strokeWidth={isGroupFocused ? 2.75 : isGroupHovered ? 2.25 : 1.75}
+                      stroke={isGroupFocused ? '#4F46E5' : isGroupHovered ? '#6366F1' : '#6366F1'}
+                      strokeWidth={isGroupFocused ? 3 : isGroupHovered ? 2.5 : 2}
                       strokeOpacity={isDimmed ? 0.2 : 0.85}
                       markerEnd={isGroupFocused ? 'url(#mindmap-arrow-active)' : 'url(#mindmap-arrow)'}
                       className="transition-all duration-300"
@@ -417,19 +443,18 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
                     {isExp &&
                       children.map(({ node, x: cX, y: cY }) => {
                         const spokeAngle = Math.atan2(cY - groupY, cX - groupX)
-                        // Chapter card perimeter exit point
-                        const startX = Math.round(groupX + 100 * Math.cos(spokeAngle))
-                        const startY = Math.round(groupY + 45 * Math.sin(spokeAngle))
-                        // Child card perimeter entry point
-                        const endX = Math.round(cX - 88 * Math.cos(spokeAngle))
-                        const endY = Math.round(cY - 30 * Math.sin(spokeAngle))
+                        // Chapter card perimeter exit point (220x96 card)
+                        const startX = Math.round(groupX + 110 * Math.cos(spokeAngle))
+                        const startY = Math.round(groupY + 48 * Math.sin(spokeAngle))
+                        // Child card perimeter entry point (195x68 card)
+                        const endX = Math.round(cX - 98 * Math.cos(spokeAngle))
+                        const endY = Math.round(cY - 34 * Math.sin(spokeAngle))
 
-                        const cdx = endX - startX
-                        const cdy = endY - startY
-                        const cp1X = startX + cdx * 0.4
-                        const cp1Y = startY + cdy * 0.1
-                        const cp2X = startX + cdx * 0.7
-                        const cp2Y = endY
+                        const cdist = Math.hypot(endX - startX, endY - startY)
+                        const cp1X = Math.round(startX + Math.cos(spokeAngle) * (cdist * 0.35))
+                        const cp1Y = Math.round(startY + Math.sin(spokeAngle) * (cdist * 0.35))
+                        const cp2X = Math.round(endX - Math.cos(spokeAngle) * (cdist * 0.35))
+                        const cp2Y = Math.round(endY - Math.sin(spokeAngle) * (cdist * 0.35))
 
                         const isChildHovered = hoveredNodeId === node.id
                         const isChildSelected = selectedNodeId === node.id
@@ -439,18 +464,26 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
                             <path
                               d={`M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`}
                               fill="none"
-                              stroke={isChildSelected ? '#4F46E5' : isChildHovered ? '#6366F1' : '#CBD5E1'}
-                              strokeWidth={isChildSelected ? 2.5 : isChildHovered ? 2 : 1.5}
+                              stroke={isChildSelected ? '#4F46E5' : isChildHovered ? '#6366F1' : '#6366F1'}
+                              strokeWidth={isChildSelected ? 2.75 : isChildHovered ? 2.25 : 2}
                               strokeOpacity={isDimmed ? 0.2 : 0.85}
                               className="transition-all duration-300"
+                            />
+                            {/* Anchor dot at chapter exit */}
+                            <circle
+                              cx={startX}
+                              cy={startY}
+                              r={3}
+                              fill={isChildSelected ? '#4F46E5' : '#6366F1'}
+                              opacity={isDimmed ? 0.2 : 0.85}
                             />
                             {/* Anchor dot at child node entry */}
                             <circle
                               cx={endX}
                               cy={endY}
-                              r={3}
-                              fill={isChildSelected ? '#4F46E5' : isChildHovered ? '#6366F1' : '#94A3B8'}
-                              opacity={isDimmed ? 0.2 : 0.9}
+                              r={3.5}
+                              fill={isChildSelected ? '#4F46E5' : isChildHovered ? '#6366F1' : '#4F46E5'}
+                              opacity={isDimmed ? 0.2 : 0.95}
                             />
                           </g>
                         )
@@ -537,6 +570,19 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
               const isFocusedGroup = focusedGroupId === group.id
               const isDimmed = isFocused && !isFocusedGroup
 
+              // Intelligent title cleanup (no more "Branch 025")
+              const isGeneric = /^(branch|segment|part|chapter|section|pillar|cluster|phase)\s*\d+[:\-]?\s*$/i.test(group.label.trim())
+              let displayTitle = group.label.replace(/^(branch|pillar|chapter|segment|section)\s*\d+[:\-]?\s*/i, '').trim()
+              if ((isGeneric || !displayTitle) && allGroupNodes.length > 0) {
+                const colonMatch = allGroupNodes[0].title.match(/^([^:\-–]+)[:\-–]/)
+                if (colonMatch && colonMatch[1].trim().length >= 4) {
+                  displayTitle = colonMatch[1].trim()
+                } else {
+                  displayTitle = allGroupNodes[0].title.replace(/^(segment|part|chapter|section|branch)\s*\d+[:\-]?\s*/i, '').slice(0, 26)
+                }
+              }
+              if (!displayTitle) displayTitle = group.label
+
               return (
                 <React.Fragment key={`hub-group-${group.id}`}>
                   {/* Chapter Card with Title, Summary, and Topic Highlights */}
@@ -554,8 +600,8 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
                   >
                     {/* Header Row: Title & Concept Count */}
                     <div className="flex items-center justify-between gap-1.5">
-                      <div className="text-xs font-bold text-[#1E1B4B] leading-tight line-clamp-1">
-                        {group.label.replace(/^Pillar \d+:?\s*/i, '').replace(/^Chapter \d+:?\s*/i, '')}
+                      <div className="text-xs font-bold text-[#1E1B4B] leading-tight line-clamp-1" title={displayTitle}>
+                        {displayTitle}
                       </div>
                       {allGroupNodes.length > 0 && (
                         <span className="shrink-0 text-[9px] px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 font-mono font-semibold">
@@ -564,17 +610,21 @@ export const MindmapCanvas: React.FC<MindmapCanvasProps> = ({
                       )}
                     </div>
 
-                    {/* Key Topic Highlights / Preview */}
+                    {/* Key Topic Highlights / Preview (Clean deduplicated topic pills) */}
                     {group.topics && group.topics.length > 0 ? (
                       <div className="mt-1.5 flex flex-wrap gap-1">
-                        {group.topics.slice(0, 3).map((topic, tIdx) => (
-                          <span
-                            key={`topic-pill-${group.id}-${tIdx}`}
-                            className="text-[9px] text-[#4338CA] bg-white/80 px-1.5 py-0.5 rounded border border-indigo-200/60 font-medium truncate max-w-[200px]"
-                          >
-                            • {topic}
-                          </span>
-                        ))}
+                        {group.topics.slice(0, 3).map((topic, tIdx) => {
+                          let cleanTopic = topic.replace(/^(sql\s*(data\s*types?|constraints?)?|overview|intro)[:\-–]\s*/i, '').trim()
+                          if (cleanTopic.length > 22) cleanTopic = cleanTopic.slice(0, 20) + '...'
+                          return (
+                            <span
+                              key={`topic-pill-${group.id}-${tIdx}`}
+                              className="text-[9px] text-[#4338CA] bg-white/80 px-1.5 py-0.5 rounded border border-indigo-200/60 font-medium truncate max-w-[200px]"
+                            >
+                              • {cleanTopic || topic}
+                            </span>
+                          )
+                        })}
                       </div>
                     ) : group.summary ? (
                       <div className="mt-1 text-[10px] text-indigo-900/70 line-clamp-2 leading-tight">
